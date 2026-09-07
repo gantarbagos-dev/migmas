@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MIG Duel Kick 10</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}
+.wrap{max-width:1100px;margin:auto;padding:18px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:16px;margin-bottom:14px}
+h1{margin:0 0 6px;font-size:26px}.muted{color:#9aa7c7;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}
+button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.secondary{background:#26314d}
+.row{display:flex;gap:8px}.row>*{flex:1}.account{border:1px solid #2b3757;border-radius:12px;padding:12px}
+.status{font-size:12px;margin-top:7px}.ok{color:#67e8a3}.bad{color:#ff7d8b}
+.targets{max-height:260px;overflow:auto;border:1px solid #293352;border-radius:10px;margin-top:10px}
+.target{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #222c45;gap:8px}
+.target button{width:auto;padding:7px 10px}
+.log{background:#080d19;border-radius:10px;padding:10px;height:180px;overflow:auto;font:12px monospace;white-space:pre-wrap}
+.small{font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>⚡ MIG Duel Kick 10</h1>
+    <div class="muted">Multi-ID control • WebSocket • Room • Target • Vote-Kick</div>
+  </div>
+
+  <div class="card">
+    <h3>1. Login hingga 10 ID</h3>
+    <div class="grid" id="accounts"></div>
+    <button id="loginAll">LOGIN ALL</button>
+    <div class="muted small" style="margin-top:8px">Password hanya dikirim ke backend aplikasi untuk login WebSocket dan tidak disimpan ke database/file.</div>
+  </div>
+
+  <div class="card">
+    <h3>2. Room & Target</h3>
+    <div class="row">
+      <input id="room" placeholder="Nama room, contoh: MIG33">
+      <button onclick="joinAll()">JOIN ALL</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="participants()">AMBIL PARTICIPANTS</button>
+      <button class="secondary" onclick="balanceAll()">CEK SALDO</button>
+    </div>
+    <div class="targets" id="targets"></div>
+  </div>
+
+  <div class="card">
+    <h3>3. Duel Kick</h3>
+    <div class="row">
+      <input id="target" placeholder="Target ID">
+      <button onclick="kickAll()">KICK ALL</button>
+    </div>
+    <div class="muted small" style="margin-top:8px">API MigReborn menggunakan sistem vote-kick; aplikasi ini mengirim perintah room.kick dari akun yang login.</div>
+  </div>
+
+  <div class="card">
+    <h3>Log</h3>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+const accounts = Array.from({length:10},()=>({sessionId:null,username:""}));
+const el = id => document.getElementById(id);
+const log = msg => {
+  const t = new Date().toLocaleTimeString();
+  el("log").textContent = `[${t}] ${msg}\n` + el("log").textContent;
+};
+
+function renderAccounts(){
+  el("accounts").innerHTML = accounts.map((a,i)=>`
+    <div class="account">
+      <b>ID ${i+1}</b>
+      <input id="u${i}" placeholder="Username" autocomplete="off" style="margin-top:8px">
+      <input id="p${i}" type="password" placeholder="Password" autocomplete="off" style="margin-top:8px">
+      <div class="status" id="s${i}">Belum login</div>
+    </div>`).join("");
+}
+renderAccounts();
+
+async function loginOne(i){
+  const username = el(`u${i}`).value.trim();
+  const password = el(`p${i}`).value;
+  if(!username || !password) return;
+  el(`s${i}`).textContent = "Login...";
+  el(`s${i}`).className = "status";
+  try{
+    const r = await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error);
+    accounts[i] = {...accounts[i],...j.account};
+    el(`s${i}`).textContent = `ONLINE • ${j.account.wallet?.label || "saldo tersedia"}`;
+    el(`s${i}`).className = "status ok";
+    log(`ID ${i+1} ${username}: ONLINE`);
+  }catch(e){
+    el(`s${i}`).textContent = "GAGAL: " + e.message;
+    el(`s${i}`).className = "status bad";
+    log(`ID ${i+1}: LOGIN GAGAL - ${e.message}`);
+  }
+}
+
+el("loginAll").onclick = async ()=>{
+  for(let i=0;i<10;i++) await loginOne(i);
+};
+
+async function action(i, action, extra={}){
+  const a=accounts[i];
+  if(!a.sessionId) return;
+  const r=await fetch("/api/action",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({sessionId:a.sessionId,action,...extra})});
+  const j=await r.json();
+  if(!j.ok) log(`ID ${i+1}: ${j.error}`);
+  else log(`ID ${i+1}: ${action} terkirim`);
+}
+
+async function joinAll(){
+  const room=el("room").value.trim();
+  if(!room) return alert("Isi nama room.");
+  for(let i=0;i<10;i++) await action(i,"join",{room});
+}
+
+async function participants(){
+  const room=el("room").value.trim();
+  if(!room) return alert("Isi nama room.");
+  el("targets").innerHTML="";
+  for(let i=0;i<10;i++) await action(i,"participants",{room});
+  log("Perintah participants dikirim. Jika ingin menampilkan hasil participant real-time, tambahkan event relay WebSocket.");
+}
+
+async function kickAll(){
+  const room=el("room").value.trim();
+  const target=el("target").value.trim();
+  if(!room || !target) return alert("Isi room dan target.");
+  if(!confirm(`Kirim vote-kick dari semua ID login ke ${target}?`)) return;
+  for(let i=0;i<10;i++) await action(i,"kick",{room,targetUsername:target});
+}
+
+async function balanceAll(){
+  for(let i=0;i<10;i++) await action(i,"balance");
+}
+</script>
+</body>
+</html>
