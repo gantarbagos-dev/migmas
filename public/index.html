@@ -10,14 +10,15 @@
 h1{margin:0 0 6px;font-size:26px}.muted{color:#9aa7c7;font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}
-button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.secondary{background:#26314d}
+button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.secondary{background:#26314d}button.danger{background:#b8324b}
 .row{display:flex;gap:8px}.row>*{flex:1}.account{border:1px solid #2b3757;border-radius:12px;padding:12px}
 .status{font-size:12px;margin-top:7px}.ok{color:#67e8a3}.bad{color:#ff7d8b}
 .targets{max-height:260px;overflow:auto;border:1px solid #293352;border-radius:10px;margin-top:10px}
-.target{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #222c45;gap:8px}
-.target button{width:auto;padding:7px 10px}
+.target{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #222c45;gap:8px}.target button{width:auto;padding:7px 10px}
 .log{background:#080d19;border-radius:10px;padding:10px;height:180px;overflow:auto;font:12px monospace;white-space:pre-wrap}
-.small{font-size:12px}
+.small{font-size:12px}.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.toolbar .full{grid-column:1/-1}
+.file-input{display:none}.account-actions{display:flex;gap:6px;margin-top:8px}.account-actions button{padding:9px}.section-title{margin-top:0}
+@media(max-width:600px){.row,.toolbar{grid-template-columns:1fr;display:grid}.toolbar .full{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -28,14 +29,37 @@ button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.seconda
   </div>
 
   <div class="card">
-    <h3>1. Login hingga 10 ID</h3>
+    <h3 class="section-title">1. Kelola 10 ID</h3>
+    <div class="toolbar">
+      <input id="idStart" type="number" min="0" step="1" value="1" placeholder="ID mulai, contoh 1 atau 11">
+      <button class="secondary" id="generateIds">GENERATE ID</button>
+      <button class="secondary" id="generatePasswords">GENERATE PASSWORD 10 ID</button>
+      <button class="secondary" id="clearFields">KOSONGKAN</button>
+    </div>
+    <div class="muted small" style="margin:8px 0 12px">Contoh: isi ID mulai <b>1</b> untuk 1–10, atau <b>11</b> untuk 11–20.</div>
     <div class="grid" id="accounts"></div>
-    <button id="loginAll">LOGIN ALL</button>
-    <div class="muted small" style="margin-top:8px">Password hanya dikirim ke backend aplikasi untuk login WebSocket dan tidak disimpan ke database/file.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="loginAll">LOGIN ALL</button>
+      <button class="danger" id="logoutAll">LOGOUT ALL</button>
+    </div>
+    <div class="muted small" style="margin-top:8px">Password hasil generator diisi otomatis ke 10 kolom. Save/Load menyimpan data ke file JSON di perangkat Anda; file tersebut berisi password dalam teks biasa, jadi simpan dengan aman.</div>
   </div>
 
   <div class="card">
-    <h3>2. Room & Target</h3>
+    <h3 class="section-title">2. Save / Load 10 ID</h3>
+    <div class="row">
+      <input id="saveName" value="mig-duel-accounts.json" placeholder="Nama file saat save">
+      <button id="saveAccounts">SAVE</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" id="loadAccounts">LOAD FILE</button>
+      <input id="loadFile" class="file-input" type="file" accept="application/json,.json">
+    </div>
+    <div class="muted small" style="margin-top:8px">LOAD akan mengisi kembali username dan password 10 ID dari file JSON yang sebelumnya disimpan.</div>
+  </div>
+
+  <div class="card">
+    <h3>3. Room & Target</h3>
     <div class="row">
       <input id="room" placeholder="Nama room, contoh: MIG33">
       <button onclick="joinAll()">JOIN ALL</button>
@@ -48,7 +72,7 @@ button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.seconda
   </div>
 
   <div class="card">
-    <h3>3. Duel Kick</h3>
+    <h3>4. Duel Kick</h3>
     <div class="row">
       <input id="target" placeholder="Target ID">
       <button onclick="kickAll()">KICK ALL</button>
@@ -63,7 +87,7 @@ button{cursor:pointer;background:#2457d6;border:0;font-weight:700}button.seconda
 </div>
 
 <script>
-const accounts = Array.from({length:10},()=>({sessionId:null,username:""}));
+const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:""}));
 const el = id => document.getElementById(id);
 const log = msg => {
   const t = new Date().toLocaleTimeString();
@@ -74,43 +98,123 @@ function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a,i)=>`
     <div class="account">
       <b>ID ${i+1}</b>
-      <input id="u${i}" placeholder="Username" autocomplete="off" style="margin-top:8px">
-      <input id="p${i}" type="password" placeholder="Password" autocomplete="off" style="margin-top:8px">
-      <div class="status" id="s${i}">Belum login</div>
+      <input id="u${i}" value="${escapeAttr(a.username)}" placeholder="Username" autocomplete="off" style="margin-top:8px">
+      <input id="p${i}" value="${escapeAttr(a.password)}" type="password" placeholder="Password" autocomplete="off" style="margin-top:8px">
+      <div class="account-actions">
+        <button onclick="loginOne(${i})">LOGIN</button>
+        <button class="danger" onclick="logoutOne(${i})">LOGOUT</button>
+      </div>
+      <div class="status" id="s${i}">${a.sessionId ? "ONLINE" : "Belum login"}</div>
     </div>`).join("");
 }
-renderAccounts();
+
+function escapeAttr(value){
+  return String(value || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
+}
+
+function syncFieldsToState(){
+  for(let i=0;i<10;i++){
+    if(el(`u${i}`)) accounts[i].username=el(`u${i}`).value.trim();
+    if(el(`p${i}`)) accounts[i].password=el(`p${i}`).value;
+  }
+}
+
+function generateIds(){
+  syncFieldsToState();
+  const start=parseInt(el("idStart").value,10);
+  if(!Number.isFinite(start)) return alert("Isi angka ID mulai.");
+  for(let i=0;i<10;i++){
+    accounts[i].username=String(start+i);
+    if(el(`u${i}`)) el(`u${i}`).value=accounts[i].username;
+  }
+  log(`Username ID digenerate: ${start} - ${start+9}`);
+}
+
+function randomPassword(length=12){
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes=new Uint32Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>chars[b%chars.length]).join("");
+}
+
+function generatePasswords(){
+  syncFieldsToState();
+  for(let i=0;i<10;i++){
+    accounts[i].password=randomPassword(12);
+    if(el(`p${i}`)) el(`p${i}`).value=accounts[i].password;
+  }
+  log("10 password acak berhasil dibuat dan diisi otomatis.");
+}
+
+function clearFields(){
+  if(!confirm("Kosongkan username dan password 10 ID?")) return;
+  syncFieldsToState();
+  for(let i=0;i<10;i++){
+    accounts[i].username=""; accounts[i].password="";
+    if(el(`u${i}`)) el(`u${i}`).value="";
+    if(el(`p${i}`)) el(`p${i}`).value="";
+  }
+  log("Kolom username/password dikosongkan.");
+}
 
 async function loginOne(i){
-  const username = el(`u${i}`).value.trim();
-  const password = el(`p${i}`).value;
-  if(!username || !password) return;
-  el(`s${i}`).textContent = "Login...";
-  el(`s${i}`).className = "status";
+  syncFieldsToState();
+  const username=accounts[i].username;
+  const password=accounts[i].password;
+  if(!username || !password) return alert(`ID ${i+1}: username dan password wajib diisi.`);
+  if(accounts[i].sessionId) await logoutOne(i,true);
+  el(`s${i}`).textContent="Login...";
+  el(`s${i}`).className="status";
   try{
-    const r = await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
-    const j = await r.json();
+    const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    const j=await r.json();
     if(!j.ok) throw new Error(j.error);
-    accounts[i] = {...accounts[i],...j.account};
-    el(`s${i}`).textContent = `ONLINE • ${j.account.wallet?.label || "saldo tersedia"}`;
-    el(`s${i}`).className = "status ok";
+    accounts[i]={...accounts[i],...j.account};
+    accounts[i].password=password;
+    el(`s${i}`).textContent=`ONLINE • ${j.account.wallet?.label || "saldo tersedia"}`;
+    el(`s${i}`).className="status ok";
     log(`ID ${i+1} ${username}: ONLINE`);
   }catch(e){
-    el(`s${i}`).textContent = "GAGAL: " + e.message;
-    el(`s${i}`).className = "status bad";
+    el(`s${i}`).textContent="GAGAL: "+e.message;
+    el(`s${i}`).className="status bad";
     log(`ID ${i+1}: LOGIN GAGAL - ${e.message}`);
   }
 }
 
-el("loginAll").onclick = async ()=>{
-  for(let i=0;i<10;i++) await loginOne(i);
+async function logoutOne(i,silent=false){
+  const a=accounts[i];
+  if(!a.sessionId){
+    if(!silent) log(`ID ${i+1}: belum login.`);
+    return;
+  }
+  try{
+    await fetch("/api/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId})});
+  }catch(e){
+    if(!silent) log(`ID ${i+1}: logout request gagal - ${e.message}`);
+  }
+  accounts[i].sessionId=null;
+  if(el(`s${i}`)){
+    el(`s${i}`).textContent="LOGOUT";
+    el(`s${i}`).className="status";
+  }
+  if(!silent) log(`ID ${i+1}: LOGOUT`);
+}
+
+el("loginAll").onclick=async()=>{
+  syncFieldsToState();
+  for(let i=0;i<10;i++) if(accounts[i].username && accounts[i].password) await loginOne(i);
 };
 
-async function action(i, action, extra={}){
+el("logoutAll").onclick=async()=>{
+  if(!confirm("Logout semua ID yang sedang online?")) return;
+  for(let i=0;i<10;i++) await logoutOne(i,true);
+  log("Semua ID yang aktif sudah logout.");
+};
+
+async function action(i,action,extra={}){
   const a=accounts[i];
   if(!a.sessionId) return;
-  const r=await fetch("/api/action",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({sessionId:a.sessionId,action,...extra})});
+  const r=await fetch("/api/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId,action,...extra})});
   const j=await r.json();
   if(!j.ok) log(`ID ${i+1}: ${j.error}`);
   else log(`ID ${i+1}: ${action} terkirim`);
@@ -127,7 +231,7 @@ async function participants(){
   if(!room) return alert("Isi nama room.");
   el("targets").innerHTML="";
   for(let i=0;i<10;i++) await action(i,"participants",{room});
-  log("Perintah participants dikirim. Jika ingin menampilkan hasil participant real-time, tambahkan event relay WebSocket.");
+  log("Perintah participants dikirim.");
 }
 
 async function kickAll(){
@@ -141,6 +245,53 @@ async function kickAll(){
 async function balanceAll(){
   for(let i=0;i<10;i++) await action(i,"balance");
 }
+
+function saveAccounts(){
+  syncFieldsToState();
+  let filename=el("saveName").value.trim() || "mig-duel-accounts.json";
+  if(!filename.toLowerCase().endsWith(".json")) filename += ".json";
+  const data={
+    app:"MIG Duel Kick 10",
+    version:2,
+    savedAt:new Date().toISOString(),
+    accounts:accounts.map(a=>({username:a.username,password:a.password}))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url; link.download=filename; link.click();
+  URL.revokeObjectURL(url);
+  log(`Data 10 ID disimpan sebagai ${filename}`);
+}
+
+function loadAccountsFromFile(file){
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data.accounts)) throw new Error("Format file tidak valid.");
+      syncFieldsToState();
+      for(let i=0;i<10;i++){
+        const a=data.accounts[i]||{};
+        accounts[i].username=String(a.username||"");
+        accounts[i].password=String(a.password||"");
+        if(el(`u${i}`)) el(`u${i}`).value=accounts[i].username;
+        if(el(`p${i}`)) el(`p${i}`).value=accounts[i].password;
+      }
+      log(`Berhasil load ${file.name}`);
+    }catch(e){ alert("Gagal load: "+e.message); }
+  };
+  reader.readAsText(file);
+}
+
+el("generateIds").onclick=generateIds;
+el("generatePasswords").onclick=generatePasswords;
+el("clearFields").onclick=clearFields;
+el("saveAccounts").onclick=saveAccounts;
+el("loadAccounts").onclick=()=>el("loadFile").click();
+el("loadFile").onchange=e=>{ if(e.target.files[0]) loadAccountsFromFile(e.target.files[0]); e.target.value=""; };
+
+renderAccounts();
 </script>
 </body>
 </html>
