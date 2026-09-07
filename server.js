@@ -8,12 +8,14 @@ app.use(express.json({ limit: "64kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
+// Official MigReborn Developer WebSocket endpoint documented at mig33.id/api.html
 const API_WS = "wss://developer.mig33.id/developer/ws";
 
-// In-memory sessions. Credentials are never written to disk.
+// Runtime-only sessions. Credentials are never written to disk.
 const sessions = new Map();
+const subscribers = new Map(); // sessionId -> Set(res)
 
-function id() {
+function makeId() {
   return crypto.randomBytes(16).toString("hex");
 }
 
@@ -21,11 +23,32 @@ function safeError(err) {
   return String(err?.message || err || "Unknown error");
 }
 
+function publish(sessionId, msg) {
+  const set = subscribers.get(sessionId);
+  if (!set) return;
+  const payload = `data: ${JSON.stringify(msg)}\n\n`;
+  for (const res of set) {
+    try { res.write(payload); } catch {}
+  }
+}
+
+function removeSession(sessionId) {
+  const account = sessions.get(sessionId);
+  if (account?.pingTimer) clearInterval(account.pingTimer);
+  sessions.delete(sessionId);
+  const set = subscribers.get(sessionId);
+  if (set) {
+    for (const res of set) {
+      try { res.end(); } catch {}
+    }
+    subscribers.delete(sessionId);
+  }
+}
+
 function connectAccount(username, password) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(API_WS);
-    const sessionId = id();
-    let opened = false;
+    const sessionId = makeId();
     let settled = false;
 
     const finishReject = (err) => {
@@ -37,7 +60,6 @@ function connectAccount(username, password) {
     };
 
     socket.on("open", () => {
-      opened = true;
       socket.send(JSON.stringify({
         type: "developer.login",
         username,
@@ -50,6 +72,10 @@ function connectAccount(username, password) {
       try { msg = JSON.parse(raw.toString()); }
       catch { return; }
 
+      // Keep API responses/events available to the web UI without inventing
+      // an API response schema that is not documented by MigReborn.
+      publish(sessionId, { type: "api.event", event: msg });
+
       if (msg.type === "auth.required") return;
 
       if (msg.type === "session.ready") {
@@ -61,15 +87,24 @@ function connectAccount(username, password) {
           username,
           socket,
           connectedAt: Date.now(),
-          lastMessage: null
+          lastEvent: null,
+          joinedRoom: null
         };
         sessions.set(sessionId, account);
 
         socket.on("close", () => {
-          if (sessions.get(sessionId)?.socket === socket) sessions.delete(sessionId);
+          if (sessions.get(sessionId)?.socket === socket) {
+            publish(sessionId, { type: "session.closed", reason: "WebSocket closed" });
+            removeSession(sessionId);
+          }
         });
 
-        // Keep-alive every 40 seconds as required by the API.
+        socket.on("error", (err) => {
+          publish(sessionId, { type: "session.error", error: safeError(err) });
+        });
+
+        // Official API requires ping at least every 30–50 seconds and closes
+        // connections after 60 seconds without a ping.
         account.pingTimer = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: "ping" }));
@@ -85,7 +120,12 @@ function connectAccount(username, password) {
         return;
       }
 
-      if (msg.type === "error") {
+      if (msg.type === "room.join.result" && msg.data?.room) {
+        const account = sessions.get(sessionId);
+        if (account) account.joinedRoom = msg.data.room;
+      }
+
+      if (msg.type === "error" && !settled) {
         finishReject(new Error(msg.data?.message || msg.data?.error || "Login failed"));
       }
     });
@@ -113,8 +153,9 @@ app.get("/api/health", (_req, res) => {
 
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ ok: false, error: "Username dan password wajib diisi." });
-
+  if (!username || !password) {
+    return res.status(400).json({ ok: false, error: "Username dan password wajib diisi." });
+  }
   try {
     const result = await connectAccount(String(username).trim(), String(password));
     res.json({ ok: true, account: result });
@@ -123,9 +164,40 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+// Browser event stream for the already-authenticated session.
+app.get("/api/events", (req, res) => {
+  const sessionId = String(req.query.sessionId || "");
+  if (!sessionId || !sessions.has(sessionId)) {
+    return res.status(401).end();
+  }
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  if (!subscribers.has(sessionId)) subscribers.set(sessionId, new Set());
+  subscribers.get(sessionId).add(res);
+  res.write(`data: ${JSON.stringify({ type: "stream.ready" })}\n\n`);
+
+  const keepAlive = setInterval(() => {
+    try { res.write(": keep-alive\n\n"); } catch {}
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(keepAlive);
+    const set = subscribers.get(sessionId);
+    if (set) {
+      set.delete(res);
+      if (!set.size) subscribers.delete(sessionId);
+    }
+  });
+});
+
 app.post("/api/action", (req, res) => {
   const { sessionId, action, room, targetUsername, message } = req.body || {};
-  if (!sessionId || !action) return res.status(400).json({ ok: false, error: "Parameter tidak lengkap." });
+  if (!sessionId || !action) {
+    return res.status(400).json({ ok: false, error: "Parameter tidak lengkap." });
+  }
 
   try {
     if (action === "join") {
@@ -161,7 +233,7 @@ app.post("/api/logout", (req, res) => {
   if (account) {
     clearInterval(account.pingTimer);
     try { account.socket.close(); } catch {}
-    sessions.delete(sessionId);
+    removeSession(sessionId);
   }
   res.json({ ok: true });
 });

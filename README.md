@@ -1,29 +1,32 @@
-# MIG Duel Kick 10 v2
+# MIG Duel Kick 10 — Troop UI
 
-Aplikasi web multi-ID untuk MigReborn Developer WebSocket API.
+Web app Node.js/Express yang menggunakan **MigReborn Developer WebSocket API resmi**.
+
+Official API: https://mig33.id/api.html
+WebSocket endpoint: `wss://developer.mig33.id/developer/ws`
 
 ## Fitur
-- 10 slot akun dengan koneksi WebSocket terpisah.
-- Generate username berurutan, misalnya 1–10 atau 11–20.
-- Generate 10 password acak dan otomatis mengisi semua kolom password.
-- Save 10 username/password ke file JSON dengan nama file pilihan.
-- Load kembali file JSON ke 10 slot.
-- Login per ID, Login All, Logout per ID, dan Logout All.
-- Join/leave room, participants, balance, dan vote-kick.
-- Ping keep-alive otomatis setiap 40 detik.
-- Password tidak disimpan oleh server ke database/file.
+- 10 slot Troop, masing-masing nama troop + password.
+- Generate Troop berdasarkan rentang angka yang harus berjumlah tepat 10: `1`–`10`, `11`–`20`, `50`–`59`, dan juga bisa terbalik `20`–`11`.
+- Generate satu password acak yang sama untuk semua 10 troop.
+- Save/Load JSON dengan nama file; default `troop1.json`.
+- Login / Logout per troop dan Logout All.
+- Login 10 troop memakai koneksi WebSocket terpisah untuk setiap troop.
+- Ping keep-alive 40 detik sesuai aturan API.
+- Join / Leave room.
+- Meminta `room.participants` dan menerima event WebSocket asli ke browser.
+- ListView peserta dengan checkbox dan pemindahan ke list target.
+- Target kick dikirim sebagai `room.kick` sesuai API resmi (vote-kick, bukan direct kick).
+- Tidak menyimpan credential ke disk di backend.
 
-## Catatan keamanan
-Fitur Save/Load menyimpan password dalam file JSON lokal dalam bentuk teks biasa karena diperlukan untuk memulihkan isian. Jangan membagikan file tersebut dan simpan hanya di perangkat yang Anda percaya.
+## API commands used
+Only documented MigReborn Developer API commands are used:
+- `developer.login`
+- `ping`
+- `room.join`
+- `room.leave`
+- `room.participants`
+- `room.kick`
+- `wallet.balance`
 
-## Menjalankan
-```bash
-npm install
-npm start
-```
-
-## API
-WebSocket resmi: `wss://developer.mig33.id/developer/ws`
-Dokumentasi: `https://mig33.id/api.html`
-
-`room.kick` adalah **vote-kick**, bukan direct kick. Hasil akhir tetap mengikuti aturan/sistem vote server MigReborn.
+The backend relays the raw WebSocket event to the browser so the UI does not invent undocumented API response fields. Participant ListView is populated only when the received `room.participants.result` contains a documented/actual `data.participants` array.
