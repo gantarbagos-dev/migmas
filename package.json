@@ -1,0 +1,15 @@
+{
+  "name": "mig-duel-kick-10",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-ID MIG Duel Kick app using the MigReborn Developer WebSocket API.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
