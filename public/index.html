@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MIG Duel Kick 10</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}.wrap{max-width:1100px;margin:auto;padding:14px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:15px;margin-bottom:14px}h1{margin:0 0 5px;font-size:25px}.muted{color:#9aa7c7;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}button{cursor:pointer;background:#2457d6;border:0;font-weight:700}.secondary{background:#26314d}.danger{background:#b8324b}.row{display:flex;gap:8px}.row>*{flex:1}.generate-row{display:flex;gap:7px;align-items:center}.generate-row input{width:105px;padding:8px 9px}.generate-row .dash{width:auto;flex:0;padding:0 2px;color:#9aa7c7}.account{border:1px solid #2b3757;border-radius:12px;padding:11px}.account-title{display:flex;justify-content:space-between;align-items:center}.status-pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#293754;color:#dce5ff}.status-pill.online{background:#164b39;color:#8af0bf}.status-pill.error{background:#572637;color:#ff9eb0}.account-actions{display:flex;gap:6px;margin-top:8px}.balance-caption{font-size:11px;color:#9aa7c7;margin-top:6px}.participants,.target-list{max-height:330px;overflow:auto;border:1px solid #293352;border-radius:10px;margin-top:10px}.participant,.target-item{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #222c45}.participant:last-child,.target-item:last-child{border-bottom:0}.participant-name{flex:1;word-break:break-word}.file-input{display:none}.log{background:#080d19;border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px monospace;white-space:pre-wrap}.small{font-size:12px}.event-box{margin-top:10px;background:#080d19;border-radius:10px;padding:9px;font:11px monospace;white-space:pre-wrap;max-height:120px;overflow:auto}.hint{margin-top:8px;font-size:12px;color:#b7c2dc}.empty{padding:11px;color:#9aa7c7}.main-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.main-password-row{display:flex;gap:6px}.main-password-row input{min-width:0;flex:1}.main-password-row button{width:auto;flex:0 0 145px;padding:10px 8px;background:#2457d6}.save-row input{min-width:0}.save-row{display:flex;gap:8px}.save-row input{flex:1}.save-row button{max-width:96px;flex:0 0 96px}@media(max-width:600px){.row,.main-fields{display:grid;grid-template-columns:1fr}.generate-row input{width:72px}.generate-row button{min-width:0}.main-password-row{display:flex}.main-password-row button{flex:0 0 125px;font-size:12px}.save-row{display:flex}.save-row input{min-width:0}.save-row button{max-width:92px}}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}.wrap{max-width:1100px;margin:auto;padding:14px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:15px;margin-bottom:14px}h1{margin:0 0 5px;font-size:25px}.muted{color:#9aa7c7;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}button{cursor:pointer;background:#2457d6;border:0;font-weight:700}.secondary{background:#26314d}.danger{background:#b8324b}.row{display:flex;gap:8px}.row>*{flex:1}.generate-row{display:flex;gap:7px;align-items:center}.generate-row input{width:105px;padding:8px 9px}.generate-row .dash{width:auto;flex:0;padding:0 2px;color:#9aa7c7}.account{border:1px solid #2b3757;border-radius:12px;padding:11px}.account-title{display:flex;justify-content:space-between;align-items:center}.status-pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#293754;color:#dce5ff}.status-pill.online{background:#164b39;color:#8af0bf}.status-pill.error{background:#572637;color:#ff9eb0}.account-actions{display:flex;gap:6px;margin-top:8px}.balance-caption{font-size:11px;color:#9aa7c7;margin-top:6px}.participants,.target-list{max-height:330px;overflow:auto;border:1px solid #293352;border-radius:10px;margin-top:10px}.participant,.target-item{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #222c45}.participant:last-child,.target-item:last-child{border-bottom:0}.participant-name{flex:1;word-break:break-word}.file-input{display:none}.log{background:#080d19;border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px monospace;white-space:pre-wrap}.small{font-size:12px}.event-box{margin-top:10px;background:#080d19;border-radius:10px;padding:9px;font:11px monospace;white-space:pre-wrap;max-height:120px;overflow:auto}.hint{margin-top:8px;font-size:12px;color:#b7c2dc}.empty{padding:11px;color:#9aa7c7}.main-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.main-password-row{display:flex;gap:6px}.main-password-row input{min-width:0;flex:1}.main-password-row button{width:auto;flex:0 0 150px;padding:11px 8px;background:#2457d6;min-height:42px}.save-row input{min-width:0}.save-row{display:flex;gap:8px}.save-row input{flex:1}.save-row button{max-width:96px;flex:0 0 96px}@media(max-width:600px){.row,.main-fields{display:grid;grid-template-columns:1fr}.generate-row input{width:72px}.generate-row button{min-width:0}.main-password-row{display:flex}.main-password-row button{flex:0 0 150px;font-size:12px;min-height:42px}.save-row{display:flex}.save-row input{min-width:0}.save-row button{max-width:92px}}
 </style>
 </head>
 <body>
@@ -35,6 +35,7 @@
     </div>
     <div class="hint">Angka mulai dan akhir harus membentuk tepat 10 nomor. Contoh 1–10, 11–20, 50–59, atau 20–11. Nama troop yang dibuat = Main troop + nomor.</div>
     <div class="grid" id="accounts" style="margin-top:12px"></div>
+    <div class="hint">LOGIN ALL, JOIN ALL, LEAVE ALL, PARTICIPANTS, dan CEK SALDO dikirim sebagai satu perintah batch; server meneruskannya bersamaan ke WebSocket Troop yang aktif.</div>
     <div class="row" style="margin-top:10px">
       <button id="loginAll">LOGIN ALL</button>
       <button class="danger" id="logoutAll">LOGOUT ALL</button>
@@ -164,7 +165,7 @@ function handleApiEvent(i,msg){
       renderParticipants(list);
       log(`Participants diterima dari Troop ${i+1}: ${list.length} peserta.`);
     } else if(String(msg.type||"").includes("participants")){
-      renderParticipants([]);
+      if(!participantNames.length) renderParticipants([], false);
       log("Response room.participants diterima tetapi daftar peserta kosong/tidak terbaca.");
     }
   }
@@ -194,8 +195,9 @@ function extractParticipantNames(msg){
   walk(msg,0,String(msg?.type||"").includes("participants"));
   return found;
 }
-function renderParticipants(list){
-  const unique=[...new Set(list.filter(Boolean))];participantNames.length=0;participantNames.push(...unique);
+function renderParticipants(list, merge=true){
+  const combined=merge?[...participantNames,...list]:list;
+  const unique=[...new Set(combined.filter(Boolean))];participantNames.length=0;participantNames.push(...unique);
   if(!unique.length){el("participantsList").innerHTML='<div class="empty">Tidak ada peserta.</div>';return;}
   el("participantsList").innerHTML=unique.map((n,i)=>`<label class="participant"><input type="checkbox" class="participant-check" data-name="${esc(n)}"><span class="participant-name">${esc(n)}</span></label>`).join("");
 }
@@ -227,19 +229,84 @@ async function logoutOne(i,silent=false){
   if(a.sessionId){try{await fetch("/api/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId})});}catch{}}
   a.sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");if(!silent)log(`Troop ${i+1}: LOGOUT`);
 }
-el("loginAll").onclick=async()=>{sync();for(let i=0;i<10;i++)if(accounts[i].username&&accounts[i].password)await loginOne(i);};
-el("logoutAll").onclick=async()=>{for(let i=0;i<10;i++)await logoutOne(i,true);log("Semua troop sudah logout.");};
+async function batchAction(action, extra = {}){
+  const ids=accounts.map(a=>a.sessionId).filter(Boolean);
+  if(!ids.length){log(`${action.toUpperCase()}: tidak ada Troop yang ONLINE.`);return null;}
+  try{
+    const r=await fetch("/api/batch-action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionIds:ids,action,...extra})});
+    const j=await r.json();
+    if(!j.ok){log(`${action.toUpperCase()} gagal: ${j.error||"Tidak ada session aktif."}`);return null;}
+    log(`${action.toUpperCase()}: ${j.sent}/${j.total} WebSocket diperintah bersamaan.`);
+    return j;
+  }catch(e){log(`${action.toUpperCase()} gagal - ${e.message}`);return null;}
+}
+
+async function loginAll(){
+  sync();
+  const list=accounts.map((a,i)=>({index:i,username:a.username,password:a.password,sessionId:a.sessionId})).filter(a=>a.username&&a.password);
+  if(!list.length){log("LOGIN ALL: isi minimal satu Troop.");return;}
+  list.forEach(a=>setStatus(a.index,"LOGIN…"));
+  try{
+    const r=await fetch("/api/login-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accounts:list})});
+    const j=await r.json();
+    for(const item of (j.results||[])){
+      const i=item.index;
+      if(item.ok){
+        accounts[i].sessionId=item.account.sessionId;
+        const w=item.account.wallet;
+        if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);else setBalance(i,"-");
+        setStatus(i,"ONLINE","online");openEvents(i);
+      }else{accounts[i].sessionId=null;setStatus(i,"OFFLINE","error");setBalance(i,"-");}
+    }
+    const ok=(j.results||[]).filter(x=>x.ok).length, total=(j.results||[]).length;
+    log(`LOGIN ALL: ${ok}/${total} Troop login bersamaan.`);
+    for(const item of (j.results||[])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN GAGAL - ${item.error}`);
+  }catch(e){for(const a of list)setStatus(a.index,"OFFLINE","error");log(`LOGIN ALL gagal - ${e.message}`);}
+}
+
+async function logoutAll(){
+  const ids=accounts.map(a=>a.sessionId).filter(Boolean);
+  accounts.forEach(a=>{if(a.eventSource)try{a.eventSource.close()}catch{}a.eventSource=null;});
+  try{await fetch("/api/logout-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionIds:ids})});}catch{}
+  for(let i=0;i<10;i++){accounts[i].sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");}
+  log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
+}
+
+async function loginOne(i){
+  sync();const a=accounts[i];
+  if(!a.username||!a.password){log(`Troop ${i+1}: nama dan password wajib diisi.`);return;}
+  if(a.sessionId)await logoutOne(i,true);
+  setStatus(i,"LOGIN…");
+  try{
+    const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:a.username,password:a.password})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||"Login gagal");
+    a.sessionId=j.account.sessionId;const w=j.account.wallet;
+    if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);else setBalance(i,"-");
+    setStatus(i,"ONLINE","online");openEvents(i);log(`Troop ${i+1} ${a.username}: ONLINE`);
+  }catch(e){setStatus(i,"OFFLINE","error");log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);}
+}
+async function logoutOne(i,silent=false){
+  const a=accounts[i];if(a.eventSource)try{a.eventSource.close()}catch{}a.eventSource=null;
+  if(a.sessionId){try{await fetch("/api/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId})});}catch{}}
+  a.sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");if(!silent)log(`Troop ${i+1}: LOGOUT`);
+}
+el("loginAll").onclick=loginAll;
+el("logoutAll").onclick=logoutAll;
 
 async function action(i,action,extra={}){
   const a=accounts[i];if(!a.sessionId)return;
   try{const r=await fetch("/api/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId,action,...extra})});const j=await r.json();if(!j.ok)log(`Troop ${i+1}: ${j.error}`);else log(`Troop ${i+1}: ${action} terkirim`);}catch(e){log(`Troop ${i+1}: ${action} gagal - ${e.message}`);}
 }
-async function joinAll(){const room=el("room").value.trim();if(!room){log("JOIN ALL: nama room belum diisi.");return;}for(let i=0;i<10;i++)await action(i,"join",{room});}
-async function leaveAll(){const room=el("room").value.trim();if(!room){log("LEAVE ALL: nama room belum diisi.");return;}for(let i=0;i<10;i++)await action(i,"leave",{room});}
-async function participants(){const room=el("room").value.trim();if(!room){log("PARTICIPANTS: nama room belum diisi.");return;}clearParticipants();for(let i=0;i<10;i++)await action(i,"participants",{room});log("Perintah room.participants dikirim dari troop yang online.");}
-async function balanceAll(){for(let i=0;i<10;i++)await action(i,"balance");}
-async function kickSelectedTargets(){const room=el("room").value.trim();if(!room){log("VOTE-KICK: nama room belum diisi.");return;}const selected=[...document.querySelectorAll(".target-check:checked")].map(x=>x.dataset.name).filter(Boolean);if(!selected.length){log("VOTE-KICK: belum ada target terpilih.");return;}for(const target of selected)for(let i=0;i<10;i++)await action(i,"kick",{room,targetUsername:target});}
-
+async function joinAll(){const room=el("room").value.trim();if(!room){log("JOIN ALL: nama room belum diisi.");return;}await batchAction("join",{room});}
+async function leaveAll(){const room=el("room").value.trim();if(!room){log("LEAVE ALL: nama room belum diisi.");return;}await batchAction("leave",{room});}
+async function participants(){const room=el("room").value.trim();if(!room){log("PARTICIPANTS: nama room belum diisi.");return;}clearParticipants();await batchAction("participants",{room});}
+async function balanceAll(){await batchAction("balance");}
+async function kickSelectedTargets(){
+  const room=el("room").value.trim();if(!room){log("VOTE-KICK: nama room belum diisi.");return;}
+  const selected=[...document.querySelectorAll(".target-check:checked")].map(x=>x.dataset.name).filter(Boolean);
+  if(!selected.length){log("VOTE-KICK: belum ada target terpilih.");return;}
+  for(const target of selected) await batchAction("kick",{room,targetUsername:target});
+}
 function saveAccounts(){
   sync();
   let name=el("saveName").value.trim()||"troop1";name=name.replace(/\.json$/i,"")||"troop1";
