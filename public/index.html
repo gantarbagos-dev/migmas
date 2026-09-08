@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MIG Duel Kick 10</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}.wrap{max-width:1100px;margin:auto;padding:14px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:15px;margin-bottom:14px}h1{margin:0 0 5px;font-size:25px}.muted{color:#9aa7c7;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}button{cursor:pointer;background:#2457d6;border:0;font-weight:700}.secondary{background:#26314d}.danger{background:#b8324b}.row{display:flex;gap:8px}.row>*{flex:1}.generate-row{display:flex;gap:7px;align-items:center}.generate-row input{width:105px;padding:8px 9px}.generate-row .dash{width:auto;flex:0;padding:0 2px;color:#9aa7c7}.account{border:1px solid #2b3757;border-radius:12px;padding:11px}.account-title{display:flex;justify-content:space-between;align-items:center}.status-pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#293754;color:#dce5ff}.status-pill.online{background:#164b39;color:#8af0bf}.status-pill.error{background:#572637;color:#ff9eb0}.account-actions{display:flex;gap:6px;margin-top:8px}.balance-caption{font-size:11px;color:#9aa7c7;margin-top:6px}.participants,.target-list{max-height:330px;overflow:auto;border:1px solid #293352;border-radius:10px;margin-top:10px}.participant,.target-item{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #222c45}.participant:last-child,.target-item:last-child{border-bottom:0}.participant-name{flex:1;word-break:break-word}.file-input{display:none}.log{background:#080d19;border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px monospace;white-space:pre-wrap}.small{font-size:12px}.event-box{margin-top:10px;background:#080d19;border-radius:10px;padding:9px;font:11px monospace;white-space:pre-wrap;max-height:120px;overflow:auto}.hint{margin-top:8px;font-size:12px;color:#b7c2dc}.empty{padding:11px;color:#9aa7c7}.main-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.main-password-row{display:flex;gap:6px}.main-password-row input{min-width:0;flex:1}.main-password-row button{width:auto;flex:0 0 150px;padding:11px 8px;background:#2457d6;min-height:42px}.save-row input{min-width:0}.save-row{display:flex;gap:8px}.save-row input{flex:1}.save-row button{max-width:96px;flex:0 0 96px}@media(max-width:600px){.row,.main-fields{display:grid;grid-template-columns:1fr}.generate-row input{width:72px}.generate-row button{min-width:0}.main-password-row{display:flex}.main-password-row button{flex:0 0 150px;font-size:12px;min-height:42px}.save-row{display:flex}.save-row input{min-width:0}.save-row button{max-width:92px}}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}.wrap{max-width:1100px;margin:auto;padding:14px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:15px;margin-bottom:14px}h1{margin:0 0 5px;font-size:25px}.muted{color:#9aa7c7;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}button{cursor:pointer;background:#2457d6;border:0;font-weight:700}.secondary{background:#26314d}.danger{background:#b8324b}.row{display:flex;gap:8px}.row>*{flex:1}.generate-row{display:flex;gap:7px;align-items:center}.generate-row input{width:105px;padding:8px 9px}.generate-row .dash{width:auto;flex:0;padding:0 2px;color:#9aa7c7}.account{border:1px solid #2b3757;border-radius:12px;padding:11px}.account-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.account-status{display:flex;align-items:center;gap:7px}.balance-caption{font-size:11px;color:#9aa7c7;white-space:nowrap}.balance-caption .balance-value{color:#eef2ff;font-weight:700}.status-pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#293754;color:#dce5ff}.status-pill.online{background:#164b39;color:#8af0bf}.status-pill.error{background:#572637;color:#ff9eb0}.account-actions{display:flex;gap:6px;margin-top:8px}.participants,.target-list{max-height:330px;overflow:auto;border:1px solid #34415f;border-radius:10px;margin-top:10px;background:#0d1427;padding:4px}.participant,.target-item{display:flex;align-items:center;gap:10px;padding:9px 10px;margin:2px 0;border:1px solid transparent;border-radius:8px;background:#141b31;cursor:pointer}.participant:hover,.target-item:hover{border-color:#34415f;background:#18213a}.participant:has(input:checked),.target-item:has(input:checked){border-color:#2457d6;background:#172650}.participant input,.target-item input{width:18px;height:18px;flex:0 0 auto;accent-color:#2457d6}.participant-name{flex:1;word-break:break-word;min-width:0}.participant:last-child,.target-item:last-child{border-bottom:0}.file-input{display:none}.log{background:#080d19;border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px monospace;white-space:pre-wrap}.small{font-size:12px}.event-box{margin-top:10px;background:#080d19;border-radius:10px;padding:9px;font:11px monospace;white-space:pre-wrap;max-height:120px;overflow:auto}.hint{margin-top:8px;font-size:12px;color:#b7c2dc}.empty{padding:11px;color:#9aa7c7}.main-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.main-troop-row,.main-password-row{display:flex;gap:6px;min-width:0}.main-troop-row input,.main-password-row input{min-width:0;flex:1}.main-troop-row button,.main-password-row button{width:auto;flex:0 0 150px;padding:11px 8px;min-height:42px}.main-password-row{display:flex;gap:6px}.generate-row{margin-top:8px}.generate-row button{flex:0 0 150px;min-height:42px}.delete-button{flex:0 0 150px!important;min-height:42px}.save-row input{flex:1}.save-row button{max-width:96px;flex:0 0 96px}@media(max-width:600px){.row,.main-fields{display:grid;grid-template-columns:1fr}.generate-row input{width:72px}.generate-row button{min-width:0}.main-troop-row,.main-password-row{display:flex}.main-troop-row button,.main-password-row button{flex:0 0 132px;font-size:11px;min-height:42px}.generate-row button{flex:0 0 132px}.delete-button{flex-basis:132px!important}.save-row{display:flex}.save-row input{min-width:0}.save-row button{max-width:92px}}
 </style>
 </head>
 <body>
@@ -18,20 +18,20 @@
   <div class="card">
     <h3>1. Generate Troop</h3>
     <div class="main-fields">
-      <input id="mainTroop" placeholder="Main troop" autocomplete="off">
+      <div class="main-troop-row">
+        <input id="mainTroop" placeholder="Main troop" autocomplete="off">
+        <button id="generateTroop">GENERATE TROOP</button>
+      </div>
       <div class="main-password-row">
         <input id="mainPassword" type="password" placeholder="Main password" autocomplete="off">
         <button id="generatePassword">GENERATE PASSWORD</button>
       </div>
     </div>
-    <div class="generate-row" style="margin-top:8px">
+    <div class="generate-row">
       <input id="rangeStart" type="number" step="1" inputmode="numeric" value="1" placeholder="Mulai">
       <span class="dash">sampai</span>
       <input id="rangeEnd" type="number" step="1" inputmode="numeric" value="10" placeholder="Akhir">
-      <button id="generateTroop" style="flex:1">GENERATE TROOP</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" id="clearFields">KOSONGKAN</button>
+      <button class="danger delete-button" id="clearFields">DELETE</button>
     </div>
     <div class="hint">Angka mulai dan akhir harus membentuk tepat 10 nomor. Contoh 1–10, 11–20, 50–59, atau 20–11. Nama troop yang dibuat = Main troop + nomor.</div>
     <div class="grid" id="accounts" style="margin-top:12px"></div>
@@ -103,15 +103,15 @@ function sync(){for(let i=0;i<10;i++){if(el(`u${i}`))accounts[i].username=el(`u$
 function renderAccounts(){
   el("accounts").innerHTML=accounts.map((a,i)=>`
     <div class="account">
-      <div class="account-title"><b>Troop ${i+1}</b><span id="status${i}" class="status-pill ${a.sessionId?"online":""}">${a.sessionId?"ONLINE":"OFFLINE"}</span></div>
+      <div class="account-title"><b>Troop ${i+1}</b><div class="account-status"><div id="b${i}" class="balance-caption">${esc(a.balance)}</div><span id="status${i}" class="status-pill ${a.sessionId?"online":""}">${a.sessionId?"ONLINE":"OFFLINE"}</span></div></div>
       <input id="u${i}" value="${esc(a.username)}" placeholder="Nama troop" autocomplete="off" style="margin-top:8px">
       <input id="p${i}" value="${esc(a.password)}" type="password" placeholder="Password" autocomplete="off" style="margin-top:8px">
       <div class="account-actions"><button onclick="loginOne(${i})">LOGIN</button><button class="danger" onclick="logoutOne(${i})">LOGOUT</button></div>
-      <div id="b${i}" class="balance-caption">Jumlah saldo: ${esc(a.balance)}</div>
+      
     </div>`).join("");
 }
 function setStatus(i,text,kind=""){const s=el(`status${i}`);if(!s)return;s.textContent=text;s.className=`status-pill ${kind}`;}
-function setBalance(i,label){accounts[i].balance=label||"-";const b=el(`b${i}`);if(b)b.textContent=`Jumlah saldo: ${accounts[i].balance}`;}
+function setBalance(i,label){accounts[i].balance=label||"-";const b=el(`b${i}`);if(b)b.textContent=accounts[i].balance;}
 
 function validRange(){
   const start=Number(el("rangeStart").value),end=Number(el("rangeEnd").value);
@@ -199,7 +199,7 @@ function renderParticipants(list, merge=true){
   const combined=merge?[...participantNames,...list]:list;
   const unique=[...new Set(combined.filter(Boolean))];participantNames.length=0;participantNames.push(...unique);
   if(!unique.length){el("participantsList").innerHTML='<div class="empty">Tidak ada peserta.</div>';return;}
-  el("participantsList").innerHTML=unique.map((n,i)=>`<label class="participant"><input type="checkbox" class="participant-check" data-name="${esc(n)}"><span class="participant-name">${esc(n)}</span></label>`).join("");
+  el("participantsList").innerHTML=unique.map((n,i)=>`<label class="participant" title="Pilih ${esc(n)} untuk dipindahkan ke target"><input type="checkbox" class="participant-check" data-name="${esc(n)}"><span class="participant-name">${esc(n)}</span></label>`).join("");
 }
 function clearParticipants(){participantNames.length=0;el("participantsList").innerHTML='<div class="empty">Belum ada data participants.</div>';}
 function moveCheckedToTargets(){
