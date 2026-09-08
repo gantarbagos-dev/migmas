@@ -13,8 +13,3 @@ Node.js/Express frontend + backend using the official MigReborn Developer WebSoc
 ## Official API
 Endpoint: `wss://developer.mig33.id/developer/ws`
 Docs: https://mig33.id/api.html
-
-- UI: saldo kini hanya menampilkan nilainya saja, kecil di sebelah kiri status OFFLINE/ONLINE.
-- UI: GENERATE TROOP dipindahkan ke samping Main troop dan ukurannya disamakan dengan GENERATE PASSWORD.
-- UI: tombol KOSONGKAN dipindahkan ke posisi lama GENERATE TROOP dan diubah menjadi DELETE.
-- UI: list peserta dibuat lebih rapi sebagai listbox dengan checkbox, hover, dan state terpilih yang lebih jelas.
