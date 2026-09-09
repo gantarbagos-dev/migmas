@@ -217,21 +217,8 @@
     <h3 class="text-sm sm:text-base font-bold text-slate-200">Live API Event</h3>
     <div id="apiEvent" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 max-h-24 overflow-y-auto whitespace-pre-wrap">Menunggu event dari WebSocket resmi MigReborn…</div>
     
-    <div class="pt-1">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm sm:text-base font-bold text-slate-200">Kick Progress</h3>
-        <span id="kickProgressText" class="text-[10px] font-semibold text-slate-400">0%</span>
-      </div>
-      <div class="h-3 w-full overflow-hidden rounded-full bg-slate-950 border border-slate-800 shadow-inner">
-        <div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-[width] duration-300 ease-out relative overflow-hidden">
-          <div class="absolute inset-0 bg-white/15 animate-pulse"></div>
-        </div>
-      </div>
-      <div class="mt-2 flex items-center justify-between gap-2 text-[9px] text-slate-500">
-        <span id="kickProgressStatus">Siap menjalankan kick.</span>
-        <span id="kickProgressCount">0 / 0</span>
-      </div>
-    </div>
+    <h3 class="text-sm sm:text-base font-bold text-slate-200 pt-1">System Log</h3>
+    <div id="log" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 h-28 overflow-y-auto whitespace-pre-wrap"></div>
   </div>
 
 </div>
@@ -243,21 +230,10 @@ const participantNames = [];
 const el = id => document.getElementById(id);
 
 const log = msg => {
-  // Keep existing internal status calls without rendering the old System Log.
-  window.__lastStatus = String(msg);
+  const t = new Date().toLocaleTimeString();
+  const logEl = el("log");
+  if(logEl) logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
 };
-
-function setKickProgress(percent, status, countText){
-  const bar = el("kickProgressBar");
-  const text = el("kickProgressText");
-  const statusEl = el("kickProgressStatus");
-  const countEl = el("kickProgressCount");
-  const pct = Math.max(0, Math.min(100, Number(percent) || 0));
-  if(bar) bar.style.width = pct + "%";
-  if(text) text.textContent = Math.round(pct) + "%";
-  if(statusEl && status != null) statusEl.textContent = status;
-  if(countEl && countText != null) countEl.textContent = countText;
-}
 
 function esc(v){
   return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
@@ -674,51 +650,13 @@ async function kickSelectedTargets(){
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
   const delay = Math.max(0, parseInt(el("kickDelay")?.value || "100", 10) || 0);
   const loop = Math.max(1, parseInt(el("kickLoop")?.value || "1", 10) || 1);
-  const total = targets.length * loop;
-  setKickProgress(0, `Menyiapkan ${targets.length} target × ${loop} loop…`, `0 / ${total}`);
   try{
-    const r = await fetch("/api/kick-loop", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds: accounts.map(a=>a.sessionId).filter(Boolean), room, targets:[...targets], delay, loop])});
-    if(!r.ok){
-      let msg = "Gagal menjalankan loop.";
-      try { const j = await r.json(); msg = j.error || msg; } catch {}
-      setKickProgress(0, msg, `0 / ${total}`);
-      log(`KICK ALL gagal: ${msg}`);
-      return;
-    }
-    const reader = r.body?.getReader();
-    if(!reader) throw new Error("Progress backend tidak tersedia.");
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while(true){
-      const {value, done} = await reader.read();
-      if(done) break;
-      buffer += decoder.decode(value, {stream:true});
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for(const line of lines){
-        if(!line.trim()) continue;
-        let j;
-        try { j = JSON.parse(line); } catch { continue; }
-        if(j.type === "start") {
-          setKickProgress(0, `Mulai ${j.loops} loop • delay ${j.delay} ms sebelum loop berikutnya`, `0 / ${j.total}`);
-        } else if(j.type === "delay") {
-          setKickProgress((j.completed / j.total) * 100, `Menunggu delay ${j.delay} ms sebelum loop ${j.loop}…`, `${j.completed} / ${j.total}`);
-        } else if(j.type === "loop") {
-          setKickProgress((j.completed / j.total) * 100, `Loop ${j.loop} / ${j.totalLoops}`, `${j.completed} / ${j.total}`);
-        } else if(j.type === "progress") {
-          setKickProgress((j.completed / j.total) * 100, `Kick ${j.target} • Loop ${j.loop}/${j.totalLoops}`, `${j.completed} / ${j.total}`);
-        } else if(j.type === "done") {
-          setKickProgress(100, `Selesai • ${j.sent} perintah terkirim`, `${j.total} / ${j.total}`);
-        } else if(j.type === "error") {
-          setKickProgress(0, j.error || "Kick gagal.", `0 / ${total}`);
-          log(`KICK ALL gagal: ${j.error || "Gagal menjalankan loop."}`);
-        }
-      }
-    }
-  }catch(e){
-    setKickProgress(0, `Gagal: ${e.message}`, `0 / ${total}`);
-    log(`KICK ALL gagal - ${e.message}`);
-  }
+    const r = await fetch("/api/kick-loop", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds: accounts.map(a=>a.sessionId).filter(Boolean), room, targets:[...targets], delay, loop})});
+    const j = await r.json();
+    if(!j.ok){ log(`KICK ALL gagal: ${j.error || "Gagal menjalankan loop."}`); return; }
+    log(`KICK ALL: ${targets.length} target, ${loop} loop, delay ${delay} ms.`);
+    if(j.completed) log("KICK ALL: loop selesai.");
+  }catch(e){ log(`KICK ALL gagal - ${e.message}`); }
 }
 
 renderAccounts();
