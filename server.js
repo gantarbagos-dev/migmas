@@ -246,40 +246,20 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
 
-  // Stream progress so the UI can update the bar while the backend is running.
-  res.status(200);
-  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  const writeProgress = data => { try { res.write(JSON.stringify(data) + "\n"); } catch {} };
-
   try {
     let sent = 0;
-    const total = loopCount * targetList.length;
-    let completed = 0;
-    writeProgress({ type: "start", total, loops: loopCount, targets: targetList.length, delay: delayMs });
-
     for (let round = 0; round < loopCount; round++) {
-      // Delay is applied BEFORE every loop after the first loop.
-      if (round > 0 && delayMs > 0) {
-        writeProgress({ type: "delay", loop: round + 1, totalLoops: loopCount, delay: delayMs });
-        await sleep(delayMs);
-      }
-      writeProgress({ type: "loop", loop: round + 1, totalLoops: loopCount, completed, total });
+      if (round > 0 && delayMs > 0) await sleep(delayMs);
       for (const targetUsername of targetList) {
         const payload = { type: "room.kick", room, target_username: targetUsername };
         for (const sessionId of ids) {
           try { send(sessionId, payload); sent++; } catch {}
         }
-        completed++;
-        writeProgress({ type: "progress", completed, total, loop: round + 1, totalLoops: loopCount, target: targetUsername });
       }
     }
-    writeProgress({ type: "done", ok: true, completed: true, loops: loopCount, delay: delayMs, targets: targetList.length, sent, total });
-    res.end();
+    res.json({ ok: true, completed: true, loops: loopCount, delay: delayMs, targets: targetList.length, sent });
   } catch (e) {
-    writeProgress({ type: "error", ok: false, error: safeError(e) });
-    res.end();
+    res.status(400).json({ ok: false, error: safeError(e) });
   }
 });
 
