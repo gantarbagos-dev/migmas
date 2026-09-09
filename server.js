@@ -231,6 +231,38 @@ app.post("/api/batch-action", (req, res) => {
   res.json({ ok: results.some(x => x.ok), action, sent: results.filter(x => x.ok).length, total: results.length, results });
 });
 
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+app.post("/api/kick-loop", async (req, res) => {
+  const { sessionIds, room, targets, delay, loop } = req.body || {};
+  const ids = Array.isArray(sessionIds) ? [...new Set(sessionIds.map(String))].slice(0, 10) : [];
+  const targetList = Array.isArray(targets) ? targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10) : [];
+  const delayMs = Math.max(0, Math.min(Number(delay) || 0, 86400000));
+  const loopCount = Math.max(1, Math.min(parseInt(loop, 10) || 1, 100));
+  if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
+  if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
+  if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
+
+  try {
+    let sent = 0;
+    for (let round = 0; round < loopCount; round++) {
+      if (round > 0 && delayMs > 0) await sleep(delayMs);
+      for (const targetUsername of targetList) {
+        const payload = { type: "room.kick", room, target_username: targetUsername };
+        for (const sessionId of ids) {
+          try { send(sessionId, payload); sent++; } catch {}
+        }
+      }
+    }
+    res.json({ ok: true, completed: true, loops: loopCount, delay: delayMs, targets: targetList.length, sent });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: safeError(e) });
+  }
+});
+
 app.post("/api/logout", (req, res) => {
   const { sessionId } = req.body || {};
   closeSession(String(sessionId || ""), "logout");
