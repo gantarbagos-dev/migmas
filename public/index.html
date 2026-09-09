@@ -191,10 +191,10 @@
       <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
         <div class="min-w-0">
           <button onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
-          <div class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
+          <div id="timerLabel" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
+          <div class="mt-1 flex gap-1"><input id="timerCommand" type="text" placeholder="reset timer" class="min-w-0 flex-1 h-6 bg-slate-950/80 border border-slate-800 rounded-lg px-1 text-center text-[9px] text-slate-300"><button onclick="resetKickTimer()" class="h-6 px-2 rounded-lg bg-slate-800 text-[9px] font-bold text-slate-300">RESET</button></div>
         </div>
         <label class="min-w-0">
-          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
           <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <label class="min-w-0">
@@ -341,6 +341,9 @@ function clearFields(){
   log("Semua field troop dikosongkan.");
 }
 
+  }, 100);
+}
+
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
@@ -358,6 +361,7 @@ function openEvents(i){
 }
 
 function handleApiEvent(i, msg){
+  if(String(msg?.type||msg?.event||"").toLowerCase().includes("kick")) startKickTimer();
   el("apiEvent").textContent = `Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`;
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
@@ -672,6 +676,25 @@ async function kickSelectedTargets(){
     clearInterval(progressTimer); bar.style.width = "100%"; txt.textContent = "Selesai"; meta.textContent = `${total}/${total} kick • ${loop} putaran`;
   }catch(e){ clearInterval(progressTimer); bar.style.width = "0%"; txt.textContent = "Gagal"; meta.textContent = e.message; }
 }
+
+const TIMER_MAX = 60000;
+let kickTimerValue = TIMER_MAX;
+let kickTimerLast = performance.now();
+let kickTimerRunning = false;
+function resetKickTimer(){ kickTimerValue = TIMER_MAX; kickTimerLast = performance.now(); kickTimerRunning = false; el("timerLabel").textContent = String(TIMER_MAX); }
+function startKickTimer(){ kickTimerValue = TIMER_MAX; kickTimerLast = performance.now(); kickTimerRunning = true; el("timerLabel").textContent = String(TIMER_MAX); }
+function runKickTimer(){
+  const now = performance.now();
+  if(kickTimerRunning){
+    kickTimerValue = Math.max(0, TIMER_MAX - Math.floor(now - kickTimerLast));
+    el("timerLabel").textContent = String(kickTimerValue);
+    const target = Math.max(0, parseInt(el("kickTimer")?.value || "0", 10) || 0);
+    if(kickTimerValue === target && target !== 0) kickSelectedTargets();
+    if(kickTimerValue === 0){ kickTimerRunning = false; resetKickTimer(); }
+  }
+  setTimeout(runKickTimer, 1);
+}
+runKickTimer();
 
 renderAccounts();
 renderTargets();
