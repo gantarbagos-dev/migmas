@@ -1,403 +1,636 @@
 <!doctype html>
-<html lang="id">
+<html lang="id" class="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MIG Duel Kick 10</title>
+<title>MIGMASTER PROTOTIPE 1.0</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        },
+      }
+    }
+  }
+</script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#eef2ff}.wrap{max-width:1100px;margin:auto;padding:14px}.card{background:#141b31;border:1px solid #293352;border-radius:16px;padding:15px;margin-bottom:14px}h1{margin:0 0 5px;font-size:25px}.muted{color:#9aa7c7;font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}input,button{width:100%;padding:11px;border-radius:10px;border:1px solid #34415f;background:#0d1427;color:#fff}button{cursor:pointer;background:#2457d6;border:0;font-weight:700}.secondary{background:#26314d}.danger{background:#b8324b}.row{display:flex;gap:8px}.row>*{flex:1}.generate-row{display:flex;gap:7px;align-items:center}.generate-row input{width:58px;padding:8px 7px;text-align:center}.generate-row .dash{width:auto;flex:0;padding:0 2px;color:#9aa7c7}.account{border:1px solid #2b3757;border-radius:12px;padding:11px}.account-title{display:flex;justify-content:space-between;align-items:center;gap:10px}.account-title>.row{flex:0 0 auto;display:flex;align-items:center;gap:6px;justify-content:flex-end}.account-title>.row>*{flex:0 0 auto}.status-pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#293754;color:#dce5ff}.status-pill.online{background:#164b39;color:#8af0bf}.status-pill.error{background:#572637;color:#ff9eb0}.account-actions{display:flex;gap:6px;margin-top:8px}.balance-caption{font-size:13px;color:#dce5ff;margin:0;padding:6px 10px;border:1px solid #34415f;border-radius:999px;background:#0d1427;white-space:nowrap}.participants,.target-list{max-height:330px;overflow-y:auto;overflow-x:hidden;border:1px solid #293352;border-radius:10px;margin-top:10px;padding:4px 0}.participant,.target-item{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid #222c45;min-height:54px;width:100%;}.participant{background:#10182b}.participant:hover{background:#17213a}.participant input[type="checkbox"],.target-item input[type="checkbox"]{width:20px !important;height:20px !important;min-width:20px;max-width:20px;flex:0 0 20px;margin:0;accent-color:#2457d6}.target-item{background:#10182b}.target-item:hover{background:#17213a}.target-number{min-width:44px;width:44px;font-size:12px;font-weight:700;color:#dce5ff;text-align:center;padding:6px 5px;border:1px solid #34415f;border-radius:9px;background:#182443;flex:0 0 44px}.target-name,.participant-name{display:block;flex:1 1 auto;min-width:0;width:auto;word-break:normal;overflow-wrap:anywhere;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;line-height:1.25;color:#eef2ff}.participant:last-child,.target-item:last-child{border-bottom:0}.participant-name{flex:1;min-width:0;word-break:normal;overflow-wrap:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.file-input{display:none}.log{background:#080d19;border-radius:10px;padding:10px;height:170px;overflow:auto;font:12px monospace;white-space:pre-wrap}.small{font-size:12px}.event-box{margin-top:10px;background:#080d19;border-radius:10px;padding:9px;font:11px monospace;white-space:pre-wrap;max-height:120px;overflow:auto}.hint{margin-top:8px;font-size:12px;color:#b7c2dc}.empty{padding:11px;color:#9aa7c7}.action-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:8px;align-items:stretch}.action-row>button{min-height:42px}.range-inputs{display:flex;gap:6px;align-items:center;min-width:0}.range-inputs input{width:58px;padding:8px 6px;text-align:center}.range-inputs .dash{width:auto;flex:0 0 auto;padding:0 2px;color:#9aa7c7}.main-password-row{display:flex;min-width:0}.main-password-row input{min-width:0;flex:1}.save-row input{min-width:0}.save-row{display:flex;gap:8px}.save-row input{flex:1}.save-row button{max-width:96px;flex:0 0 96px}@media(max-width:600px){.row{display:grid;grid-template-columns:1fr}.action-row{grid-template-columns:minmax(0,1fr) 150px}.action-row>button{font-size:12px}.range-inputs input{width:54px}.save-row{display:flex}.save-row input{min-width:0}.save-row button{max-width:92px}}
-
-/* Mobile-friendly compact layout */
-html{font-size:16px;-webkit-text-size-adjust:100%}
-body{min-width:0;overflow-x:hidden}
-.wrap{width:100%;max-width:900px;margin:0 auto;padding:10px}
-.card{padding:12px;border-radius:14px;margin-bottom:10px}
-h1{font-size:21px;line-height:1.2}
-h3{margin:2px 0 8px;font-size:18px;line-height:1.25}
-.muted{font-size:12px;line-height:1.4}
-.hint{font-size:11px;line-height:1.35}
-.grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
-.accounts-list{display:flex;flex-direction:column;gap:7px;margin-top:12px}.accounts-list .account{animation:loginItemIn .45s ease both}.accounts-list .account:nth-child(1){animation-delay:.02s}.accounts-list .account:nth-child(2){animation-delay:.04s}.accounts-list .account:nth-child(3){animation-delay:.06s}.accounts-list .account:nth-child(4){animation-delay:.08s}.accounts-list .account:nth-child(5){animation-delay:.10s}.accounts-list .account:nth-child(6){animation-delay:.12s}.accounts-list .account:nth-child(7){animation-delay:.14s}.accounts-list .account:nth-child(8){animation-delay:.16s}.accounts-list .account:nth-child(9){animation-delay:.18s}.accounts-list .account:nth-child(10){animation-delay:.20s}.accounts-list .account:focus-within{border-color:#4169d8;box-shadow:0 0 0 2px rgba(65,105,216,.14),0 8px 22px rgba(0,0,0,.16);transform:translateY(-1px)}
-@keyframes loginItemIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media(prefers-reduced-motion:reduce){.accounts-list .account{animation:none}.accounts-list .account:focus-within{transform:none}}
-input,button{min-height:42px;padding:9px 10px;font-size:14px}
-.account{padding:9px;border-radius:11px}
-.account-title{min-height:28px}
-.account-title>.row{gap:5px}
-.status-pill{font-size:11px;padding:5px 8px}
-.balance-caption{font-size:11px;padding:5px 8px}
-.account-actions{margin-top:6px}
-.participants,.target-list{max-height:260px;margin-top:8px;padding:3px 0;border-radius:10px}
-.participant,.target-item{gap:8px;padding:7px 9px;min-height:46px}
-.participant input[type="checkbox"],.target-item input[type="checkbox"]{width:19px!important;height:19px!important;min-width:19px;max-width:19px;flex-basis:19px}
-.target-number{min-width:34px;width:34px;flex-basis:34px;padding:5px 3px;font-size:11px;border-radius:8px}
-.target-name,.participant-name{font-size:14px;line-height:1.2}
-.event-box{margin-top:8px;padding:8px;max-height:100px;font-size:10px}
-.log{height:130px;padding:8px;font-size:11px}
-.action-row{grid-template-columns:minmax(0,1fr) 132px;gap:6px}
-.action-row>button{min-height:42px}
-.range-inputs{gap:5px}
-.range-inputs input{width:52px}
-.row{gap:6px}
-.save-row{gap:6px}
-.save-row button{max-width:88px;flex-basis:88px}
-@media(max-width:600px){
-  .wrap{padding:7px}
-  .card{padding:10px;margin-bottom:8px;border-radius:12px}
-  h1{font-size:19px}
-  h3{font-size:17px;margin-bottom:6px}
-  .grid{grid-template-columns:1fr;gap:7px}
-  .action-row{grid-template-columns:1fr;gap:6px}
-  .action-row>button{font-size:13px}
-  .range-action-row{grid-template-columns:1fr 96px}
-  .range-action-row .danger{font-size:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .account-actions{display:grid;grid-template-columns:1fr 1fr}
-  .participants,.target-list{max-height:240px}
-  .participant,.target-item{min-height:44px;padding:6px 8px}
-  .target-name,.participant-name{font-size:14px}
-  .event-box{max-height:90px}
-}
-@media(max-width:360px){
-  .wrap{padding:5px}
-  .card{padding:9px}
-  .row{grid-template-columns:1fr}
-  .range-action-row{grid-template-columns:1fr 82px}
-  .target-number{min-width:31px;width:31px;flex-basis:31px}
-}
-.login-list-item{position:relative;overflow:hidden;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}.login-list-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#2457d6;opacity:.55}.login-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.login-fields input{margin-top:0!important}.account-title b{font-size:14px;letter-spacing:.2px}.accounts-list .status-pill{transition:background .2s ease,color .2s ease}.accounts-list .balance-caption{max-width:130px;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:600px){.accounts-list{gap:6px}.login-fields{grid-template-columns:1fr 1fr;gap:6px}.login-fields input{min-height:40px;padding:8px;font-size:13px}.account-title>.row{display:flex!important;grid-template-columns:none!important}.account-actions{gap:6px}.account-actions button{min-height:40px;font-size:13px}}
-@media(max-width:390px){.login-fields{grid-template-columns:1fr}.account{padding:8px}.account-title b{font-size:13px}}
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #07090e;
+    color: #f1f5f9;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input, button {
+    outline: none;
+  }
+  input:focus, button:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+  }
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0b0f19;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <div class="card">
-    <h1>⚡ MIG Duel Kick 10</h1>
-    <div class="muted">10 Troop • WebSocket resmi MigReborn • Room • Participants • Target Vote-Kick</div>
-  </div>
+<body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
-  <div class="card">
-    <h3>1. Generate Troop</h3>
-    <div class="action-row">
-      <input id="mainTroop" placeholder="Main troop" autocomplete="off">
-      <button id="generateTroop">GENERATE TROOP</button>
-    </div>
-    <div class="action-row" style="margin-top:8px">
-      <div class="main-password-row">
-        <input id="mainPassword" type="password" placeholder="Main password" autocomplete="off">
+<div class="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
+  
+  <!-- Header Card -->
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+    <div class="absolute -right-12 -top-12 w-48 h-48 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="relative z-10 flex flex-col items-center">
+      <div class="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl shadow-blue-900/30 mb-3.5 sm:mb-4 border border-blue-400/30">
+        <svg class="w-7 h-7 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       </div>
-      <button id="generatePassword">GENERATE PASSWORD</button>
+      <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-indigo-500">
+        MIGMASTER PROTOTIPE 1.0
+      </h1>
+      <p class="text-xs sm:text-sm text-slate-400 mt-2 max-w-lg leading-relaxed px-2">
+        
+      </p>
     </div>
-    <div class="action-row range-action-row" style="margin-top:8px">
-      <div class="range-inputs">
-        <input id="rangeStart" type="number" step="1" inputmode="numeric" value="1" placeholder="Mulai">
-        <span class="dash">sampai</span>
-        <input id="rangeEnd" type="number" step="1" inputmode="numeric" value="10" placeholder="Akhir">
+  </div>
+
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+        
+      
+      </h3>
+    </div>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400">Main troop</label>
+        <input id="mainTroop" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Contoh: u1" autocomplete="off">
       </div>
-      <button class="danger" id="clearFields">DELETE</button>
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400">Main password</label>
+        <div class="flex gap-2">
+          <input id="mainPassword" type="password" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Password akun" autocomplete="off">
+          <button id="generatePassword" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
+        </div>
+      </div>
     </div>
-    <div class="hint">Angka mulai dan akhir harus membentuk tepat 10 nomor. Contoh 1–10, 11–20, 50–59, atau 20–11. Nama troop yang dibuat = Main troop + nomor.</div>
-    <div class="accounts-list" id="accounts"></div>
-    <div class="hint">LOGIN ALL, JOIN ALL, LEAVE ALL, PARTICIPANTS, dan CEK SALDO dikirim sebagai satu perintah batch; server meneruskannya bersamaan ke WebSocket Troop yang aktif.</div>
-    <div class="row" style="margin-top:10px">
-      <button id="loginAll">LOGIN ALL</button>
-      <button class="danger" id="logoutAll">LOGOUT ALL</button>
+
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 pt-3 border-t border-slate-800/60">
+      <div class="flex items-center gap-2.5 justify-between sm:justify-start">
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-400">Mulai</label>
+          <input id="rangeStart" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
+        </div>
+        <span class="text-slate-500 mt-6 text-xs font-medium">s/d</span>
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-400">Akhir</label>
+          <input id="rangeEnd" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="generateTroop" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          GENERATE TROOP
+        </button>
+        <button id="clearFields" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold px-3.5 py-3 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center" title="Hapus Semua">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Accounts List Container -->
+    <div id="accounts" class="space-y-2.5 pt-1"></div>
+
+    <div class="flex flex-row gap-2.5 pt-3 border-t border-slate-800/60">
+      <button id="loginAll" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        LOGIN ALL
+      </button>
+      <button id="logoutAll" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        LOGOUT ALL
+      </button>
     </div>
   </div>
 
-  <div class="card">
-    <h3>2. Save / Load Troop</h3>
-    <div class="save-row">
-      <input id="saveName" value="troop1" placeholder="Nama save">
-      <button id="saveAccounts">SAVE</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" id="loadAccounts">LOAD</button>
-      <input id="loadFile" class="file-input" type="file" accept="application/json,.json">
-    </div>
-    <div class="hint">Nama save tidak menampilkan .json. Saat disimpan, ekstensi .json ditambahkan otomatis.</div>
-  </div>
-
-  <div class="card">
-    <h3>3. Room</h3>
-    <div class="row">
-      <input id="room" placeholder="Nama room">
-      <button onclick="joinAll()">JOIN ALL</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" onclick="leaveAll()">LEAVE ALL</button>
-      <button class="secondary" onclick="participants()">LIST TARGET</button>
-      <button class="secondary" onclick="balanceAll()">CEK SALDO</button>
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <div class="flex items-center gap-2">
+      <input id="saveName" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" value="troop1" placeholder="Nama file save">
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="saveAccounts" class="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Save JSON">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        </button>
+        <button id="loadAccounts" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-3 rounded-xl transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Load JSON">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        </button>
+      </div>
+      <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
     </div>
   </div>
 
-  <div class="card">
-    <h3>4. List Target</h3>
-    <div class="muted">Centang peserta lalu pindahkan ke list target kick.</div>
-    <div class="participants" id="participantsList"><div class="empty">Belum ada data participants.</div></div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="moveCheckedToTargets()">PINDAHKAN KE TARGET</button>
-      <button class="secondary" onclick="clearParticipants()">BERSIHKAN LIST</button>
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <div class="flex flex-col sm:flex-row gap-2.5">
+      <input id="room" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
+      <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
+        <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
+        <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
+      </div>
     </div>
-    <div class="event-box" id="apiEvent">Menunggu event dari WebSocket resmi MigReborn…</div>
+    <div class="grid grid-cols-2 gap-2.5">
+      <button onclick="participants()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">LIST PESERTA</button>
+      <button onclick="balanceAll()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">CEK SALDO ALL</button>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>5. List Target Kick</h3>
-    <div class="target-list" id="targetList"><div class="empty">Belum ada target.</div></div>
-    <div class="row" style="margin-top:8px">
-      <button onclick="kickSelectedTargets()">VOTE-KICK TARGET TERPILIH</button>
-      <button class="danger" onclick="clearTargets()">HAPUS SEMUA TARGET</button>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+    
+    <!-- Participants Column -->
+    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm sm:text-base font-bold text-slate-200">Participants</h3>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Centang untuk pilih</span>
+      </div>
+      <div id="participantsList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
+        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="moveCheckedToTargets()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md shadow-blue-600/20 active:scale-95">PINDAHKAN KE TARGET</button>
+        <button onclick="clearParticipants()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold py-2.5 px-3.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-11 h-11 shrink-0" title="Bersihkan List">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="hint">Menggunakan command resmi <b>room.kick</b>, yaitu vote-kick.</div>
+
+    <!-- Target Kick Column -->
+    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm sm:text-base font-bold text-slate-200">Target Kick</h3>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Daftar Eksekusi</span>
+      </div>
+      <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
+        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="kickSelectedTargets()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
+        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold py-2.5 px-3.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-11 h-11 shrink-0" title="Hapus Semua Target">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    </div>
+
   </div>
 
-  <div class="card"><h3>Log</h3><div class="log" id="log"></div></div>
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <h3 class="text-sm sm:text-base font-bold text-slate-200">Live API Event</h3>
+    <div id="apiEvent" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 max-h-24 overflow-y-auto whitespace-pre-wrap">Menunggu event dari WebSocket resmi MigReborn…</div>
+    
+    <h3 class="text-sm sm:text-base font-bold text-slate-200 pt-1">System Log</h3>
+    <div id="log" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 h-28 overflow-y-auto whitespace-pre-wrap"></div>
+  </div>
+
 </div>
 
 <script>
-const accounts=Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
-const targets=[];
-const participantNames=[];
-const el=id=>document.getElementById(id);
-const log=msg=>{const t=new Date().toLocaleTimeString();el("log").textContent=`[${t}] ${msg}\n`+el("log").textContent;};
-function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");}
-function sync(){for(let i=0;i<10;i++){if(el(`u${i}`))accounts[i].username=el(`u${i}`).value.trim();if(el(`p${i}`))accounts[i].password=el(`p${i}`).value;}}
-function renderAccounts(){
-  el("accounts").innerHTML=accounts.map((a,i)=>`
-    <div class="account login-list-item">
-      <div class="account-title"><b>Troop ${i+1}</b><div class="row" style="align-items:center;gap:6px;justify-content:flex-end"><div id="b${i}" class="balance-caption">${esc(a.balance)}</div><span id="status${i}" class="status-pill ${a.sessionId?"online":""}">${a.sessionId?"ONLINE":"OFFLINE"}</span></div></div>
-      <div class="login-fields">
-        <input id="u${i}" value="${esc(a.username)}" placeholder="Nama troop" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" placeholder="Password" autocomplete="off">
-      </div>
-      <div class="account-actions"><button onclick="loginOne(${i})">LOGIN</button><button class="danger" onclick="logoutOne(${i})">LOGOUT</button></div>
-    </div>`).join("");
+const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
+const targets = [];
+const participantNames = [];
+const el = id => document.getElementById(id);
+
+const log = msg => {
+  const t = new Date().toLocaleTimeString();
+  const logEl = el("log");
+  if(logEl) logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
+};
+
+function esc(v){
+  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
 }
-function setStatus(i,text,kind=""){const s=el(`status${i}`);if(!s)return;s.textContent=text;s.className=`status-pill ${kind}`;}
-function setBalance(i,label){accounts[i].balance=label||"-";const b=el(`b${i}`);if(b)b.textContent=accounts[i].balance;}
+
+function sync(){
+  for(let i=0; i<10; i++){
+    if(el(`u${i}`)) accounts[i].username = el(`u${i}`).value.trim();
+    if(el(`p${i}`)) accounts[i].password = el(`p${i}`).value;
+  }
+}
+
+function renderAccounts(){
+  el("accounts").innerHTML = accounts.map((a, i) => `
+    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-3 space-y-2.5 transition-all hover:border-slate-700">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
+        <div class="flex items-center gap-2">
+          <span id="b${i}" class="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md">${esc(a.balance)}</span>
+          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
+        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
+      </div>
+      <div class="flex gap-2 pt-0.5">
+        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGIN</button>
+        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGOUT</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function setStatus(i, text, kind=""){
+  const s = el(`status${i}`);
+  if(!s) return;
+  s.textContent = text;
+  if(kind === "online") {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
+  } else if(kind === "error") {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
+  } else {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
+  }
+}
+
+function setBalance(i, label){
+  accounts[i].balance = label || "-";
+  const b = el(`b${i}`);
+  if(b) b.textContent = accounts[i].balance;
+}
 
 function validRange(){
-  const rawStart=el("rangeStart").value.trim();
-  const rawEnd=el("rangeEnd").value.trim();
-  if(rawStart==="")return null;
-  const start=Number(rawStart);
-  if(!Number.isSafeInteger(start)||start<0)return null;
-  let end=rawEnd===""?start+9:Number(rawEnd);
-  if(!Number.isSafeInteger(end))return null;
-  // Generate exactly 10 troop slots. The important input is the starting number;
-  // an invalid/longer end range is normalized to start..start+9 instead of
-  // making the button appear unresponsive. This also fixes starts such as 10, 20, 100, etc.
-  const step=end>=start?1:-1;
-  end=start+step*9;
-  return {start,end,step};
+  const rawStart = el("rangeStart").value.trim();
+  const rawEnd = el("rangeEnd").value.trim();
+  if(rawStart === "") return null;
+  const start = Number(rawStart);
+  if(!Number.isSafeInteger(start) || start < 0) return null;
+  let end = rawEnd === "" ? start + 9 : Number(rawEnd);
+  if(!Number.isSafeInteger(end)) return null;
+  const step = end >= start ? 1 : -1;
+  end = start + step * 9;
+  return {start, end, step};
 }
+
 function generateTroop(){
   sync();
-  const main=el("mainTroop").value.trim();
-  if(!main){log("Generate Troop gagal: isi Main troop terlebih dahulu.");return;}
-  const range=validRange();
-  if(!range){log("Generate Troop gagal: angka mulai harus berupa bilangan bulat yang valid.");return;}
-  el("rangeEnd").value=String(range.end);
-  for(let i=0;i<10;i++)accounts[i].username=main+String(range.start+i*range.step);
+  const main = el("mainTroop").value.trim();
+  if(!main){ log("Generate Troop gagal: isi Main troop terlebih dahulu."); return; }
+  const range = validRange();
+  if(!range){ log("Generate Troop gagal: angka mulai harus berupa bilangan bulat yang valid."); return; }
+  el("rangeEnd").value = String(range.end);
+  for(let i=0; i<10; i++){
+    accounts[i].username = main + String(range.start + i * range.step);
+  }
   renderAccounts();
   log(`Generate Troop berhasil: ${accounts[0].username} sampai ${accounts[9].username}.`);
 }
+
 function generatePassword(){
   sync();
-  const p=el("mainPassword").value;
-  if(!p){log("Generate Password gagal: isi Main password terlebih dahulu.");return;}
-  for(let i=0;i<10;i++)accounts[i].password=p;
+  const p = el("mainPassword").value;
+  if(!p){ log("Generate Password gagal: isi Main password terlebih dahulu."); return; }
+  for(let i=0; i<10; i++){
+    accounts[i].password = p;
+  }
   renderAccounts();
   log("Generate Password: Main password disalin ke semua 10 troop.");
 }
+
 function clearFields(){
-  for(let i=0;i<10;i++){accounts[i].username="";accounts[i].password="";accounts[i].balance="-";}
-  el("mainTroop").value="";el("mainPassword").value="";renderAccounts();log("Semua field troop dikosongkan.");
+  for(let i=0; i<10; i++){
+    accounts[i].username = "";
+    accounts[i].password = "";
+    accounts[i].balance = "-";
+  }
+  el("mainTroop").value = "";
+  el("mainPassword").value = "";
+  renderAccounts();
+  log("Semua field troop dikosongkan.");
 }
 
 function openEvents(i){
-  const a=accounts[i];if(!a.sessionId)return;
-  if(a.eventSource)try{a.eventSource.close();}catch{}
-  const es=new EventSource(`/api/events?sessionId=${encodeURIComponent(a.sessionId)}`);a.eventSource=es;
-  es.onmessage=e=>{try{const wrapper=JSON.parse(e.data);const msg=wrapper.event||wrapper;handleApiEvent(i,msg);}catch{}};
-  es.onerror=()=>{};
+  const a = accounts[i];
+  if(!a.sessionId) return;
+  if(a.eventSource) try{ a.eventSource.close(); }catch{}
+  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(a.sessionId)}`);
+  a.eventSource = es;
+  es.onmessage = e => {
+    try{
+      const wrapper = JSON.parse(e.data);
+      const msg = wrapper.event || wrapper;
+      handleApiEvent(i, msg);
+    }catch{}
+  };
+  es.onerror = () => {};
 }
-function handleApiEvent(i,msg){
-  el("apiEvent").textContent=`Troop ${i+1} ← ${JSON.stringify(msg,null,2)}`;
-  if(msg.type==="wallet.balance.result"||msg.type==="wallet.transfer.result"){
-    const w=msg.data?.wallet;
-    if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);
-  }
-  if(msg.type==="session.replaced"){setStatus(i,"OFFLINE");accounts[i].sessionId=null;setBalance(i,"-");}
 
-  // room.participants is a direct API response. Accept the documented result
-  // event and tolerate the response nesting used by the live API.
+function handleApiEvent(i, msg){
+  el("apiEvent").textContent = `Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`;
+  if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
+    const w = msg.data?.wallet;
+    if(w?.label) setBalance(i, w.label);
+    else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+  }
+  if(msg.type === "session.replaced"){
+    setStatus(i, "OFFLINE");
+    accounts[i].sessionId = null;
+    setBalance(i, "-");
+  }
   if(String(msg.type||"").includes("participants") || hasParticipantContainer(msg.data)){
-    const list=extractParticipantNames(msg);
+    const list = extractParticipantNames(msg);
     if(list.length){
       renderParticipants(list);
       log(`Participants diterima dari Troop ${i+1}: ${list.length} peserta.`);
-    } else if(String(msg.type||"").includes("participants")){
-      if(!participantNames.length) renderParticipants([], false);
-      log("Response room.participants diterima tetapi daftar peserta kosong/tidak terbaca.");
     }
   }
 }
+
 function hasParticipantContainer(data){
-  if(!data||typeof data!=="object")return false;
-  return ["participants","participant","members","users"].some(k=>Object.prototype.hasOwnProperty.call(data,k));
+  if(!data || typeof data !== "object") return false;
+  return ["participants", "participant", "members", "users"].some(k => Object.prototype.hasOwnProperty.call(data, k));
 }
+
 function extractParticipantNames(msg){
-  const found=[];const seen=new Set();
-  const add=v=>{if(typeof v!=="string")return;const n=v.trim();if(n&&!seen.has(n)){seen.add(n);found.push(n);}};
-  function walk(v,depth,participantContext=false){
-    if(depth>10||v==null)return;
-    if(Array.isArray(v)){for(const x of v)walk(x,depth+1,participantContext);return;}
-    if(typeof v!=="object")return;
-    const keys=Object.keys(v);
-    const ctx=participantContext || keys.some(k=>["participants","participant","members","users"].includes(k));
-    if(ctx && typeof v.username==="string")add(v.username);
-    if(ctx && typeof v.user_name==="string")add(v.user_name);
-    if(ctx && typeof v.name==="string" && keys.some(k=>["user_id","userId","username","user_name"].includes(k)))add(v.name);
-    for(const [k,val] of Object.entries(v)){
-      if(["password","permissions","wallet"].includes(k))continue;
-      const childCtx=ctx || ["participants","participant","members","users","items","result","data"].includes(k);
-      walk(val,depth+1,childCtx);
+  const found = [];
+  const seen = new Set();
+  const add = v => {
+    if(typeof v !== "string") return;
+    const n = v.trim();
+    if(n && !seen.has(n)){ seen.add(n); found.push(n); }
+  };
+  function walk(v, depth, participantContext=false){
+    if(depth > 10 || v == null) return;
+    if(Array.isArray(v)){ for(const x of v) walk(x, depth+1, participantContext); return; }
+    if(typeof v !== "object") return;
+    const keys = Object.keys(v);
+    const ctx = participantContext || keys.some(k => ["participants","participant","members","users"].includes(k));
+    if(ctx && typeof v.username === "string") add(v.username);
+    if(ctx && typeof v.user_name === "string") add(v.user_name);
+    if(ctx && typeof v.name === "string" && keys.some(k => ["user_id","userId","username","user_name"].includes(k))) add(v.name);
+    for(const [k, val] of Object.entries(v)){
+      if(["password","permissions","wallet"].includes(k)) continue;
+      const childCtx = ctx || ["participants","participant","members","users","items","result","data"].includes(k);
+      walk(val, depth+1, childCtx);
     }
   }
-  walk(msg,0,String(msg?.type||"").includes("participants"));
+  walk(msg, 0, String(msg?.type||"").includes("participants"));
   return found;
 }
+
 function renderParticipants(list, merge=true){
-  const combined=merge?[...participantNames,...list]:list;
-  const unique=[...new Set(combined.filter(Boolean))];participantNames.length=0;participantNames.push(...unique);
-  if(!unique.length){el("participantsList").innerHTML='<div class="empty">Tidak ada peserta.</div>';return;}
-  el("participantsList").innerHTML=unique.map((n,i)=>`<label class="participant"><input type="checkbox" class="participant-check" data-name="${esc(n)}"><span class="participant-name">${esc(n)}</span></label>`).join("");
+  const combined = merge ? [...participantNames, ...list] : list;
+  const unique = [...new Set(combined.filter(Boolean))];
+  participantNames.length = 0;
+  participantNames.push(...unique);
+  if(!unique.length){
+    el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Tidak ada peserta.</div>';
+    return;
+  }
+  el("participantsList").innerHTML = unique.map(n => `
+    <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
+      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
+      <span class="text-xs sm:text-sm text-slate-200 truncate">${esc(n)}</span>
+    </label>
+  `).join("");
 }
-function clearParticipants(){participantNames.length=0;el("participantsList").innerHTML='<div class="empty">Belum ada data participants.</div>';}
+
+function clearParticipants(){
+  participantNames.length = 0;
+  el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>';
+}
+
 function moveCheckedToTargets(){
-  document.querySelectorAll(".participant-check:checked").forEach(c=>{const n=c.dataset.name;if(n&&!targets.includes(n))targets.push(n);});
+  document.querySelectorAll(".participant-check:checked").forEach(c => {
+    const n = c.dataset.name;
+    if(n && !targets.includes(n)) targets.push(n);
+  });
   renderTargets();
 }
+
 function renderTargets(){
-  el("targetList").innerHTML=targets.length?targets.map((n,i)=>`<label class="target-item"><input type="checkbox" class="target-check" data-name="${esc(n)}" checked><span class="target-number">${String(i+1).padStart(2,"0")}</span><span class="target-name">${esc(n)}</span></label>`).join(""): '<div class="empty">Belum ada target.</div>';
+  el("targetList").innerHTML = targets.length ? targets.map((n, i) => `
+    <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80">
+      <span class="text-[11px] font-mono font-bold text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">${String(i+1).padStart(2,"0")}</span>
+      <span class="text-xs sm:text-sm text-slate-200 truncate flex-1">${esc(n)}</span>
+    </div>
+  `).join("") : '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>';
 }
-function clearTargets(){targets.length=0;renderTargets();}
+
+function clearTargets(){
+  targets.length = 0;
+  renderTargets();
+}
 
 async function loginOne(i){
-  sync();const a=accounts[i];
-  if(!a.username||!a.password){log(`Troop ${i+1}: nama dan password wajib diisi.`);return;}
-  if(a.sessionId)await logoutOne(i,true);
-  setStatus(i,"LOGIN…");
+  sync();
+  const a = accounts[i];
+  if(!a.username || !a.password){ log(`Troop ${i+1}: nama dan password wajib diisi.`); return; }
+  if(a.sessionId) await logoutOne(i, true);
+  setStatus(i, "LOGIN…");
   try{
-    const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:a.username,password:a.password})});
-    const j=await r.json();if(!j.ok)throw new Error(j.error||"Login gagal");
-    a.sessionId=j.account.sessionId;const w=j.account.wallet;
-    if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);else setBalance(i,"-");
-    setStatus(i,"ONLINE","online");openEvents(i);log(`Troop ${i+1} ${a.username}: ONLINE`);
-  }catch(e){setStatus(i,"OFFLINE","error");log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);}
+    const r = await fetch("/api/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:a.username, password:a.password})});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || "Login gagal");
+    a.sessionId = j.account.sessionId;
+    const w = j.account.wallet;
+    if(w?.label) setBalance(i, w.label);
+    else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+    else setBalance(i, "-");
+    setStatus(i, "ONLINE", "online");
+    openEvents(i);
+    log(`Troop ${i+1} ${a.username}: ONLINE`);
+  }catch(e){
+    setStatus(i, "OFFLINE", "error");
+    log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);
+  }
 }
-async function logoutOne(i,silent=false){
-  const a=accounts[i];if(a.eventSource)try{a.eventSource.close();}catch{}a.eventSource=null;
-  if(a.sessionId){try{await fetch("/api/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId})});}catch{}}
-  a.sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");if(!silent)log(`Troop ${i+1}: LOGOUT`);
+
+async function logoutOne(i, silent=false){
+  const a = accounts[i];
+  if(a.eventSource) try{ a.eventSource.close(); }catch{}
+  a.eventSource = null;
+  if(a.sessionId){
+    try{ await fetch("/api/logout", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId:a.sessionId})}); }catch{}
+  }
+  a.sessionId = null;
+  setStatus(i, "OFFLINE");
+  setBalance(i, "-");
+  if(!silent) log(`Troop ${i+1}: LOGOUT`);
 }
-async function batchAction(action, extra = {}){
-  const ids=accounts.map(a=>a.sessionId).filter(Boolean);
-  if(!ids.length){log(`${action.toUpperCase()}: tidak ada Troop yang ONLINE.`);return null;}
+
+async function batchAction(action, extra={}){
+  const ids = accounts.map(a => a.sessionId).filter(Boolean);
+  if(!ids.length){ log(`${action.toUpperCase()}: tidak ada Troop yang ONLINE.`); return null; }
   try{
-    const r=await fetch("/api/batch-action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionIds:ids,action,...extra})});
-    const j=await r.json();
-    if(!j.ok){log(`${action.toUpperCase()} gagal: ${j.error||"Tidak ada session aktif."}`);return null;}
+    const r = await fetch("/api/batch-action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds:ids, action, ...extra})});
+    const j = await r.json();
+    if(!j.ok){ log(`${action.toUpperCase()} gagal: ${j.error||"Tidak ada session aktif."}`); return null; }
     log(`${action.toUpperCase()}: ${j.sent}/${j.total} WebSocket diperintah bersamaan.`);
     return j;
-  }catch(e){log(`${action.toUpperCase()} gagal - ${e.message}`);return null;}
+  }catch(e){
+    log(`${action.toUpperCase()} gagal - ${e.message}`);
+    return null;
+  }
 }
 
 async function loginAll(){
   sync();
-  const list=accounts.map((a,i)=>({index:i,username:a.username,password:a.password,sessionId:a.sessionId})).filter(a=>a.username&&a.password);
-  if(!list.length){log("LOGIN ALL: isi minimal satu Troop.");return;}
-  list.forEach(a=>setStatus(a.index,"LOGIN…"));
+  const list = accounts.map((a, i) => ({index:i, username:a.username, password:a.password, sessionId:a.sessionId})).filter(a => a.username && a.password);
+  if(!list.length){ log("LOGIN ALL: isi minimal satu Troop."); return; }
+  list.forEach(a => setStatus(a.index, "LOGIN…"));
   try{
-    const r=await fetch("/api/login-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accounts:list})});
-    const j=await r.json();
-    for(const item of (j.results||[])){
-      const i=item.index;
+    const r = await fetch("/api/login-batch", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({accounts:list})});
+    const j = await r.json();
+    for(const item of (j.results || [])){
+      const i = item.index;
       if(item.ok){
-        accounts[i].sessionId=item.account.sessionId;
-        const w=item.account.wallet;
-        if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);else setBalance(i,"-");
-        setStatus(i,"ONLINE","online");openEvents(i);
-      }else{accounts[i].sessionId=null;setStatus(i,"OFFLINE","error");setBalance(i,"-");}
+        accounts[i].sessionId = item.account.sessionId;
+        const w = item.account.wallet;
+        if(w?.label) setBalance(i, w.label);
+        else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+        else setBalance(i, "-");
+        setStatus(i, "ONLINE", "online");
+        openEvents(i);
+      } else {
+        accounts[i].sessionId = null;
+        setStatus(i, "OFFLINE", "error");
+        setBalance(i, "-");
+      }
     }
-    const ok=(j.results||[]).filter(x=>x.ok).length, total=(j.results||[]).length;
+    const ok = (j.results || []).filter(x => x.ok).length;
+    const total = (j.results || []).length;
     log(`LOGIN ALL: ${ok}/${total} Troop login bersamaan.`);
-    for(const item of (j.results||[])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN GAGAL - ${item.error}`);
-  }catch(e){for(const a of list)setStatus(a.index,"OFFLINE","error");log(`LOGIN ALL gagal - ${e.message}`);}
+    for(const item of (j.results || [])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN GAGAL - ${item.error}`);
+  }catch(e){
+    for(const a of list) setStatus(a.index, "OFFLINE", "error");
+    log(`LOGIN ALL gagal - ${e.message}`);
+  }
 }
 
 async function logoutAll(){
-  const ids=accounts.map(a=>a.sessionId).filter(Boolean);
-  accounts.forEach(a=>{if(a.eventSource)try{a.eventSource.close()}catch{}a.eventSource=null;});
-  try{await fetch("/api/logout-batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionIds:ids})});}catch{}
-  for(let i=0;i<10;i++){accounts[i].sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");}
+  const ids = accounts.map(a => a.sessionId).filter(Boolean);
+  accounts.forEach(a => { if(a.eventSource) try{ a.eventSource.close(); }catch{}; a.eventSource = null; });
+  try{ await fetch("/api/logout-batch", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds:ids})}); }catch{}
+  for(let i=0; i<10; i++){
+    accounts[i].sessionId = null;
+    setStatus(i, "OFFLINE");
+    setBalance(i, "-");
+  }
   log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
 }
 
-async function loginOne(i){
-  sync();const a=accounts[i];
-  if(!a.username||!a.password){log(`Troop ${i+1}: nama dan password wajib diisi.`);return;}
-  if(a.sessionId)await logoutOne(i,true);
-  setStatus(i,"LOGIN…");
-  try{
-    const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:a.username,password:a.password})});
-    const j=await r.json();if(!j.ok)throw new Error(j.error||"Login gagal");
-    a.sessionId=j.account.sessionId;const w=j.account.wallet;
-    if(w?.label)setBalance(i,w.label);else if(w?.balance_cr!=null)setBalance(i,`${w.balance_cr} CR`);else setBalance(i,"-");
-    setStatus(i,"ONLINE","online");openEvents(i);log(`Troop ${i+1} ${a.username}: ONLINE`);
-  }catch(e){setStatus(i,"OFFLINE","error");log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);}
-}
-async function logoutOne(i,silent=false){
-  const a=accounts[i];if(a.eventSource)try{a.eventSource.close()}catch{}a.eventSource=null;
-  if(a.sessionId){try{await fetch("/api/logout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId})});}catch{}}
-  a.sessionId=null;setStatus(i,"OFFLINE");setBalance(i,"-");if(!silent)log(`Troop ${i+1}: LOGOUT`);
-}
-el("loginAll").onclick=loginAll;
-el("logoutAll").onclick=logoutAll;
+el("generateTroop").onclick = generateTroop;
+el("generatePassword").onclick = generatePassword;
+el("clearFields").onclick = clearFields;
 
-async function action(i,action,extra={}){
-  const a=accounts[i];if(!a.sessionId)return;
-  try{const r=await fetch("/api/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:a.sessionId,action,...extra})});const j=await r.json();if(!j.ok)log(`Troop ${i+1}: ${j.error}`);else log(`Troop ${i+1}: ${action} terkirim`);}catch(e){log(`Troop ${i+1}: ${action} gagal - ${e.message}`);}
-}
-async function joinAll(){const room=el("room").value.trim();if(!room){log("JOIN ALL: nama room belum diisi.");return;}await batchAction("join",{room});}
-async function leaveAll(){const room=el("room").value.trim();if(!room){log("LEAVE ALL: nama room belum diisi.");return;}await batchAction("leave",{room});}
-async function participants(){const room=el("room").value.trim();if(!room){log("PARTICIPANTS: nama room belum diisi.");return;}clearParticipants();await batchAction("participants",{room});}
-async function balanceAll(){await batchAction("balance");}
-async function kickSelectedTargets(){
-  const room=el("room").value.trim();if(!room){log("VOTE-KICK: nama room belum diisi.");return;}
-  const selected=[...document.querySelectorAll(".target-check:checked")].map(x=>x.dataset.name).filter(Boolean);
-  if(!selected.length){log("VOTE-KICK: belum ada target terpilih.");return;}
-  for(const target of selected) await batchAction("kick",{room,targetUsername:target});
-}
-function saveAccounts(){
+el("saveAccounts").onclick = function(){
   sync();
-  let name=el("saveName").value.trim()||"troop1";name=name.replace(/\.json$/i,"")||"troop1";
-  const data={app:"MIG Duel Kick 10",version:5,savedAt:new Date().toISOString(),mainTroop:el("mainTroop").value.trim(),mainPassword:el("mainPassword").value,rangeStart:el("rangeStart").value,rangeEnd:el("rangeEnd").value,accounts:accounts.map(a=>({username:a.username,password:a.password}))};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=name+".json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);log(`Save berhasil: ${name}`);
+  let name = el("saveName").value.trim() || "troop1";
+  name = name.replace(/\.json$/i, "") || "troop1";
+  const data = {
+    app: "MIGMASTER PROTOTIPE 1.0",
+    version: 5,
+    savedAt: new Date().toISOString(),
+    mainTroop: el("mainTroop").value.trim(),
+    mainPassword: el("mainPassword").value,
+    rangeStart: el("rangeStart").value,
+    rangeEnd: el("rangeEnd").value,
+    accounts: accounts.map(a => ({username:a.username, password:a.password}))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name + ".json";
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  log(`Save berhasil: ${name}`);
+};
+
+el("loadAccounts").onclick = ()=> el("loadFile").click();
+el("loadFile").onchange = e => {
+  const file = e.target.files[0];
+  if(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+        if(!Array.isArray(data.accounts)) throw new Error("Format save tidak valid.");
+        el("mainTroop").value = String(data.mainTroop || "");
+        el("mainPassword").value = String(data.mainPassword || "");
+        el("rangeStart").value = String(data.rangeStart ?? "1");
+        el("rangeEnd").value = String(data.rangeEnd ?? "10");
+        for(let i=0; i<10; i++){
+          const a = data.accounts[i] || {};
+          accounts[i].username = String(a.username || "");
+          accounts[i].password = String(a.password || "");
+          accounts[i].balance = "-";
+        }
+        const base = file.name.replace(/\.json$/i, "");
+        el("saveName").value = base || "troop1";
+        renderAccounts();
+        log(`Load berhasil: ${file.name}`);
+      }catch(err){
+        log(`Load gagal: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+  e.target.value = "";
+};
+
+el("loginAll").onclick = loginAll;
+el("logoutAll").onclick = logoutAll;
+
+async function joinAll(){
+  const room = el("room").value.trim();
+  if(!room){ log("JOIN ALL: nama room belum diisi."); return; }
+  await batchAction("join", {room});
 }
-function loadAccountsFromFile(file){
-  const reader=new FileReader();reader.onload=()=>{try{
-    const data=JSON.parse(reader.result);if(!Array.isArray(data.accounts))throw new Error("Format save tidak valid.");
-    el("mainTroop").value=String(data.mainTroop||"");el("mainPassword").value=String(data.mainPassword||"");el("rangeStart").value=String(data.rangeStart??"1");el("rangeEnd").value=String(data.rangeEnd??"10");
-    for(let i=0;i<10;i++){const a=data.accounts[i]||{};accounts[i].username=String(a.username||"");accounts[i].password=String(a.password||"");accounts[i].balance="-";}
-    const base=file.name.replace(/\.json$/i,"");el("saveName").value=base||"troop1";renderAccounts();log(`Load berhasil: ${file.name}`);
-  }catch(e){log(`Load gagal: ${e.message}`);}};reader.readAsText(file);
+
+async function leaveAll(){
+  const room = el("room").value.trim();
+  if(!room){ log("LEAVE ALL: nama room belum diisi."); return; }
+  await batchAction("leave", {room});
 }
-el("generateTroop").onclick=generateTroop;el("generatePassword").onclick=generatePassword;el("clearFields").onclick=clearFields;el("saveAccounts").onclick=saveAccounts;el("loadAccounts").onclick=()=>el("loadFile").click();el("loadFile").onchange=e=>{if(e.target.files[0])loadAccountsFromFile(e.target.files[0]);e.target.value=""};
-renderAccounts();renderTargets();
+
+async function participants(){
+  const room = el("room").value.trim();
+  if(!room){ log("PARTICIPANTS: nama room belum diisi."); return; }
+  clearParticipants();
+  await batchAction("participants", {room});
+}
+
+async function balanceAll(){
+  await batchAction("balance");
+}
+
+async function kickSelectedTargets(){
+  const room = el("room").value.trim();
+  if(!room){ log("KICK ALL: nama room belum diisi."); return; }
+  if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
+  for(const target of targets){
+    await batchAction("kick", {room, targetUsername: target});
+  }
+  log(`KICK ALL: Memerintahkan vote-kick untuk ${targets.length} target.`);
+}
+
+renderAccounts();
+renderTargets();
 </script>
 </body>
 </html>
