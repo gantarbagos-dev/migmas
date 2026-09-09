@@ -191,7 +191,7 @@
       <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
         <div class="min-w-0">
           <button onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
-          <div id="kickTimerDisplay" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
+          <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
         </div>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
@@ -205,7 +205,7 @@
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
           <input id="kickLoop" type="number" min="1" step="1" value="1" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
-        <button onclick="resetKickTimer()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
+        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
@@ -232,47 +232,6 @@ const accounts = Array.from({length:10},()=>({sessionId:null,username:"",passwor
 const targets = [];
 const participantNames = [];
 const el = id => document.getElementById(id);
-const TIMER_START = 60000;
-let timerValue = TIMER_START;
-let timerRunning = false;
-let timerStartedAt = 0;
-let timerFrame = 0;
-
-function renderKickTimer(){
-  const node = el("kickTimerDisplay");
-  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue)));
-}
-
-function resetKickTimer(){
-  timerValue = TIMER_START;
-  timerRunning = false;
-  timerStartedAt = 0;
-  if(timerFrame) cancelAnimationFrame(timerFrame);
-  timerFrame = 0;
-  renderKickTimer();
-}
-
-function startCountdown(){
-  if(timerRunning) return;
-  timerRunning = true;
-  timerStartedAt = performance.now();
-  const tick = now => {
-    if(!timerRunning) return;
-    timerValue = Math.max(0, TIMER_START - (now - timerStartedAt));
-    renderKickTimer();
-    if(timerValue <= 0){
-      timerValue = 0;
-      timerRunning = false;
-      timerFrame = 0;
-      renderKickTimer();
-      return;
-    }
-    timerFrame = requestAnimationFrame(tick);
-  };
-  timerFrame = requestAnimationFrame(tick);
-}
-
-renderKickTimer();
 
 const log = msg => {
   const t = new Date().toLocaleTimeString();
@@ -398,11 +357,52 @@ function openEvents(i){
   es.onerror = () => {};
 }
 
+const TIMER_START = 60000;
+let timerValue = TIMER_START;
+let timerRunning = false;
+let timerStartedAt = 0;
+let timerFrame = 0;
+
+function renderTimer(){
+  const node = el("timerValue");
+  if(node) node.textContent = String(timerValue);
+}
+
+function resetTimer(){
+  timerRunning = false;
+  if(timerFrame) cancelAnimationFrame(timerFrame);
+  timerFrame = 0;
+  timerValue = TIMER_START;
+  renderTimer();
+}
+
+function startCountdown(){
+  if(timerRunning) return;
+  timerRunning = true;
+  timerStartedAt = performance.now();
+  const tick = (now) => {
+    if(!timerRunning) return;
+    timerValue = Math.max(0, TIMER_START - Math.floor(now - timerStartedAt));
+    renderTimer();
+    if(timerValue === 0){
+      timerRunning = false;
+      timerFrame = 0;
+      return;
+    }
+    timerFrame = requestAnimationFrame(tick);
+  };
+  timerFrame = requestAnimationFrame(tick);
+}
+
 function handleApiEvent(i, msg){
   el("apiEvent").textContent = `Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`;
-  const roomName = el("room")?.value?.trim() || "";
-  const event = msg?.event || msg;
-  if (event?.event_type === "room.message.received" && event?.username === roomName && typeof event?.text === "string" && event.text.includes("A vote to kick")) {
+  const roomName = el("room")?.value.trim();
+  if(
+    msg?.event_type === "room.message.received" &&
+    msg?.username === roomName &&
+    typeof msg?.text === "string" &&
+    msg.text.includes("A vote to kick")
+  ){
     startCountdown();
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
@@ -721,6 +721,7 @@ async function kickSelectedTargets(){
 
 renderAccounts();
 renderTargets();
+renderTimer();
 </script>
 </body>
 </html>
