@@ -188,10 +188,25 @@
       <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
         <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
       </div>
-      <div class="flex gap-2">
-        <button onclick="kickSelectedTargets()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
-        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold py-2.5 px-3.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-11 h-11 shrink-0" title="Hapus Semua Target">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
+        <div class="min-w-0">
+          <button onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
+          <div class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
+        </div>
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
+          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+        </label>
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
+          <input id="kickDelay" type="number" min="0" step="1" value="100" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+        </label>
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
+          <input id="kickLoop" type="number" min="1" step="1" value="1" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+        </label>
+        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
     </div>
@@ -633,10 +648,15 @@ async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
-  for(const target of targets){
-    await batchAction("kick", {room, targetUsername: target});
-  }
-  log(`KICK ALL: Memerintahkan vote-kick untuk ${targets.length} target.`);
+  const delay = Math.max(0, parseInt(el("kickDelay")?.value || "100", 10) || 0);
+  const loop = Math.max(1, parseInt(el("kickLoop")?.value || "1", 10) || 1);
+  try{
+    const r = await fetch("/api/kick-loop", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds: accounts.map(a=>a.sessionId).filter(Boolean), room, targets:[...targets], delay, loop})});
+    const j = await r.json();
+    if(!j.ok){ log(`KICK ALL gagal: ${j.error || "Gagal menjalankan loop."}`); return; }
+    log(`KICK ALL: ${targets.length} target, ${loop} loop, delay ${delay} ms.`);
+    if(j.completed) log("KICK ALL: loop selesai.");
+  }catch(e){ log(`KICK ALL gagal - ${e.message}`); }
 }
 
 renderAccounts();
