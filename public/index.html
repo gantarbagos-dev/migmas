@@ -218,7 +218,11 @@
     <div id="apiEvent" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 max-h-24 overflow-y-auto whitespace-pre-wrap">Menunggu event dari WebSocket resmi MigReborn…</div>
     
     <h3 class="text-sm sm:text-base font-bold text-slate-200 pt-1">System Log</h3>
-    <div id="log" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 h-28 overflow-y-auto whitespace-pre-wrap"></div>
+    <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
+  <div class="flex justify-between text-[11px] font-semibold"><span class="text-slate-300">KICK ALL PROGRESS</span><span id="kickProgressText" class="text-blue-400">Siap</span></div>
+  <div class="h-2 rounded-full bg-slate-800 overflow-hidden"><div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div></div>
+  <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
+</div>
   </div>
 
 </div>
@@ -650,13 +654,23 @@ async function kickSelectedTargets(){
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
   const delay = Math.max(0, parseInt(el("kickDelay")?.value || "100", 10) || 0);
   const loop = Math.max(1, parseInt(el("kickLoop")?.value || "1", 10) || 1);
+  const total = loop * targets.length;
+  const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
+  bar.style.width = "0%"; txt.textContent = "Berjalan"; meta.textContent = `0/${total} kick • delay ${delay} ms`;
+  const started = Date.now();
+  const progressTimer = setInterval(() => {
+    const elapsed = Date.now() - started;
+    const estimated = Math.min(total, Math.floor(Math.max(0, elapsed - delay) / Math.max(1, delay)) * targets.length);
+    const pct = Math.min(99, Math.round(estimated / total * 100));
+    bar.style.width = pct + "%"; meta.textContent = `${estimated}/${total} kick • delay ${delay} ms`;
+  }, 150);
   try{
     const r = await fetch("/api/kick-loop", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds: accounts.map(a=>a.sessionId).filter(Boolean), room, targets:[...targets], delay, loop})});
     const j = await r.json();
     if(!j.ok){ log(`KICK ALL gagal: ${j.error || "Gagal menjalankan loop."}`); return; }
     log(`KICK ALL: ${targets.length} target, ${loop} loop, delay ${delay} ms.`);
-    if(j.completed) log("KICK ALL: loop selesai.");
-  }catch(e){ log(`KICK ALL gagal - ${e.message}`); }
+    clearInterval(progressTimer); bar.style.width = "100%"; txt.textContent = "Selesai"; meta.textContent = `${total}/${total} kick • ${loop} putaran`;
+  }catch(e){ clearInterval(progressTimer); bar.style.width = "0%"; txt.textContent = "Gagal"; meta.textContent = e.message; }
 }
 
 renderAccounts();
