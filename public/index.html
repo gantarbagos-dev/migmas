@@ -612,7 +612,17 @@ async function participants(){
   const room = el("room").value.trim();
   if(!room){ log("PARTICIPANTS: nama room belum diisi."); return; }
   clearParticipants();
-  await batchAction("participants", {room});
+  const sessionId = accounts.map(a => a.sessionId).find(Boolean);
+  if(!sessionId){ log("PARTICIPANTS: tidak ada Troop yang ONLINE."); return; }
+  try{
+    const r = await fetch("/api/action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId, action:"participants", room})});
+    const j = await r.json();
+    if(!j.ok){ log(`PARTICIPANTS gagal: ${j.error||"Gagal meminta list peserta."}`); return; }
+    const troopIndex = accounts.findIndex(a => a.sessionId === sessionId);
+    log(`PARTICIPANTS: list peserta diminta oleh Troop ${troopIndex >= 0 ? troopIndex + 1 : "ONLINE"} saja.`);
+  }catch(e){
+    log(`PARTICIPANTS gagal - ${e.message}`);
+  }
 }
 
 async function balanceAll(){
