@@ -582,7 +582,10 @@ app.post("/api/kick-loop", async (req, res) => {
     textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs
   });
 
-  // Start immediately and let the progress SSE report each target/loop.
+  // MAX-SPEED MODE: dispatch each target to every available WebSocket without
+  // waiting for the queued-job ACK. The API handles room.kick as a queued job,
+  // so waiting for an ACK between targets only adds latency to the dispatch loop.
+  // We still catch per-socket send failures so one broken socket cannot stop the loop.
   (async () => {
     let sent = 0;
     let completedSteps = 0;
@@ -596,88 +599,72 @@ app.post("/api/kick-loop", async (req, res) => {
       for (let round = 0; round < loopCount; round++) {
         for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
           const targetUsername = targetList[targetIndex];
-          const pending = [];
-          let sentThisTarget = 0;
-          let completedForTarget = 0;
-
-          for (const sessionId of ids) {
-            const task = (async () => {
-              const taskStartedAt = nowMs();
-              try {
-                const account = sessions.get(sessionId);
-                if (!account || account.socket.readyState !== WebSocket.OPEN) {
-                  throw new Error("WebSocket tidak terhubung.");
-                }
-                if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
-                  throw new Error("Permission rooms.kick tidak tersedia.");
-                }
-
-                // Measure the real application-level timing for this WebSocket.
-                // Register waiter BEFORE sending so a very fast ACK cannot be missed.
-                const startedAt = nowMs();
-                const ackPromise = waitForKickQueued(sessionId, 15000);
-                send(sessionId, { type: "room.kick", room, target_username: targetUsername });
-                sent++;
-                sentThisTarget++;
-                const queuedAt = nowMs();
-                const jobId = await ackPromise;
-                const queueMs = nowMs() - startedAt;
-
-                // SPEED OPTIMIZATION: room.kick is a queued API job. Once the server
-                // acknowledges the queue request, do not block the next target on job.get.
-                // This removes the slowest part of the old loop while preserving the
-                // existing per-target / per-WebSocket parallel dispatch.
-                const completedAt = nowMs();
-                const jobMs = 0;
-                const totalMs = Math.max(0, completedAt - startedAt);
-                completedJobs++;
-                completedForTarget++;
-                publishKickProgress(execution, {
-                  phase: "job_done", completedSteps, totalSteps, completedJobs, totalJobs,
-                  percent: Math.round((completedJobs / totalJobs) * 100),
-                  loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-                  acknowledged: completedForTarget, total: ids.length,
-                  sent: sentThisTarget, failedJobs,
-                  latency: { sessionId, queueMs, jobMs, totalMs }
-                });
-                return { sessionId, jobId, ok: true, jobStatus: "queued", queueMs, jobMs, totalMs };
-              } catch (error) {
-                failedJobs++;
-                publishKickProgress(execution, {
-                  phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
-                  percent: Math.round((completedJobs / totalJobs) * 100),
-                  loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-                  acknowledged: 0, total: ids.length, sent: sentThisTarget, failedJobs,
-                  error: safeError(error),
-                  latency: { sessionId, totalMs: Math.max(0, nowMs() - taskStartedAt) }
-                });
-                return { sessionId, ok: false, error: safeError(error), totalMs: Math.max(0, nowMs() - taskStartedAt) };
-              }
-            })();
-            pending.push(task);
-          }
+          const targetStartedAt = nowMs();
+          const results = [];
 
           publishKickProgress(execution, {
-            phase: "waiting_ack", completedSteps, totalSteps, completedJobs, totalJobs,
-            percent: Math.round((completedJobs / totalJobs) * 100),
+            phase: "dispatching", completedSteps, totalSteps, completedJobs, totalJobs,
+            percent: Math.round((completedSteps / totalSteps) * 100),
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-            acknowledged: 0, total: ids.length, sent: sentThisTarget
+            acknowledged: 0, total: ids.length, sent
           });
 
-          const acknowledgements = await Promise.all(pending);
-          const failed = acknowledgements.filter(x => !x.ok);
-          const okCount = acknowledgements.filter(x => x.ok).length;
+          // Send all troop WebSockets for this target immediately, in parallel.
+          // No ACK/job.get is awaited here; this is intentionally the fastest
+          // possible client-side dispatch path.
+          for (const sessionId of ids) {
+            const startedAt = nowMs();
+            try {
+              const account = sessions.get(sessionId);
+              if (!account || account.socket.readyState !== WebSocket.OPEN) {
+                throw new Error("WebSocket tidak terhubung.");
+              }
+              if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
+                throw new Error("Permission rooms.kick tidak tersedia.");
+              }
+
+              send(sessionId, { type: "room.kick", room, target_username: targetUsername });
+              sent++;
+              completedJobs++;
+              const totalMs = Math.max(0, nowMs() - startedAt);
+              results.push({ sessionId, ok: true, jobStatus: "dispatched", totalMs });
+
+              publishKickProgress(execution, {
+                phase: "job_dispatched", completedSteps, totalSteps, completedJobs, totalJobs,
+                percent: Math.round((completedJobs / totalJobs) * 100),
+                loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                acknowledged: results.filter(x => x.ok).length, total: ids.length,
+                sent, failedJobs, latency: { sessionId, totalMs }
+              });
+            } catch (error) {
+              failedJobs++;
+              const totalMs = Math.max(0, nowMs() - startedAt);
+              results.push({ sessionId, ok: false, error: safeError(error), totalMs });
+              publishKickProgress(execution, {
+                phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+                percent: Math.round((completedJobs / totalJobs) * 100),
+                loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                acknowledged: results.filter(x => x.ok).length, total: ids.length,
+                sent, failedJobs, error: safeError(error), latency: { sessionId, totalMs }
+              });
+            }
+          }
+
+          const failed = results.filter(x => !x.ok);
+          const okCount = results.filter(x => x.ok).length;
           queued.push({
             loop: round + 1, target: targetUsername, acknowledged: okCount, total: ids.length,
-            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId, status: x.jobStatus || "completed", queueMs: x.queueMs, jobMs: x.jobMs, totalMs: x.totalMs })),
+            jobs: results.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, status: "dispatched", totalMs: x.totalMs })),
             errors: failed
           });
 
-          // A failed WebSocket must NOT abort the entire kick loop.
-          // This target is considered processed once all active tasks have returned,
-          // then the loop advances to the next target. Failed sockets are reported in
-          // progress but do not throw an exception that stops the outer loop.
+          // The target is complete from the dispatch perspective. Do not wait
+          // for the server-side queued job because that would slow the next target.
           completedSteps++;
+          const timings = results.filter(x => x.ok && Number.isFinite(x.totalMs)).map(x => x.totalMs);
+          const avgMs = timings.length ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length) : 0;
+          const minMs = timings.length ? Math.min(...timings) : 0;
+          const maxMs = timings.length ? Math.max(...timings) : 0;
 
           if (failed.length) {
             const failedText = failed.map(x => `${x.sessionId}: ${x.error}`).join(" | ");
@@ -685,44 +672,43 @@ app.post("/api/kick-loop", async (req, res) => {
               phase: "target_partial", completedSteps, totalSteps, completedJobs, totalJobs,
               percent: Math.round((completedSteps / totalSteps) * 100),
               loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-              acknowledged: okCount, total: ids.length, sent: sentThisTarget, failedJobs,
-              failed: failed.length,
+              acknowledged: okCount, total: ids.length, sent, failedJobs, failed: failed.length,
               error: `Target dilanjutkan meskipun ${failed.length} WebSocket gagal: ${failedText}`
             });
           }
 
-          const okTimings = acknowledgements.filter(x => x.ok && Number.isFinite(x.totalMs));
-          const avgTotalMs = okTimings.length ? Math.round(okTimings.reduce((a, x) => a + x.totalMs, 0) / okTimings.length) : 0;
-          const minTotalMs = okTimings.length ? Math.min(...okTimings.map(x => x.totalMs)) : 0;
-          const maxTotalMs = okTimings.length ? Math.max(...okTimings.map(x => x.totalMs)) : 0;
           publishKickProgress(execution, {
             phase: "target_done", completedSteps, totalSteps, completedJobs, totalJobs,
-            percent: Math.round((completedJobs / totalJobs) * 100),
+            percent: Math.round((completedSteps / totalSteps) * 100),
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-            acknowledged: okCount, total: ids.length, sent: sentThisTarget,
-            latency: { avgMs: avgTotalMs, minMs: minTotalMs, maxMs: maxTotalMs }
+            acknowledged: okCount, total: ids.length, sent,
+            latency: { avgMs, minMs, maxMs, dispatchMs: Math.max(0, nowMs() - targetStartedAt) }
           });
         }
 
         if (round < loopCount - 1 && delayMs > 0) {
           publishKickProgress(execution, { phase: "delay", completedSteps, totalSteps, completedJobs, totalJobs,
-            percent: Math.round((completedJobs / totalJobs) * 100), loop: round + 1,
+            percent: Math.round((completedSteps / totalSteps) * 100), loop: round + 1,
             targetIndex: targetList.length, target: targetList[targetList.length - 1],
             delayMs, acknowledged: ids.length, total: ids.length });
           await sleep(delayMs);
         }
       }
 
+      const hasFailures = failedJobs > 0;
       finishKickExecution(execution, {
-        phase: "completed", completedSteps, totalSteps, completedJobs, totalJobs, percent: 100, ok: true, completed: true,
-        queuedAll: true, queueAware: true, executionId: execution.id, websockets: ids.length,
-        loops: loopCount, textdelay: delayMs, textloop: loopCount, targets: targetList.length, sent, queued
+        phase: hasFailures ? "completed_with_errors" : "completed",
+        completedSteps, totalSteps, completedJobs, totalJobs,
+        percent: 100, ok: !hasFailures, completed: true,
+        queuedAll: true, queueAware: false, executionId: execution.id, websockets: ids.length,
+        loops: loopCount, textdelay: delayMs, textloop: loopCount, targets: targetList.length,
+        sent, failedJobs, queued
       });
     } catch (e) {
       finishKickExecution(execution, {
         phase: "failed", completedSteps, totalSteps, completedJobs, totalJobs,
-        percent: Math.round((completedJobs / totalJobs) * 100), ok: false,
-        error: safeError(e), queueAware: true, executionId: execution.id, sent, queued
+        percent: Math.round((completedSteps / totalSteps) * 100), ok: false,
+        error: safeError(e), queueAware: false, executionId: execution.id, sent, failedJobs, queued
       });
     }
   })();
