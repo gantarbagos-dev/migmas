@@ -17,6 +17,7 @@ const subscribers = new Map();
 const eventHistory = new Map();
 const MAX_EVENT_HISTORY = 500;
 const kickJobWaiters = new Map();
+const kickExecutions = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -245,6 +246,51 @@ app.post("/api/login-batch", async (req, res) => {
   res.json({ ok: results.some(x => x.ok), results });
 });
 
+function createKickExecution(meta) {
+  const id = makeId();
+  const execution = { id, meta, clients: new Set(), done: false, result: null };
+  kickExecutions.set(id, execution);
+  setTimeout(() => {
+    const current = kickExecutions.get(id);
+    if (current && current.done) kickExecutions.delete(id);
+  }, 10 * 60 * 1000);
+  return execution;
+}
+
+function publishKickProgress(execution, event) {
+  if (!execution) return;
+  const payload = `data: ${JSON.stringify({ type: "kick.progress", ...event })}\n\n`;
+  for (const res of execution.clients) { try { res.write(payload); } catch {} }
+}
+
+function finishKickExecution(execution, result) {
+  if (!execution) return;
+  execution.done = true;
+  execution.result = result;
+  publishKickProgress(execution, result);
+  for (const res of execution.clients) { try { res.end(); } catch {} }
+  execution.clients.clear();
+}
+
+app.get("/api/kick-progress", (req, res) => {
+  const id = String(req.query.id || "");
+  const execution = kickExecutions.get(id);
+  if (!execution) return res.status(404).end();
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+  execution.clients.add(res);
+  res.write(`data: ${JSON.stringify({ type: "kick.progress", phase: "connected", ...execution.meta })}\n\n`);
+  if (execution.done) {
+    res.write(`data: ${JSON.stringify(execution.result)}\n\n`);
+    res.end();
+    execution.clients.delete(res);
+  }
+  const keepAlive = setInterval(() => { try { res.write(": keep-alive\n\n"); } catch {} }, 15000);
+  req.on("close", () => { clearInterval(keepAlive); execution.clients.delete(res); });
+});
+
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
   if (!sessionId || !sessions.has(sessionId)) return res.status(401).end();
@@ -313,8 +359,6 @@ function sleep(ms) {
 app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
   const { sessionIds, room, targets } = body;
-
-  // textdelay/textloop come from the frontend and are executed here in the backend.
   const textdelay = body.textdelay;
   const textloop = body.textloop;
 
@@ -331,66 +375,94 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
 
-  let sent = 0;
-  const queued = [];
-  try {
+  const totalSteps = loopCount * targetList.length;
+  const execution = createKickExecution({
+    room, websockets: ids.length, loops: loopCount, targets: targetList.length,
+    textdelay: delayMs, textloop: loopCount, totalSteps
+  });
 
-    // Queue-aware flow:
-    // Loop N -> Target 1 -> Target 2 -> ... -> Target 10 -> textdelay -> next Loop.
-    // Untuk setiap target, semua WebSocket mengirim room.kick bersamaan.
-    // Backend menunggu ACK room.kick.queued dari setiap WebSocket sebelum maju ke target berikutnya.
-    for (let round = 0; round < loopCount; round++) {
-      for (const targetUsername of targetList) {
-        const pending = [];
-        for (const sessionId of ids) {
-          try {
-            const ack = waitForKickQueued(sessionId);
-            pending.push(ack.then(jobId => ({ sessionId, jobId, ok: true }))
-              .catch(error => ({ sessionId, ok: false, error: safeError(error) })));
-            send(sessionId, { type: "room.kick", room, target_username: targetUsername });
-            sent++;
-          } catch (e) {
-            pending.push(Promise.resolve({ sessionId, ok: false, error: safeError(e) }));
+  // Start immediately and let the progress SSE report each target/loop.
+  (async () => {
+    let sent = 0;
+    let completedSteps = 0;
+    const queued = [];
+    try {
+      publishKickProgress(execution, { phase: "started", completedSteps, totalSteps, percent: 0,
+        loop: 1, targetIndex: 1, target: targetList[0], acknowledged: 0, total: ids.length });
+
+      for (let round = 0; round < loopCount; round++) {
+        for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
+          const targetUsername = targetList[targetIndex];
+          const pending = [];
+          let sentThisTarget = 0;
+
+          for (const sessionId of ids) {
+            try {
+              const ack = waitForKickQueued(sessionId, 15000);
+              pending.push(ack.then(jobId => ({ sessionId, jobId, ok: true }))
+                .catch(error => ({ sessionId, ok: false, error: safeError(error) })));
+              send(sessionId, { type: "room.kick", room, target_username: targetUsername });
+              sent++;
+              sentThisTarget++;
+            } catch (e) {
+              pending.push(Promise.resolve({ sessionId, ok: false, error: safeError(e) }));
+            }
           }
+
+          publishKickProgress(execution, {
+            phase: "waiting_ack", completedSteps, totalSteps,
+            percent: Math.round((completedSteps / totalSteps) * 100),
+            loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+            acknowledged: 0, total: ids.length, sent: sentThisTarget
+          });
+
+          const acknowledgements = await Promise.all(pending);
+          const failed = acknowledgements.filter(x => !x.ok);
+          const okCount = acknowledgements.filter(x => x.ok).length;
+          queued.push({
+            loop: round + 1, target: targetUsername, acknowledged: okCount, total: ids.length,
+            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId })),
+            errors: failed
+          });
+
+          if (failed.length === acknowledgements.length) {
+            throw new Error(`Semua WebSocket gagal menerima ACK room.kick.queued untuk target ${targetUsername}.`);
+          }
+
+          completedSteps++;
+          publishKickProgress(execution, {
+            phase: "target_done", completedSteps, totalSteps,
+            percent: Math.round((completedSteps / totalSteps) * 100),
+            loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+            acknowledged: okCount, total: ids.length, sent: sentThisTarget
+          });
         }
 
-        const acknowledgements = await Promise.all(pending);
-        const failed = acknowledgements.filter(x => !x.ok);
-        queued.push({
-          loop: round + 1,
-          target: targetUsername,
-          acknowledged: acknowledgements.filter(x => x.ok).length,
-          total: ids.length,
-          jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId })),
-          errors: failed
-        });
-
-        if (failed.length === acknowledgements.length) {
-          throw new Error(`Semua WebSocket gagal menerima ACK room.kick.queued untuk target ${targetUsername}.`);
+        if (round < loopCount - 1 && delayMs > 0) {
+          publishKickProgress(execution, { phase: "delay", completedSteps, totalSteps,
+            percent: Math.round((completedSteps / totalSteps) * 100), loop: round + 1,
+            targetIndex: targetList.length, target: targetList[targetList.length - 1],
+            delayMs, acknowledged: ids.length, total: ids.length });
+          await sleep(delayMs);
         }
       }
 
-      if (round < loopCount - 1 && delayMs > 0) {
-        await sleep(delayMs);
-      }
+      finishKickExecution(execution, {
+        phase: "completed", completedSteps, totalSteps, percent: 100, ok: true, completed: true,
+        queuedAll: true, queueAware: true, executionId: execution.id, websockets: ids.length,
+        loops: loopCount, textdelay: delayMs, textloop: loopCount, targets: targetList.length, sent, queued
+      });
+    } catch (e) {
+      finishKickExecution(execution, {
+        phase: "failed", completedSteps, totalSteps,
+        percent: Math.round((completedSteps / totalSteps) * 100), ok: false,
+        error: safeError(e), queueAware: true, executionId: execution.id, sent, queued
+      });
     }
+  })();
 
-    res.json({
-      ok: true,
-      completed: true,
-      queuedAll: true,
-      queueAware: true,
-      websockets: ids.length,
-      loops: loopCount,
-      textdelay: delayMs,
-      textloop: loopCount,
-      targets: targetList.length,
-      sent,
-      queued
-    });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: safeError(e), queueAware: true, sent, queued });
-  }
+  res.json({ ok: true, started: true, executionId: execution.id, totalSteps, websockets: ids.length,
+    loops: loopCount, targets: targetList.length, textdelay: delayMs, textloop: loopCount });
 });
 
 app.post("/api/logout", (req, res) => {
