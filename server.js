@@ -144,6 +144,8 @@ function connectAccount(username, password) {
   });
 }
 
+function nowMs() { return Date.now(); }
+
 function send(sessionId, payload) {
   const account = sessions.get(sessionId);
   if (!account) throw new Error("Session tidak ditemukan / sudah terputus.");
@@ -513,6 +515,7 @@ app.post("/api/kick-loop", async (req, res) => {
 
           for (const sessionId of ids) {
             const task = (async () => {
+              const taskStartedAt = nowMs();
               try {
                 const account = sessions.get(sessionId);
                 if (!account || account.socket.readyState !== WebSocket.OPEN) {
@@ -522,17 +525,24 @@ app.post("/api/kick-loop", async (req, res) => {
                   throw new Error("Permission rooms.kick tidak tersedia.");
                 }
 
+                // Measure the real application-level timing for this WebSocket.
                 // Register waiter BEFORE sending so a very fast ACK cannot be missed.
+                const startedAt = nowMs();
                 const ackPromise = waitForKickQueued(sessionId, 15000);
                 send(sessionId, { type: "room.kick", room, target_username: targetUsername });
                 sent++;
                 sentThisTarget++;
+                const queuedAt = nowMs();
                 const jobId = await ackPromise;
+                const queueMs = nowMs() - startedAt;
 
                 // ACK only means the request entered the API queue. Wait for the job result
                 // before advancing to the next target so each socket actually completes its kick job.
                 const job = await waitForKickJob(sessionId, jobId, 30000);
                 if (!job.ok) throw new Error(job.error || `Job ${jobId} gagal.`);
+                const completedAt = nowMs();
+                const jobMs = Math.max(0, completedAt - queuedAt);
+                const totalMs = Math.max(0, completedAt - startedAt);
                 completedJobs++;
                 completedForTarget++;
                 publishKickProgress(execution, {
@@ -540,9 +550,10 @@ app.post("/api/kick-loop", async (req, res) => {
                   percent: Math.round((completedJobs / totalJobs) * 100),
                   loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                   acknowledged: completedForTarget, total: ids.length,
-                  sent: sentThisTarget, failedJobs
+                  sent: sentThisTarget, failedJobs,
+                  latency: { sessionId, queueMs, jobMs, totalMs }
                 });
-                return { sessionId, jobId, ok: true, jobStatus: job.status };
+                return { sessionId, jobId, ok: true, jobStatus: job.status, queueMs, jobMs, totalMs };
               } catch (error) {
                 failedJobs++;
                 publishKickProgress(execution, {
@@ -550,9 +561,10 @@ app.post("/api/kick-loop", async (req, res) => {
                   percent: Math.round((completedJobs / totalJobs) * 100),
                   loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                   acknowledged: 0, total: ids.length, sent: sentThisTarget, failedJobs,
-                  error: safeError(error)
+                  error: safeError(error),
+                  latency: { sessionId, totalMs: Math.max(0, nowMs() - taskStartedAt) }
                 });
-                return { sessionId, ok: false, error: safeError(error) };
+                return { sessionId, ok: false, error: safeError(error), totalMs: Math.max(0, nowMs() - taskStartedAt) };
               }
             })();
             pending.push(task);
@@ -570,7 +582,7 @@ app.post("/api/kick-loop", async (req, res) => {
           const okCount = acknowledgements.filter(x => x.ok).length;
           queued.push({
             loop: round + 1, target: targetUsername, acknowledged: okCount, total: ids.length,
-            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId, status: x.jobStatus || "completed" })),
+            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId, status: x.jobStatus || "completed", queueMs: x.queueMs, jobMs: x.jobMs, totalMs: x.totalMs })),
             errors: failed
           });
 
@@ -580,11 +592,16 @@ app.post("/api/kick-loop", async (req, res) => {
           }
 
           completedSteps++;
+          const okTimings = acknowledgements.filter(x => x.ok && Number.isFinite(x.totalMs));
+          const avgTotalMs = okTimings.length ? Math.round(okTimings.reduce((a, x) => a + x.totalMs, 0) / okTimings.length) : 0;
+          const minTotalMs = okTimings.length ? Math.min(...okTimings.map(x => x.totalMs)) : 0;
+          const maxTotalMs = okTimings.length ? Math.max(...okTimings.map(x => x.totalMs)) : 0;
           publishKickProgress(execution, {
             phase: "target_done", completedSteps, totalSteps, completedJobs, totalJobs,
             percent: Math.round((completedJobs / totalJobs) * 100),
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-            acknowledged: okCount, total: ids.length, sent: sentThisTarget
+            acknowledged: okCount, total: ids.length, sent: sentThisTarget,
+            latency: { avgMs: avgTotalMs, minMs: minTotalMs, maxMs: maxTotalMs }
           });
         }
 
