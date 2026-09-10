@@ -14,3 +14,8 @@ Node.js/Express frontend + backend using the official MigReborn Developer WebSoc
 Endpoint: `wss://developer.mig33.id/developer/ws`
 Docs: https://mig33.id/api.html
 \n## Perubahan Timer\n- Timer default: 60000 ms.\n- Countdown hanya dimulai dari event vote-started `room.kick.state`/`room.kick` yang valid.\n- Countdown asynchronous dan berhenti di 0 ms.\n- Textbox Timer default: 1500 ms.\n- Tombol ikon jam mereset timer ke 60000 ms.\n- Jika label timer sama persis dengan nilai textbox Timer, KICK ALL dipicu otomatis.\n
+## Perbaikan Countdown
+- Feedback `vote_started` duplikat tidak lagi me-reset countdown ke 60000 ms.
+- Countdown berhenti di 0 dan tetap 0 sampai event `vote_started` baru atau tombol reset ditekan.
+- Pemicu KICK ALL memakai deteksi melewati threshold agar nilai 1500 ms tidak terlewat oleh jitter setTimeout.
+- Tombol reset tetap mengembalikan label ke 60000 ms.
