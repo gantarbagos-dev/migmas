@@ -161,11 +161,10 @@ function detectKickCountdown(msg, account) {
   const room = String(
     msg?.data?.room ?? msg?.data?.room_name ?? msg?.room ?? msg?.room_name ?? account?.joinedRoom ?? ""
   ).trim();
-  const match = text.match(/(\d+)\s*s(?:econds?)?\s*(?:remaining|left)?/i);
   return {
     type: "kick.countdown.start",
     room,
-    seconds: match ? Number(match[1]) : 60,
+    seconds: Number.isFinite(Number(msg?.seconds)) ? Number(msg.seconds) : null,
     source: "backend"
   };
 }
