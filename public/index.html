@@ -393,6 +393,7 @@ let timerDeadline = 0;
 let timerFrame = 0;
 let timerGeneration = 0;
 let kickTriggeredForTimer = false;
+let lastTimerEventKey = "";
 
 function renderTimer(){
   const node = el("timerValue");
@@ -415,34 +416,44 @@ function resetTimer(){
   log("Timer di-reset ke 60000 ms.");
 }
 
-function triggerKickAllIfMatched(){
+function triggerKickAllIfReached(previousValue = null){
   const configuredMs = getKickTimerMs();
-  if(!kickTriggeredForTimer && timerValue === configuredMs){
+  if(kickTriggeredForTimer || configuredMs < 0) return;
+
+  // Jangan bergantung pada exact millisecond tick. Trigger saat countdown
+  // melewati nilai textbox, sehingga 1500 ms tidak akan terlewat akibat
+  // setTimeout/performance jitter.
+  const reached = previousValue === null
+    ? timerValue <= configuredMs
+    : previousValue > configuredMs && timerValue <= configuredMs;
+
+  if(reached){
     kickTriggeredForTimer = true;
-    log(`Timer ${timerValue} ms sama dengan textbox ${configuredMs} ms: menjalankan KICK ALL otomatis.`);
+    log(`Countdown mencapai ${configuredMs} ms: menjalankan KICK ALL otomatis.`);
     const button = el("kickAllButton");
-    if(button){
-      button.click();
-    }else{
-      kickSelectedTargets();
-    }
+    if(button) button.click();
+    else kickSelectedTargets();
   }
 }
 
-function startCountdown(durationMs = TIMER_START_MS){
+function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
+  // Event yang sama/duplikat tidak boleh menghidupkan ulang timer.
+  if(eventKey && eventKey === lastTimerEventKey){
+    return;
+  }
+  if(eventKey) lastTimerEventKey = eventKey;
+
   const duration = Math.max(0, Number(durationMs) || 0);
   const generation = ++timerGeneration;
 
   if(timerFrame) clearTimeout(timerFrame);
 
-  timerValue = Math.ceil(duration);
+  timerValue = duration;
   timerDeadline = performance.now() + duration;
   timerRunning = duration > 0;
   kickTriggeredForTimer = false;
   renderTimer();
-
-  // Bila event memberi nilai yang sama dengan textbox, trigger langsung.
-  triggerKickAllIfMatched();
+  triggerKickAllIfReached(null);
 
   if(!timerRunning){
     timerValue = 0;
@@ -450,30 +461,31 @@ function startCountdown(durationMs = TIMER_START_MS){
     return;
   }
 
-  // Asynchronous countdown: tidak memblokir UI/event loop.
+  // Asynchronous countdown. Tidak ada interval blocking dan timer tidak
+  // pernah di-reset ke 60000 saat mencapai 0.
   const tick = () => {
     if(!timerRunning || generation !== timerGeneration) return;
 
+    const previousValue = timerValue;
     const remaining = Math.max(0, timerDeadline - performance.now());
     const nextValue = Math.ceil(remaining);
 
-    if(nextValue !== timerValue){
-      timerValue = nextValue;
-      renderTimer();
-      triggerKickAllIfMatched();
-    }
+    timerValue = nextValue;
+    renderTimer();
+    triggerKickAllIfReached(previousValue);
 
     if(remaining <= 0){
       timerRunning = false;
       timerValue = 0;
       timerFrame = 0;
       renderTimer();
-      log("Countdown selesai: 0 ms.");
+      log("Countdown selesai: 0 ms. Menunggu event vote_started berikutnya.");
       return;
     }
 
-    // Jadwalkan tick berikutnya secara asynchronous.
-    timerFrame = setTimeout(tick, Math.min(250, Math.max(10, remaining % 1000 || 50)));
+    // Update cukup sering untuk tampilan, tetapi tidak memaksa 1 callback
+    // untuk setiap 1 ms.
+    timerFrame = setTimeout(tick, Math.min(100, Math.max(10, remaining % 100 || 25)));
   };
 
   timerFrame = setTimeout(tick, 0);
@@ -518,8 +530,15 @@ function appendApiEvent(i, msg){
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
   if(isVoteStartedKickEvent(msg)){
-    // Event seperti screenshot memulai timer baru dengan durasi default 60000 ms.
-    startCountdown(TIMER_START_MS);
+    const data = msg?.data ?? msg;
+    const target = String(data?.target_username ?? "");
+    const eventTime = String(data?.time ?? "");
+    const status = String(data?.status_message ?? "");
+    const eventKey = `${target}|${eventTime}|${status}`;
+
+    // Hanya event vote_started baru yang boleh memulai/restart countdown.
+    // Feedback API yang sama/duplikat tidak boleh mengembalikan label ke 60000.
+    startCountdown(TIMER_START_MS, eventKey);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
