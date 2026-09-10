@@ -169,33 +169,76 @@ function waitForKickQueued(sessionId, timeoutMs = 10000) {
   });
 }
 
+function findJobId(value, depth = 0) {
+  if (depth > 8 || value == null) return null;
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findJobId(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value !== "object") return null;
+
+  // Known API shapes first.
+  const direct = value.job_id ?? value.jobId ?? value.id;
+  if (direct != null && typeof direct !== "object") return String(direct);
+  if (value.job) {
+    const nested = findJobId(value.job, depth + 1);
+    if (nested) return nested;
+  }
+  if (value.result) {
+    const nested = findJobId(value.result, depth + 1);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 function resolveKickQueued(sessionId, msg) {
   const list = kickJobWaiters.get(sessionId);
   if (!list?.length) return false;
 
   const type = String(msg?.type || "").toLowerCase();
-  const isQueued = type === "room.kick.queued";
-  const isKickError = type === "error" || type === "room.kick.error" || type === "room.kick.failed";
-  if (!isQueued && !isKickError) return false;
+  const isQueued = type === "room.kick.queued" ||
+    type === "room.kick.result" ||
+    type === "room.kick.accepted" ||
+    type === "room.kick.started" ||
+    (type.startsWith("room.kick.") && (type.includes("queue") || type.includes("accept")));
+  const isKickError = type === "room.kick.error" ||
+    type === "room.kick.failed" ||
+    type === "room.kick.rejected";
+
+  // A generic error is only consumed here when it clearly belongs to the kick
+  // command. This prevents an unrelated API error from satisfying the waiter.
+  const errorText = extractJobMessage(msg).toLowerCase();
+  const genericKickError = type === "error" &&
+    (errorText.includes("kick") || errorText.includes("room") || errorText.includes("permission"));
+
+  if (!isQueued && !isKickError && !genericKickError) return false;
 
   const entry = list.shift();
   clearTimeout(entry.timer);
   if (list.length) kickJobWaiters.set(sessionId, list);
   else kickJobWaiters.delete(sessionId);
 
-  if (isKickError) {
+  if (isKickError || genericKickError) {
     const code = msg?.data?.error || msg?.error || "kick_error";
     const message = msg?.data?.message || msg?.data?.error_message || msg?.message || code;
     entry.reject(new Error(`${code}: ${message}`));
     return true;
   }
 
-  const jobId = msg?.data?.job?.job_id ?? msg?.data?.job_id ?? msg?.job_id ?? msg?.data?.id ?? null;
+  const jobId = findJobId(msg?.data) || findJobId(msg);
   if (!jobId) {
-    entry.reject(new Error("room.kick.queued tidak berisi job_id."));
+    // Some API/proxy versions acknowledge the command without exposing the
+    // job id in the first envelope. Keep the original response in the error
+    // so the UI shows the actual API event instead of a blind timeout.
+    const status = extractJobState(msg);
+    entry.reject(new Error(`room.kick diterima tetapi job_id tidak ditemukan${status ? ` (status: ${status})` : ""}.`));
     return true;
   }
-  entry.resolve(String(jobId));
+  entry.resolve(jobId);
   return true;
 }
 
@@ -571,12 +614,24 @@ app.post("/api/kick-loop", async (req, res) => {
             errors: failed
           });
 
+          // A failed WebSocket must NOT abort the entire kick loop.
+          // This target is considered processed once all active tasks have returned,
+          // then the loop advances to the next target. Failed sockets are reported in
+          // progress but do not throw an exception that stops the outer loop.
+          completedSteps++;
+
           if (failed.length) {
             const failedText = failed.map(x => `${x.sessionId}: ${x.error}`).join(" | ");
-            throw new Error(`Sebagian WebSocket gagal menyelesaikan Vote Kick untuk ${targetUsername}: ${failedText}`);
+            publishKickProgress(execution, {
+              phase: "target_partial", completedSteps, totalSteps, completedJobs, totalJobs,
+              percent: Math.round((completedSteps / totalSteps) * 100),
+              loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+              acknowledged: okCount, total: ids.length, sent: sentThisTarget, failedJobs,
+              failed: failed.length,
+              error: `Target dilanjutkan meskipun ${failed.length} WebSocket gagal: ${failedText}`
+            });
           }
 
-          completedSteps++;
           const okTimings = acknowledgements.filter(x => x.ok && Number.isFinite(x.totalMs));
           const avgTotalMs = okTimings.length ? Math.round(okTimings.reduce((a, x) => a + x.totalMs, 0) / okTimings.length) : 0;
           const minTotalMs = okTimings.length ? Math.min(...okTimings.map(x => x.totalMs)) : 0;
