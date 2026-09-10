@@ -16,6 +16,7 @@ const sessions = new Map();
 const subscribers = new Map();
 const eventHistory = new Map();
 const MAX_EVENT_HISTORY = 500;
+const kickJobWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -71,6 +72,8 @@ function connectAccount(username, password) {
     socket.on("message", (raw) => {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+      resolveKickQueued(sessionId, msg);
 
       const accountForEvent = sessions.get(sessionId);
       const countdownSignal = detectKickCountdown(msg, accountForEvent);
@@ -138,6 +141,36 @@ function send(sessionId, payload) {
   if (!account) throw new Error("Session tidak ditemukan / sudah terputus.");
   if (account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
   account.socket.send(JSON.stringify(payload));
+}
+
+function waitForKickQueued(sessionId, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const list = kickJobWaiters.get(sessionId) || [];
+      const index = list.indexOf(entry);
+      if (index >= 0) list.splice(index, 1);
+      if (list.length) kickJobWaiters.set(sessionId, list);
+      else kickJobWaiters.delete(sessionId);
+      reject(new Error("Timeout menunggu room.kick.queued."));
+    }, timeoutMs);
+    const entry = { resolve, reject, timer };
+    const list = kickJobWaiters.get(sessionId) || [];
+    list.push(entry);
+    kickJobWaiters.set(sessionId, list);
+  });
+}
+
+function resolveKickQueued(sessionId, msg) {
+  if (msg?.type !== "room.kick.queued") return false;
+  const list = kickJobWaiters.get(sessionId);
+  if (!list?.length) return false;
+  const entry = list.shift();
+  clearTimeout(entry.timer);
+  if (list.length) kickJobWaiters.set(sessionId, list);
+  else kickJobWaiters.delete(sessionId);
+  const jobId = msg?.data?.job?.job_id ?? msg?.job_id ?? null;
+  entry.resolve(jobId);
+  return true;
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
@@ -298,24 +331,45 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
 
+  let sent = 0;
+  const queued = [];
   try {
-    let sent = 0;
 
-    // Exact flow:
+    // Queue-aware flow:
     // Loop N -> Target 1 -> Target 2 -> ... -> Target 10 -> textdelay -> next Loop.
-    // All selected WebSockets (max 10) execute each target together.
+    // Untuk setiap target, semua WebSocket mengirim room.kick bersamaan.
+    // Backend menunggu ACK room.kick.queued dari setiap WebSocket sebelum maju ke target berikutnya.
     for (let round = 0; round < loopCount; round++) {
       for (const targetUsername of targetList) {
-        const payload = { type: "room.kick", room, target_username: targetUsername };
+        const pending = [];
         for (const sessionId of ids) {
           try {
-            send(sessionId, payload);
+            const ack = waitForKickQueued(sessionId);
+            pending.push(ack.then(jobId => ({ sessionId, jobId, ok: true }))
+              .catch(error => ({ sessionId, ok: false, error: safeError(error) })));
+            send(sessionId, { type: "room.kick", room, target_username: targetUsername });
             sent++;
-          } catch {}
+          } catch (e) {
+            pending.push(Promise.resolve({ sessionId, ok: false, error: safeError(e) }));
+          }
+        }
+
+        const acknowledgements = await Promise.all(pending);
+        const failed = acknowledgements.filter(x => !x.ok);
+        queued.push({
+          loop: round + 1,
+          target: targetUsername,
+          acknowledged: acknowledgements.filter(x => x.ok).length,
+          total: ids.length,
+          jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId })),
+          errors: failed
+        });
+
+        if (failed.length === acknowledgements.length) {
+          throw new Error(`Semua WebSocket gagal menerima ACK room.kick.queued untuk target ${targetUsername}.`);
         }
       }
 
-      // Delay ONLY after the complete target list, before the next loop.
       if (round < loopCount - 1 && delayMs > 0) {
         await sleep(delayMs);
       }
@@ -324,15 +378,18 @@ app.post("/api/kick-loop", async (req, res) => {
     res.json({
       ok: true,
       completed: true,
+      queuedAll: true,
+      queueAware: true,
       websockets: ids.length,
       loops: loopCount,
       textdelay: delayMs,
       textloop: loopCount,
       targets: targetList.length,
-      sent
+      sent,
+      queued
     });
   } catch (e) {
-    res.status(400).json({ ok: false, error: safeError(e) });
+    res.status(400).json({ ok: false, error: safeError(e), queueAware: true, sent, queued });
   }
 });
 
