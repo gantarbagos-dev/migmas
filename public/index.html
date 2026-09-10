@@ -235,6 +235,10 @@
         <span id="kickProgressJobs" class="text-slate-400">Job 0/0</span>
         <span id="kickProgressStructure" class="text-slate-500">Loop 0/0 • Target 0/0</span>
       </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressLatency" class="text-slate-400">Latency: -</span>
+        <span id="kickProgressNetwork" class="text-slate-500">Queue - • Job -</span>
+      </div>
       <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
     </div>
   </div>
@@ -752,12 +756,16 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const ws = el("kickProgressWs");
   const jobs = el("kickProgressJobs");
   const structure = el("kickProgressStructure");
+  const latency = el("kickProgressLatency");
+  const network = el("kickProgressNetwork");
   if (bar) bar.style.width = "0%";
   if (txt) txt.textContent = "Siap";
   if (step) step.textContent = "Target 0/0";
   if (ws) ws.textContent = "WS 0/0";
   if (jobs) jobs.textContent = "Job 0/0";
   if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
+  if (latency) latency.textContent = "Latency: -";
+  if (network) network.textContent = "Queue - • Job -";
   if (meta) meta.textContent = reason;
 }
 
@@ -772,12 +780,15 @@ async function kickSelectedTargets(){
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
   const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
+  const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
   ws.textContent = `WS 0/${wsCount}`;
   jobs.textContent = `Job 0/${total * wsCount}`;
   structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
+  latency.textContent = "Latency: -";
+  network.textContent = "Queue - • Job -";
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
@@ -814,6 +825,20 @@ async function kickSelectedTargets(){
         const state = await pr.json();
         const p = state.progress || {};
         if(p.type !== "kick.progress") return;
+
+        // Timing aplikasi per WebSocket: request → queued → job selesai.
+        if(p.latency){
+          if(Number.isFinite(Number(p.latency.totalMs))){
+            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
+          }
+          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
+            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
+            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
+            network.textContent = `Queue ${q} ms • Job ${j} ms`;
+          } else if(Number.isFinite(Number(p.latency.avgMs))){
+            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
+          }
+        }
 
         const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
         bar.style.width = `${percent}%`;
