@@ -505,6 +505,59 @@ function getKickEventData(msg){
   return msg?.data ?? msg ?? {};
 }
 
+function getEventTimestamp(msg){
+  const data = getKickEventData(msg);
+  const candidates = [
+    data?.time, data?.timestamp, data?.event_time, data?.eventTime, data?.created_at, data?.createdAt,
+    msg?.time, msg?.timestamp, msg?.event_time, msg?.eventTime, msg?.created_at, msg?.createdAt
+  ];
+  for(const value of candidates){
+    if(value == null || value === "") continue;
+    if(typeof value === "number" || (/^\d+(?:\.\d+)?$/.test(String(value)))){
+      const n = Number(value);
+      if(Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
+    }
+    const t = Date.parse(String(value));
+    if(Number.isFinite(t)) return t;
+  }
+  return null;
+}
+
+function getVoteRemainingMs(msg){
+  const data = getKickEventData(msg);
+  const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
+  const match = status.match(/(\d+)\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i);
+  if(match) return Math.max(0, Number(match[1]) * 1000);
+  const millisecondCandidates = [data?.remaining_ms, data?.remainingMs, msg?.remaining_ms, msg?.remainingMs];
+  for(const value of millisecondCandidates){
+    const n = Number(value);
+    if(Number.isFinite(n) && n >= 0) return n;
+  }
+  const secondCandidates = [data?.remaining, msg?.remaining];
+  for(const value of secondCandidates){
+    const n = Number(value);
+    if(Number.isFinite(n) && n >= 0) return n * 1000;
+  }
+  return null;
+}
+
+function getVoteCountdownMs(msg){
+  // Prioritaskan waktu event asli dari API. Jika WebSocket terlambat 8 detik,
+  // countdown dimulai dari ~52.000 ms, bukan 60.000 ms.
+  const eventTime = getEventTimestamp(msg);
+  if(Number.isFinite(eventTime)){
+    const age = Math.max(0, Date.now() - eventTime);
+    return Math.max(0, TIMER_START_MS - age);
+  }
+
+  // Fallback jika API tidak memberi timestamp: gunakan sisa waktu yang tertulis
+  // pada status event. Ini tetap lebih akurat daripada selalu memulai 60 detik.
+  const remaining = getVoteRemainingMs(msg);
+  if(Number.isFinite(remaining)) return Math.min(TIMER_START_MS, Math.max(0, remaining));
+
+  return TIMER_START_MS;
+}
+
 function isVoteStartedKickEvent(msg){
   const data = getKickEventData(msg);
   const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
@@ -518,15 +571,9 @@ function isVoteStartedKickEvent(msg){
   if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
   if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
 
-  // Abaikan event lama yang mungkin dikirim ulang saat SSE/WebSocket reconnect.
-  const rawTime = String(data?.time ?? msg?.time ?? "");
-  if(rawTime){
-    const t = Date.parse(rawTime);
-    if(Number.isFinite(t)){
-      const age = Math.abs(Date.now() - t);
-      if(age > 15000) return false;
-    }
-  }
+  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
+  const eventTime = getEventTimestamp(msg);
+  if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
 
   return true;
 }
@@ -586,7 +633,9 @@ function handleApiEvent(i, msg){
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
-    startCountdown(TIMER_START_MS, eventKey);
+    const countdownMs = getVoteCountdownMs(msg);
+    log(`Vote kick terdeteksi: countdown real-time ${countdownMs} ms.`);
+    startCountdown(countdownMs, eventKey);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
@@ -880,7 +929,36 @@ async function participants(){
 }
 
 async function balanceAll(){
-  await batchAction("balance");
+  const online = accounts.map((a, i) => ({i, sessionId:a.sessionId})).filter(x => x.sessionId);
+  if(!online.length){ log("CEK SALDO ALL: tidak ada Troop yang ONLINE."); return; }
+  // Saldo tidak bergantung pada satu SSE event-source. Backend menunggu
+  // wallet.balance.result untuk setiap session dan mengembalikan hasilnya.
+  try{
+    const r = await fetch("/api/balance-all", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionIds:online.map(x => x.sessionId)})
+    });
+    const j = await r.json();
+    const bySession = new Map((j.results || []).map(x => [x.sessionId, x]));
+    let ok = 0;
+    for(const item of online){
+      const result = bySession.get(item.sessionId);
+      if(result?.ok){
+        const w = result.wallet || {};
+        if(w.label) setBalance(item.i, w.label);
+        else if(w.balance_cr != null) setBalance(item.i, `${w.balance_cr} CR`);
+        else setBalance(item.i, "-");
+        ok++;
+      }else{
+        setBalance(item.i, "-");
+        log(`Troop ${item.i + 1}: CEK SALDO GAGAL - ${result?.error || "Tidak ada response."}`);
+      }
+    }
+    log(`CEK SALDO ALL: ${ok}/${online.length} saldo berhasil diperbarui.`);
+  }catch(e){
+    log(`CEK SALDO ALL gagal - ${e.message}`);
+  }
 }
 
 function resetKickAllProgress(reason = "Menunggu perintah kick...") {
