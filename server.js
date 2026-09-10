@@ -72,19 +72,11 @@ function connectAccount(username, password) {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
-      publish(sessionId, { type: "api.event", event: msg });
+      const accountForEvent = sessions.get(sessionId);
+      const countdownSignal = detectKickCountdown(msg, accountForEvent);
+      if (countdownSignal) publish(sessionId, countdownSignal);
 
-      // Backend menjadi satu-satunya pemicu countdown. Hanya pesan yang
-      // mengandung "has been started by" yang boleh memulai timer.
-      const rawText = JSON.stringify(msg);
-      if (/has\s+been\s+started\s+by/i.test(rawText)) {
-        const secondsMatch = rawText.match(/(\d+)\s*s(?:ec(?:ond)?s?)?\s*(?:remaining|left)?/i);
-        publish(sessionId, {
-          type: "kick.countdown.start",
-          seconds: secondsMatch ? Number(secondsMatch[1]) : 60,
-          source: "backend"
-        });
-      }
+      publish(sessionId, { type: "api.event", event: msg });
 
       if (msg.type === "auth.required") return;
 
@@ -149,6 +141,33 @@ function send(sessionId, payload) {
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
+
+function extractEventText(value, depth = 0) {
+  if (depth > 8 || value == null) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(v => extractEventText(v, depth + 1)).join(" ");
+  if (typeof value !== "object") return "";
+  return ["text", "message", "content", "status_message", "body"]
+    .map(k => value[k])
+    .filter(v => v != null)
+    .map(v => extractEventText(v, depth + 1))
+    .join(" ");
+}
+
+function detectKickCountdown(msg, account) {
+  const text = extractEventText(msg);
+  if (!/has\s+been\s+started\s+by/i.test(text)) return null;
+  const room = String(
+    msg?.data?.room ?? msg?.data?.room_name ?? msg?.room ?? msg?.room_name ?? account?.joinedRoom ?? ""
+  ).trim();
+  const match = text.match(/(\d+)\s*s(?:econds?)?\s*(?:remaining|left)?/i);
+  return {
+    type: "kick.countdown.start",
+    room,
+    seconds: match ? Number(match[1]) : 60,
+    source: "backend"
+  };
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "MIG Duel Kick 10", activeSessions: sessions.size });
