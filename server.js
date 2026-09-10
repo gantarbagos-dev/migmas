@@ -151,17 +151,17 @@ function send(sessionId, payload) {
   account.socket.send(JSON.stringify(payload));
 }
 
-function waitForKickQueued(sessionId, timeoutMs = 5000) {
+function waitForKickQueued(sessionId, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
       const list = kickJobWaiters.get(sessionId) || [];
       const index = list.indexOf(entry);
       if (index >= 0) list.splice(index, 1);
       if (list.length) kickJobWaiters.set(sessionId, list);
       else kickJobWaiters.delete(sessionId);
-      reject(new Error("Timeout menunggu room.kick.queued."));
+      reject(new Error("Timeout menunggu respons room.kick."));
     }, timeoutMs);
-    const entry = { resolve, reject, timer };
     const list = kickJobWaiters.get(sessionId) || [];
     list.push(entry);
     kickJobWaiters.set(sessionId, list);
@@ -169,19 +169,32 @@ function waitForKickQueued(sessionId, timeoutMs = 5000) {
 }
 
 function resolveKickQueued(sessionId, msg) {
-  if (msg?.type !== "room.kick.queued") return false;
   const list = kickJobWaiters.get(sessionId);
   if (!list?.length) return false;
+
+  const type = String(msg?.type || "").toLowerCase();
+  const isQueued = type === "room.kick.queued";
+  const isKickError = type === "error" || type === "room.kick.error" || type === "room.kick.failed";
+  if (!isQueued && !isKickError) return false;
+
   const entry = list.shift();
   clearTimeout(entry.timer);
   if (list.length) kickJobWaiters.set(sessionId, list);
   else kickJobWaiters.delete(sessionId);
-  const jobId = msg?.data?.job?.job_id ?? msg?.job_id ?? null;
+
+  if (isKickError) {
+    const code = msg?.data?.error || msg?.error || "kick_error";
+    const message = msg?.data?.message || msg?.data?.error_message || msg?.message || code;
+    entry.reject(new Error(`${code}: ${message}`));
+    return true;
+  }
+
+  const jobId = msg?.data?.job?.job_id ?? msg?.data?.job_id ?? msg?.job_id ?? msg?.data?.id ?? null;
   if (!jobId) {
     entry.reject(new Error("room.kick.queued tidak berisi job_id."));
     return true;
   }
-  entry.resolve(jobId);
+  entry.resolve(String(jobId));
   return true;
 }
 
@@ -197,13 +210,20 @@ function waitForJobStatus(sessionId, jobId, timeoutMs = 30000) {
 }
 
 function resolveJobStatus(sessionId, msg) {
-  if (!msg || !String(msg.type || "").startsWith("job.status")) return false;
+  if (!msg) return false;
   const data = msg.data || {};
-  const jobId = data.job_id ?? data.job?.job_id ?? msg.job_id ?? msg.data?.id ?? null;
+  const job = data.job || data.result?.job || data.result?.data?.job || {};
+  const jobId = data.job_id ?? job.job_id ?? data.result?.job_id ?? data.result?.job?.job_id ?? msg.job_id ?? msg.data?.id ?? null;
   if (!jobId) return false;
   const key = `${sessionId}:${jobId}`;
   const entry = kickJobStatusWaiters.get(key);
   if (!entry) return false;
+
+  const state = extractJobState(msg);
+  const type = String(msg.type || "").toLowerCase();
+  const looksLikeJobResponse = type.includes("job") || type === "error";
+  if (!state && !looksLikeJobResponse) return false;
+
   clearTimeout(entry.timer);
   kickJobStatusWaiters.delete(key);
   entry.resolve(msg);
@@ -213,17 +233,24 @@ function resolveJobStatus(sessionId, msg) {
 function extractJobState(msg) {
   const candidates = [
     msg?.data?.status, msg?.data?.job?.status, msg?.data?.job?.state,
-    msg?.data?.result?.status, msg?.data?.result?.state, msg?.status, msg?.state
+    msg?.data?.result?.status, msg?.data?.result?.state,
+    msg?.data?.result?.data?.status, msg?.data?.result?.data?.job?.status,
+    msg?.status, msg?.state
   ];
   return candidates.find(v => typeof v === "string")?.toLowerCase() || "";
 }
 
 function extractJobMessage(msg) {
-  return String(msg?.data?.message ?? msg?.data?.error ?? msg?.data?.result?.message ?? msg?.data?.result?.error ?? "");
+  return String(
+    msg?.data?.message ?? msg?.data?.error ??
+    msg?.data?.result?.message ?? msg?.data?.result?.error ??
+    msg?.message ?? msg?.error ?? ""
+  );
 }
 
 async function waitForKickJob(sessionId, jobId, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
+  let lastState = "";
   while (Date.now() < deadline) {
     const waiter = waitForJobStatus(sessionId, jobId, Math.max(1000, deadline - Date.now()));
     try {
@@ -235,15 +262,19 @@ async function waitForKickJob(sessionId, jobId, timeoutMs = 30000) {
     }
     const msg = await waiter;
     const state = extractJobState(msg);
+    if (state) lastState = state;
     if (["completed", "complete", "success", "succeeded", "done", "finished"].includes(state)) {
       return { ok: true, status: state, event: msg };
     }
     if (["failed", "error", "cancelled", "canceled", "rejected"].includes(state)) {
       return { ok: false, status: state, error: extractJobMessage(msg) || `Job berstatus ${state}.`, event: msg };
     }
+    if (String(msg?.type || "").toLowerCase() === "error") {
+      return { ok: false, status: "error", error: extractJobMessage(msg) || "job.get gagal.", event: msg };
+    }
     await sleep(250);
   }
-  throw new Error(`Timeout job ${jobId}.`);
+  throw new Error(`Timeout job ${jobId}${lastState ? ` (status terakhir: ${lastState})` : ""}.`);
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
@@ -456,25 +487,29 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
 
   const totalSteps = loopCount * targetList.length;
+  const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
-    textdelay: delayMs, textloop: loopCount, totalSteps
+    textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs
   });
 
   // Start immediately and let the progress SSE report each target/loop.
   (async () => {
     let sent = 0;
     let completedSteps = 0;
+    let completedJobs = 0;
+    let failedJobs = 0;
     const queued = [];
     try {
-      publishKickProgress(execution, { phase: "started", completedSteps, totalSteps, percent: 0,
-        loop: 1, targetIndex: 1, target: targetList[0], acknowledged: 0, total: ids.length });
+      publishKickProgress(execution, { phase: "started", completedSteps, totalSteps, completedJobs, totalJobs, percent: 0,
+        loop: 1, targetIndex: 1, target: targetList[0], acknowledged: 0, total: ids.length, sent: 0, failedJobs });
 
       for (let round = 0; round < loopCount; round++) {
         for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
           const targetUsername = targetList[targetIndex];
           const pending = [];
           let sentThisTarget = 0;
+          let completedForTarget = 0;
 
           for (const sessionId of ids) {
             const task = (async () => {
@@ -498,8 +533,25 @@ app.post("/api/kick-loop", async (req, res) => {
                 // before advancing to the next target so each socket actually completes its kick job.
                 const job = await waitForKickJob(sessionId, jobId, 30000);
                 if (!job.ok) throw new Error(job.error || `Job ${jobId} gagal.`);
+                completedJobs++;
+                completedForTarget++;
+                publishKickProgress(execution, {
+                  phase: "job_done", completedSteps, totalSteps, completedJobs, totalJobs,
+                  percent: Math.round((completedJobs / totalJobs) * 100),
+                  loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                  acknowledged: completedForTarget, total: ids.length,
+                  sent: sentThisTarget, failedJobs
+                });
                 return { sessionId, jobId, ok: true, jobStatus: job.status };
               } catch (error) {
+                failedJobs++;
+                publishKickProgress(execution, {
+                  phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+                  percent: Math.round((completedJobs / totalJobs) * 100),
+                  loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                  acknowledged: 0, total: ids.length, sent: sentThisTarget, failedJobs,
+                  error: safeError(error)
+                });
                 return { sessionId, ok: false, error: safeError(error) };
               }
             })();
@@ -507,8 +559,8 @@ app.post("/api/kick-loop", async (req, res) => {
           }
 
           publishKickProgress(execution, {
-            phase: "waiting_ack", completedSteps, totalSteps,
-            percent: Math.round((completedSteps / totalSteps) * 100),
+            phase: "waiting_ack", completedSteps, totalSteps, completedJobs, totalJobs,
+            percent: Math.round((completedJobs / totalJobs) * 100),
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
             acknowledged: 0, total: ids.length, sent: sentThisTarget
           });
@@ -529,16 +581,16 @@ app.post("/api/kick-loop", async (req, res) => {
 
           completedSteps++;
           publishKickProgress(execution, {
-            phase: "target_done", completedSteps, totalSteps,
-            percent: Math.round((completedSteps / totalSteps) * 100),
+            phase: "target_done", completedSteps, totalSteps, completedJobs, totalJobs,
+            percent: Math.round((completedJobs / totalJobs) * 100),
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
             acknowledged: okCount, total: ids.length, sent: sentThisTarget
           });
         }
 
         if (round < loopCount - 1 && delayMs > 0) {
-          publishKickProgress(execution, { phase: "delay", completedSteps, totalSteps,
-            percent: Math.round((completedSteps / totalSteps) * 100), loop: round + 1,
+          publishKickProgress(execution, { phase: "delay", completedSteps, totalSteps, completedJobs, totalJobs,
+            percent: Math.round((completedJobs / totalJobs) * 100), loop: round + 1,
             targetIndex: targetList.length, target: targetList[targetList.length - 1],
             delayMs, acknowledged: ids.length, total: ids.length });
           await sleep(delayMs);
@@ -546,21 +598,21 @@ app.post("/api/kick-loop", async (req, res) => {
       }
 
       finishKickExecution(execution, {
-        phase: "completed", completedSteps, totalSteps, percent: 100, ok: true, completed: true,
+        phase: "completed", completedSteps, totalSteps, completedJobs, totalJobs, percent: 100, ok: true, completed: true,
         queuedAll: true, queueAware: true, executionId: execution.id, websockets: ids.length,
         loops: loopCount, textdelay: delayMs, textloop: loopCount, targets: targetList.length, sent, queued
       });
     } catch (e) {
       finishKickExecution(execution, {
-        phase: "failed", completedSteps, totalSteps,
-        percent: Math.round((completedSteps / totalSteps) * 100), ok: false,
+        phase: "failed", completedSteps, totalSteps, completedJobs, totalJobs,
+        percent: Math.round((completedJobs / totalJobs) * 100), ok: false,
         error: safeError(e), queueAware: true, executionId: execution.id, sent, queued
       });
     }
   })();
 
   res.json({ ok: true, started: true, executionId: execution.id, totalSteps, websockets: ids.length,
-    loops: loopCount, targets: targetList.length, textdelay: delayMs, textloop: loopCount });
+    loops: loopCount, targets: targetList.length, totalJobs, textdelay: delayMs, textloop: loopCount });
 });
 
 app.post("/api/logout", (req, res) => {
