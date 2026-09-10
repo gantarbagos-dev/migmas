@@ -19,6 +19,7 @@ const MAX_EVENT_HISTORY = 500;
 const kickJobWaiters = new Map();
 const kickJobStatusWaiters = new Map();
 const kickExecutions = new Map();
+const balanceWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -52,6 +53,8 @@ function closeSession(sessionId, reason = "logout") {
     subscribers.delete(sessionId);
   }
   eventHistory.delete(sessionId);
+  const bw = balanceWaiters.get(sessionId);
+  if (bw) { clearTimeout(bw.timer); bw.reject(new Error("Session ditutup sebelum saldo diterima.")); balanceWaiters.delete(sessionId); }
   return true;
 }
 
@@ -81,6 +84,7 @@ function connectAccount(username, password) {
 
       resolveKickQueued(sessionId, msg);
       resolveJobStatus(sessionId, msg);
+      resolveBalance(sessionId, msg);
 
       // Jangan membuat event countdown sintetis dari teks umum.
       // Countdown hanya boleh dipicu frontend oleh event vote-kick yang
@@ -239,6 +243,34 @@ function resolveKickQueued(sessionId, msg) {
     return true;
   }
   entry.resolve(jobId);
+  return true;
+}
+
+function waitForBalance(sessionId, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const old = balanceWaiters.get(sessionId);
+    if (old?.timer) clearTimeout(old.timer);
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
+      if (balanceWaiters.get(sessionId) === entry) balanceWaiters.delete(sessionId);
+      reject(new Error("Timeout menunggu wallet.balance.result."));
+    }, timeoutMs);
+    balanceWaiters.set(sessionId, entry);
+  });
+}
+
+function resolveBalance(sessionId, msg) {
+  if (msg?.type !== "wallet.balance.result") return false;
+  const entry = balanceWaiters.get(sessionId);
+  if (!entry) return false;
+  clearTimeout(entry.timer);
+  balanceWaiters.delete(sessionId);
+  const wallet = msg?.data?.wallet || null;
+  if (!wallet) {
+    entry.reject(new Error("wallet.balance.result tidak berisi data wallet."));
+    return true;
+  }
+  entry.resolve(wallet);
   return true;
 }
 
@@ -467,6 +499,33 @@ app.post("/api/action", (req, res) => {
     else throw new Error("Action tidak dikenal.");
     res.json({ ok: true, sent: action });
   } catch (e) { res.status(400).json({ ok: false, error: safeError(e) }); }
+});
+
+// Balance is a direct WebSocket response. Collect the response per session so
+// CEK SALDO ALL does not depend on the single room-event SSE connection.
+app.post("/api/balance-all", async (req, res) => {
+  const ids = Array.isArray(req.body?.sessionIds)
+    ? [...new Set(req.body.sessionIds.map(String))].slice(0, 10)
+    : [];
+  if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
+
+  const results = await Promise.all(ids.map(async (sessionId) => {
+    try {
+      // Register waiter before sending to avoid a very fast response racing past it.
+      const waiter = waitForBalance(sessionId, 8000);
+      send(sessionId, { type: "wallet.balance" });
+      const wallet = await waiter;
+      return { sessionId, ok: true, wallet };
+    } catch (e) {
+      const pending = balanceWaiters.get(sessionId);
+      if (pending?.timer) clearTimeout(pending.timer);
+      balanceWaiters.delete(sessionId);
+      return { sessionId, ok: false, error: safeError(e) };
+    }
+  }));
+
+  const success = results.filter(x => x.ok).length;
+  res.json({ ok: success > 0, action: "balance", sent: ids.length, success, total: ids.length, results });
 });
 
 // ONE HTTP command dispatches the same official command concurrently to up to 10 WebSockets.
