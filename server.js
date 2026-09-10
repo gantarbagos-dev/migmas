@@ -650,7 +650,7 @@ app.post("/api/kick-loop", async (req, res) => {
               totalSteps,
               completedJobs,
               totalJobs,
-              percent: Math.round((completedSteps / totalSteps) * 100),
+              percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
               loop: round + 1,
               targetIndex: targetIndex + 1,
               target: targetUsername,
@@ -663,8 +663,12 @@ app.post("/api/kick-loop", async (req, res) => {
             });
           });
 
-          // Delay is BETWEEN targets for EACH WebSocket.
-          if (delayMs > 0 && targetIndex < targetList.length - 1) {
+          // KICK dibuat berkelompok: target 1-5 rapat tanpa delay,
+          // lalu delay sebelum target 6. Target 6-10 juga rapat tanpa delay.
+          // Jika loop berikutnya ada, delay dilakukan setelah target terakhir.
+          const isGroupBoundary = targetIndex === 4 && targetIndex < targetList.length - 1;
+          const isLastTarget = targetIndex === targetList.length - 1;
+          if (delayMs > 0 && (isGroupBoundary || isLastTarget) && !(isLastTarget && round === loopCount - 1)) {
             await addProgress(async () => {
               publishKickProgress(execution, {
                 phase: "delay",
@@ -672,13 +676,13 @@ app.post("/api/kick-loop", async (req, res) => {
                 totalSteps,
                 completedJobs,
                 totalJobs,
-                percent: Math.round((completedSteps / totalSteps) * 100),
+                percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
                 loop: round + 1,
                 targetIndex: targetIndex + 1,
                 target: targetUsername,
                 sessionId,
                 delayMs,
-                nextTarget: targetList[targetIndex + 1],
+                nextTarget: targetList[targetIndex + 1] || (round < loopCount - 1 ? targetList[0] : null),
                 noAck: true
               });
             });
@@ -695,7 +699,7 @@ app.post("/api/kick-loop", async (req, res) => {
               totalSteps,
               completedJobs,
               totalJobs,
-              percent: Math.round((completedSteps / totalSteps) * 100),
+              percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
               loop: round + 1,
               targetIndex: targetList.length,
               target: targetList[targetList.length - 1],

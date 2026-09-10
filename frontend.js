@@ -807,7 +807,8 @@ async function kickSelectedTargets(){
           }
         }
 
-        const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
+        const fallbackPercent = Number(p.totalJobs) > 0 ? (Number(p.completedJobs) / Number(p.totalJobs)) * 100 : 0;
+        const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
         bar.style.width = `${percent}%`;
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
@@ -832,7 +833,7 @@ async function kickSelectedTargets(){
           meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
         } else if(p.phase === "delay") {
           meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
-        } else if(p.phase === "completed") {
+        } else if(p.phase === "completed") { bar.style.width = "100%";
           meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
           stopProgress();
           log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
