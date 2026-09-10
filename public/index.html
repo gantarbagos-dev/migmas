@@ -394,6 +394,7 @@ let timerFrame = 0;
 let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
+let activeVoteKey = "";
 
 function renderTimer(){
   const node = el("timerValue");
@@ -500,21 +501,60 @@ function clearApiEvents(){
   if(box) box.textContent = "Log API dibersihkan. Menunggu event baru…";
 }
 
+function getKickEventData(msg){
+  return msg?.data ?? msg ?? {};
+}
+
 function isVoteStartedKickEvent(msg){
-  const data = msg?.data ?? msg;
+  const data = getKickEventData(msg);
   const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
   const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
   const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
+  const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
-  const status = String(data?.status_message ?? msg?.status_message ?? "").toLowerCase();
 
-  return (
-    (eventType === "room.kick.state" || eventType === "room.kick") &&
-    action === "vote_started" &&
-    command === "kick" &&
-    success !== false &&
-    /\b\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\b/i.test(status)
-  );
+  // Harus persis state awal vote-kick. Event status lain tidak boleh
+  // menyalakan/restart countdown.
+  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
+  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
+
+  // Abaikan event lama yang mungkin dikirim ulang saat SSE/WebSocket reconnect.
+  const rawTime = String(data?.time ?? msg?.time ?? "");
+  if(rawTime){
+    const t = Date.parse(rawTime);
+    if(Number.isFinite(t)){
+      const age = Math.abs(Date.now() - t);
+      if(age > 15000) return false;
+    }
+  }
+
+  return true;
+}
+
+function getVoteKey(msg){
+  const data = getKickEventData(msg);
+  const explicitId = String(
+    data?.event_id ?? data?.eventId ?? data?.id ?? msg?.event_id ?? msg?.eventId ?? ""
+  ).trim();
+  if(explicitId) return `id:${explicitId}`;
+
+  const target = String(data?.target_username ?? "").trim().toLowerCase();
+  const starter = String(data?.username ?? "").trim().toLowerCase();
+  const room = String(data?.room ?? data?.room_name ?? "").trim().toLowerCase();
+  const time = String(data?.time ?? msg?.time ?? "").trim();
+
+  // Jika API tidak menyediakan event_id, waktu event tetap dipakai untuk
+  // membedakan dua vote yang benar-benar berbeda. Status countdown tidak
+  // pernah dipakai sebagai identitas event.
+  return `vote:${room}|${target}|${starter}|${time}`;
+}
+
+function isVoteFinishedEvent(msg){
+  const data = getKickEventData(msg);
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
+  return (eventType === "room.kick.state" || eventType === "room.kick") &&
+    ["vote_completed","vote_cancelled","vote_failed","kick_completed","kick_failed","completed","cancelled"].includes(action);
 }
 
 function appendApiEvent(i, msg){
@@ -529,15 +569,23 @@ function appendApiEvent(i, msg){
 
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
+  if(isVoteFinishedEvent(msg)){
+    // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
+    activeVoteKey = "";
+  }
   if(isVoteStartedKickEvent(msg)){
-    const data = msg?.data ?? msg;
-    const target = String(data?.target_username ?? "");
-    const eventTime = String(data?.time ?? "");
-    const status = String(data?.status_message ?? "");
-    const eventKey = `${target}|${eventTime}|${status}`;
+    const eventKey = getVoteKey(msg);
 
-    // Hanya event vote_started baru yang boleh memulai/restart countdown.
-    // Feedback API yang sama/duplikat tidak boleh mengembalikan label ke 60000.
+    // Event yang sama dapat dikirim berkali-kali oleh stream. Jangan pernah
+    // restart countdown hanya karena ada salinan event vote_started.
+    if(eventKey && eventKey === activeVoteKey) return;
+
+    // Selama countdown aktif, event vote_started lain tidak boleh me-reset
+    // timer yang sedang berjalan. Timer berikutnya hanya boleh dimulai setelah
+    // countdown selesai (atau setelah reset manual).
+    if(timerRunning) return;
+
+    activeVoteKey = eventKey;
     startCountdown(TIMER_START_MS, eventKey);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
