@@ -248,7 +248,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, clients: new Set(), done: false, result: null };
+  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -259,7 +259,8 @@ function createKickExecution(meta) {
 
 function publishKickProgress(execution, event) {
   if (!execution) return;
-  const payload = `data: ${JSON.stringify({ type: "kick.progress", ...event })}\n\n`;
+  execution.latest = { type: "kick.progress", ...event };
+  const payload = `data: ${JSON.stringify(execution.latest)}\n\n`;
   for (const res of execution.clients) { try { res.write(payload); } catch {} }
 }
 
@@ -271,6 +272,13 @@ function finishKickExecution(execution, result) {
   for (const res of execution.clients) { try { res.end(); } catch {} }
   execution.clients.clear();
 }
+
+app.get("/api/kick-progress-state", (req, res) => {
+  const id = String(req.query.id || "");
+  const execution = kickExecutions.get(id);
+  if (!execution) return res.status(404).json({ ok: false, error: "Execution tidak ditemukan." });
+  return res.json({ ok: true, executionId: id, done: execution.done, progress: execution.latest, result: execution.done ? execution.result : null });
+});
 
 app.get("/api/kick-progress", (req, res) => {
   const id = String(req.query.id || "");
