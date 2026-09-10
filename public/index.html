@@ -417,7 +417,7 @@ function startCountdown(seconds = TIMER_START){
       renderTimer();
       return;
     }
-    timerFrame = setTimeout(tick, Math.min(250, Math.max(25, (remaining % 1) * 1000)));
+    timerFrame = setTimeout(tick, Math.min(200, Math.max(30, (remaining - Math.floor(remaining) + 0.01) * 1000)));
   };
   timerFrame = setTimeout(tick, 25);
 }
@@ -444,12 +444,13 @@ function handleApiEvent(i, msg){
   const text = String(eventData?.text ?? eventData?.message ?? eventData?.content ?? eventData?.status_message ?? "");
   const eventRoom = String(eventData?.room ?? eventData?.room_name ?? "").trim();
   const sameRoom = !roomName || !eventRoom || eventRoom === roomName;
-  const isKickStart =
-    eventData?.event_type === "room.kick.state" &&
-    ["vote_started", "started", "start"].includes(String(eventData?.action || "").toLowerCase());
-  const secondsMatch = text.match(/(\d+)s\s+remaining/i);
-  if(sameRoom && isKickStart){
-    startCountdown(secondsMatch ? Number(secondsMatch[1]) : TIMER_START);
+  // Countdown HANYA boleh dimulai dari pesan persis yang mengandung
+  // "A vote to kick". Event lain tidak boleh mengubah timer.
+  const hasVoteToKickMessage = /\bA\s+vote\s+to\s+kick\b/i.test(text);
+  const secondsMatch = text.match(/(\d+)\s*s\s*(?:remaining|left)?/i);
+  if(sameRoom && hasVoteToKickMessage){
+    const seconds = secondsMatch ? Number(secondsMatch[1]) : TIMER_START;
+    startCountdown(seconds);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
