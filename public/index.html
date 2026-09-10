@@ -353,9 +353,11 @@ function openEvents(i){
   es.onmessage = e => {
     try{
       const wrapper = JSON.parse(e.data);
-      const msg = wrapper.event || wrapper;
+      const msg = wrapper?.event ?? wrapper;
       handleApiEvent(i, msg);
-    }catch{}
+    }catch(err){
+      handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
+    }
   };
   es.onerror = () => {};
 }
@@ -418,11 +420,13 @@ function handleApiEvent(i, msg){
   const roomName = el("room")?.value.trim();
   const event = msg?.event && typeof msg.event === "object" ? msg.event : msg;
   const eventData = event?.data && typeof event.data === "object" ? event.data : event;
+  const text = String(eventData?.text ?? eventData?.message ?? eventData?.content ?? "");
+  const sameRoom = !roomName || String(eventData?.username ?? eventData?.room ?? "").trim() === roomName;
+  const isKickStart = /(?:^|\b)(?:a\s+)?vote\s+to\s+kick\b/i.test(text) || /\bstart\s+kick\b/i.test(text);
   if(
     eventData?.event_type === "room.message.received" &&
-    eventData?.username === roomName &&
-    typeof eventData?.text === "string" &&
-    /(?:^|\s)A?\s*vote to kick/i.test(eventData.text)
+    sameRoom &&
+    isKickStart
   ){
     startCountdown();
   }
