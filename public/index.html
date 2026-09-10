@@ -362,7 +362,7 @@ function openEvents(i){
   es.onerror = () => {};
 }
 
-const TIMER_START = 60000;
+const TIMER_START = 60;
 let timerValue = TIMER_START;
 let timerRunning = false;
 let timerStartedAt = 0;
@@ -387,7 +387,7 @@ function startCountdown(){
   timerStartedAt = performance.now();
   const tick = (now) => {
     if(!timerRunning) return;
-    timerValue = Math.max(0, TIMER_START - Math.floor(now - timerStartedAt));
+    timerValue = Math.max(0, TIMER_START - Math.floor((now - timerStartedAt) / 1000));
     renderTimer();
     if(timerValue === 0){
       timerRunning = false;
@@ -417,17 +417,21 @@ function handleApiEvent(i, msg){
     box.textContent = apiEventHistory.join("\n\n────────────────────────\n\n");
     if(wasNearBottom) box.scrollTop = box.scrollHeight;
   }
-  const roomName = el("room")?.value.trim();
+  const roomName = String(el("room")?.value || "").trim();
   const event = msg?.event && typeof msg.event === "object" ? msg.event : msg;
   const eventData = event?.data && typeof event.data === "object" ? event.data : event;
-  const text = String(eventData?.text ?? eventData?.message ?? eventData?.content ?? "");
-  const sameRoom = !roomName || String(eventData?.username ?? eventData?.room ?? "").trim() === roomName;
-  const isKickStart = /(?:^|\b)(?:a\s+)?vote\s+to\s+kick\b/i.test(text) || /\bstart\s+kick\b/i.test(text);
-  if(
-    eventData?.event_type === "room.message.received" &&
-    sameRoom &&
-    isKickStart
-  ){
+  const text = String(eventData?.text ?? eventData?.message ?? eventData?.content ?? eventData?.status_message ?? "");
+  const eventRoom = String(eventData?.room ?? eventData?.room_name ?? "").trim();
+  const sameRoom = !roomName || !eventRoom || eventRoom === roomName;
+  const isKickStart =
+    /(?:^|\b)(?:a\s+)?vote\s+to\s+kick\b/i.test(text) ||
+    /\bstart\s+kick\b/i.test(text) ||
+    (eventData?.event_type === "room.kick.state" &&
+     ["vote_started", "started", "start"].includes(String(eventData?.action || "").toLowerCase()));
+  const secondsMatch = text.match(/(\d+)s\s+remaining/i);
+  if(sameRoom && isKickStart){
+    timerValue = secondsMatch ? Math.max(0, Number(secondsMatch[1])) : TIMER_START;
+    renderTimer();
     startCountdown();
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
