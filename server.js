@@ -74,6 +74,18 @@ function connectAccount(username, password) {
 
       publish(sessionId, { type: "api.event", event: msg });
 
+      // Backend menjadi satu-satunya pemicu countdown. Hanya pesan yang
+      // mengandung "has been started by" yang boleh memulai timer.
+      const rawText = JSON.stringify(msg);
+      if (/has\s+been\s+started\s+by/i.test(rawText)) {
+        const secondsMatch = rawText.match(/(\d+)\s*s(?:ec(?:ond)?s?)?\s*(?:remaining|left)?/i);
+        publish(sessionId, {
+          type: "kick.countdown.start",
+          seconds: secondsMatch ? Number(secondsMatch[1]) : 60,
+          source: "backend"
+        });
+      }
+
       if (msg.type === "auth.required") return;
 
       if (msg.type === "session.ready") {
