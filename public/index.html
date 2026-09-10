@@ -432,11 +432,7 @@ function clearApiEvents(){
 
 function handleApiEvent(i, msg){
   if(msg?.type === "kick.countdown.start"){
-    const roomName = String(el("room")?.value || "").trim();
-    const eventRoom = String(msg.room || "").trim();
-    if(!roomName || !eventRoom || roomName === eventRoom){
-      startCountdown(Number(msg.seconds) || TIMER_START);
-    }
+    startCountdown(Number(msg.seconds) || TIMER_START);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
