@@ -231,6 +231,10 @@
         <span id="kickProgressStep" class="text-slate-400">Target 0/0</span>
         <span id="kickProgressWs" class="text-slate-500">WS 0/0</span>
       </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressJobs" class="text-slate-400">Job 0/0</span>
+        <span id="kickProgressStructure" class="text-slate-500">Loop 0/0 • Target 0/0</span>
+      </div>
       <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
     </div>
   </div>
@@ -743,11 +747,13 @@ async function kickSelectedTargets(){
   const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
-  const step = el("kickProgressStep"), ws = el("kickProgressWs");
+  const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
   bar.style.width = "0%";
   txt.textContent = "Memulai";
-  step.textContent = `Target 0/${total}`;
+  step.textContent = `Target 0/${targets.length * textloop}`;
   ws.textContent = `WS 0/${wsCount}`;
+  jobs.textContent = `Job 0/${total * wsCount}`;
+  structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
@@ -785,6 +791,8 @@ async function kickSelectedTargets(){
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
         else if(p.phase === "waiting_ack") txt.textContent = "Menunggu ACK";
+        else if(p.phase === "job_done") txt.textContent = "KICK OK";
+        else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
         else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
         else if(p.phase === "completed") txt.textContent = "Selesai";
@@ -792,7 +800,11 @@ async function kickSelectedTargets(){
 
         const done = Number(p.completedSteps) || 0;
         const totalSteps = Number(p.totalSteps) || total;
+        const completedJobs = Number(p.completedJobs) || 0;
+        const totalJobs = Number(p.totalJobs) || (totalSteps * wsCount);
         step.textContent = `Target ${done}/${totalSteps}`;
+        jobs.textContent = `Job ${completedJobs}/${totalJobs}`;
+        structure.textContent = `Loop ${Number(p.loop)||0}/${textloop} • Target ${Number(p.targetIndex)||0}/${targets.length}`;
         if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
 
         if(p.phase === "waiting_ack") {
@@ -808,7 +820,11 @@ async function kickSelectedTargets(){
           stopProgress();
           log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
         } else if(p.phase === "target_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • WS ${p.acknowledged || 0}/${p.total || wsCount} • Job ${completedJobs}/${totalJobs}`;
+        } else if(p.phase === "job_done") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} selesai`;
+        } else if(p.phase === "job_failed") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} • ${p.error || "gagal"}`;
         }
 
         if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
