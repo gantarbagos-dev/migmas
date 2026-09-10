@@ -188,14 +188,14 @@
       <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
         <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
       </div>
-      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
+      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px_42px] items-end gap-1.5">
         <div class="min-w-0">
-          <button onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
+          <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
           <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
         </div>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
-          <input id="kickTimer" type="number" min="0" step="1" value="3" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
@@ -205,6 +205,9 @@
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
           <input id="textloop" type="number" min="1" step="1" value="5" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
+        <button id="resetTimerButton" class="bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-900/40 hover:bg-sky-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Reset Timer ke 60000 ms" aria-label="Reset Timer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4l2.5 1.5M9 3h6M12 3v2"></path></svg>
+        </button>
         <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
@@ -219,19 +222,6 @@
     </div>
     
     
-    <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <div>
-          <div class="text-[11px] font-semibold text-slate-300">API FEEDBACK</div>
-          <div class="text-[10px] text-slate-500">Respons/event mentah dari WebSocket API</div>
-        </div>
-        <button id="clearApiEvents" class="text-[10px] font-semibold text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 transition-all">
-          CLEAR
-        </button>
-      </div>
-      <pre id="apiEvent" class="h-48 max-h-64 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-words bg-[#07090e] border border-slate-800 rounded-lg p-3 text-[10px] leading-relaxed text-slate-400 font-mono">Menunggu feedback API…</pre>
-    </div>
-
     <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
       <div class="flex justify-between items-center gap-2 text-[11px] font-semibold">
         <span class="text-slate-300">KICK ALL PROGRESS</span>
@@ -396,59 +386,97 @@ function openEvents(i){
   es.onerror = () => {};
 }
 
-const TIMER_START = 60;
-let timerValue = TIMER_START;
+const TIMER_START_MS = 60000;
+let timerValue = TIMER_START_MS;
 let timerRunning = false;
 let timerDeadline = 0;
 let timerFrame = 0;
+let timerGeneration = 0;
 let kickTriggeredForTimer = false;
-let kickTriggerThreshold = 0;
 
 function renderTimer(){
   const node = el("timerValue");
-  if(node) node.textContent = String(timerValue);
+  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue)));
+}
+
+function getKickTimerMs(){
+  return Math.max(0, Number(el("kickTimer")?.value) || 0);
 }
 
 function resetTimer(){
+  timerGeneration++;
   timerRunning = false;
   if(timerFrame) clearTimeout(timerFrame);
   timerFrame = 0;
-  timerValue = TIMER_START;
+  timerDeadline = 0;
+  timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
-  kickTriggerThreshold = Math.max(0, Number(el("kickTimer")?.value) || 0);
   renderTimer();
+  log("Timer di-reset ke 60000 ms.");
 }
 
-function startCountdown(seconds = TIMER_START){
-  const duration = Math.max(0, Number(seconds) || 0);
+function triggerKickAllIfMatched(){
+  const configuredMs = getKickTimerMs();
+  if(!kickTriggeredForTimer && timerValue === configuredMs){
+    kickTriggeredForTimer = true;
+    log(`Timer ${timerValue} ms sama dengan textbox ${configuredMs} ms: menjalankan KICK ALL otomatis.`);
+    const button = el("kickAllButton");
+    if(button){
+      button.click();
+    }else{
+      kickSelectedTargets();
+    }
+  }
+}
+
+function startCountdown(durationMs = TIMER_START_MS){
+  const duration = Math.max(0, Number(durationMs) || 0);
+  const generation = ++timerGeneration;
+
+  if(timerFrame) clearTimeout(timerFrame);
+
   timerValue = Math.ceil(duration);
-  timerDeadline = performance.now() + duration * 1000;
+  timerDeadline = performance.now() + duration;
   timerRunning = duration > 0;
   kickTriggeredForTimer = false;
   renderTimer();
-  if(timerFrame) clearTimeout(timerFrame);
+
+  // Bila event memberi nilai yang sama dengan textbox, trigger langsung.
+  triggerKickAllIfMatched();
+
+  if(!timerRunning){
+    timerValue = 0;
+    renderTimer();
+    return;
+  }
+
+  // Asynchronous countdown: tidak memblokir UI/event loop.
   const tick = () => {
-    if(!timerRunning) return;
-    const remaining = Math.max(0, (timerDeadline - performance.now()) / 1000);
+    if(!timerRunning || generation !== timerGeneration) return;
+
+    const remaining = Math.max(0, timerDeadline - performance.now());
     const nextValue = Math.ceil(remaining);
+
     if(nextValue !== timerValue){
       timerValue = nextValue;
       renderTimer();
+      triggerKickAllIfMatched();
     }
-    if(!kickTriggeredForTimer && timerValue <= kickTriggerThreshold){
-      kickTriggeredForTimer = true;
-      log(`Timer mencapai ${kickTriggerThreshold} detik: menjalankan KICK ALL otomatis.`);
-      kickSelectedTargets();
-    }
+
     if(remaining <= 0){
       timerRunning = false;
       timerValue = 0;
+      timerFrame = 0;
       renderTimer();
+      log("Countdown selesai: 0 ms.");
       return;
     }
-    timerFrame = setTimeout(tick, Math.min(200, Math.max(30, (remaining - Math.floor(remaining) + 0.01) * 1000)));
+
+    // Jadwalkan tick berikutnya secara asynchronous.
+    timerFrame = setTimeout(tick, Math.min(250, Math.max(10, remaining % 1000 || 50)));
   };
-  timerFrame = setTimeout(tick, 25);
+
+  timerFrame = setTimeout(tick, 0);
 }
 
 const apiEventHistory = [];
@@ -460,32 +488,38 @@ function clearApiEvents(){
   if(box) box.textContent = "Log API dibersihkan. Menunggu event baru…";
 }
 
+function isVoteStartedKickEvent(msg){
+  const data = msg?.data ?? msg;
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
+  const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
+  const success = data?.success ?? msg?.success;
+  const status = String(data?.status_message ?? msg?.status_message ?? "").toLowerCase();
+
+  return (
+    (eventType === "room.kick.state" || eventType === "room.kick") &&
+    action === "vote_started" &&
+    command === "kick" &&
+    success !== false &&
+    /\b\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\b/i.test(status)
+  );
+}
+
 function appendApiEvent(i, msg){
   const box = el("apiEvent");
   if(!box) return;
-
-  const entry = {
-    time: new Date().toLocaleTimeString(),
-    troop: i + 1,
-    type: msg?.type ?? "unknown",
-    data: msg
-  };
-
+  const entry = `[${new Date().toLocaleTimeString()}] Troop ${i + 1} • ${msg?.type ?? "unknown"}\n${JSON.stringify(msg, null, 2)}`;
   apiEventHistory.push(entry);
   if(apiEventHistory.length > MAX_API_EVENT_HISTORY) apiEventHistory.shift();
-
-  box.textContent = apiEventHistory.map(x =>
-    `[${x.time}] Troop ${x.troop} • ${x.type}\n${JSON.stringify(x.data, null, 2)}`
-  ).join("\n\n────────────────────────\n\n");
-
-  // Selalu tampilkan feedback terbaru.
+  box.textContent = apiEventHistory.join("\n\n────────────────────────\n\n");
   box.scrollTop = box.scrollHeight;
 }
 
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
-  if(msg?.type === "kick.countdown.start"){
-    startCountdown(Number(msg.seconds) || TIMER_START);
+  if(isVoteStartedKickEvent(msg)){
+    // Event seperti screenshot memulai timer baru dengan durasi default 60000 ms.
+    startCountdown(TIMER_START_MS);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
@@ -683,6 +717,7 @@ async function logoutAll(){
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
+el("resetTimerButton")?.addEventListener("click", resetTimer);
 el("clearApiEvents")?.addEventListener("click", clearApiEvents);
 el("generateTroop").onclick = generateTroop;
 el("generatePassword").onclick = generatePassword;
