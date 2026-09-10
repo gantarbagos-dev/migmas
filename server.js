@@ -583,7 +583,8 @@ app.post("/api/kick-loop", async (req, res) => {
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
-    textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs
+    textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
+    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }))
   });
 
   (async () => {
@@ -591,6 +592,7 @@ app.post("/api/kick-loop", async (req, res) => {
     let completedSteps = 0;
     let completedJobs = 0;
     let failedJobs = 0;
+    const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
     const stateLock = { chain: Promise.resolve() };
 
@@ -599,11 +601,17 @@ app.post("/api/kick-loop", async (req, res) => {
       return stateLock.chain;
     }
 
-    async function runTroop(sessionId) {
+    async function runTroop(sessionId, wsOrdinal) {
       const troopResults = [];
       let localSteps = 0;
+      // WS 1-5: 1,2 -> delay -> 3,4 -> delay -> 5,6 -> delay -> 7,8 -> delay -> 9,10 -> delay
+      // WS 6-10: 10,9 -> delay -> 8,7 -> delay -> 6,5 -> delay -> 4,3 -> delay -> 2,1 -> delay
+      const indices = Array.from({ length: targetList.length }, (_, i) => i);
+      const orderedIndices = wsOrdinal <= 5 ? indices : indices.reverse();
+
       for (let round = 0; round < loopCount; round++) {
-        for (let targetIndex = 0; targetIndex < targetList.length; targetIndex++) {
+        for (let pos = 0; pos < orderedIndices.length; pos++) {
+          const targetIndex = orderedIndices[pos];
           const targetUsername = targetList[targetIndex];
           const startedAt = nowMs();
           let ok = false;
@@ -617,11 +625,10 @@ app.post("/api/kick-loop", async (req, res) => {
             if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
               throw new Error("Permission rooms.kick tidak tersedia.");
             }
-
-            // Fire immediately. Do NOT wait for room.kick.queued or job.get.
             send(sessionId, { type: "room.kick", room, target_username: targetUsername });
             sent++;
             completedJobs++;
+            targetProgress[targetIndex].completed++;
             ok = true;
           } catch (e) {
             failedJobs++;
@@ -629,12 +636,15 @@ app.post("/api/kick-loop", async (req, res) => {
           }
 
           localSteps++;
-          const stepNumber = round * targetList.length + targetIndex + 1;
+          const stepNumber = round * targetList.length + pos + 1;
           troopResults.push({
             sessionId,
+            websocket: wsOrdinal,
             loop: round + 1,
             target: targetUsername,
             targetIndex: targetIndex + 1,
+            sequencePosition: pos + 1,
+            direction: wsOrdinal <= 5 ? "forward" : "reverse",
             ok,
             jobStatus: ok ? "sent" : "send_failed",
             unconfirmed: ok,
@@ -655,20 +665,22 @@ app.post("/api/kick-loop", async (req, res) => {
               targetIndex: targetIndex + 1,
               target: targetUsername,
               sessionId,
+              websocket: wsOrdinal,
+              direction: wsOrdinal <= 5 ? "forward" : "reverse",
               acknowledged: 0,
               total: ids.length,
               sent,
               failedJobs,
-              noAck: true
+              noAck: true,
+              targetProgress: targetProgress.map(x => ({ ...x }))
             });
           });
 
-          // KICK dibuat berkelompok: target 1-5 rapat tanpa delay,
-          // lalu delay sebelum target 6. Target 6-10 juga rapat tanpa delay.
-          // Jika loop berikutnya ada, delay dilakukan setelah target terakhir.
-          const isGroupBoundary = targetIndex === 4 && targetIndex < targetList.length - 1;
-          const isLastTarget = targetIndex === targetList.length - 1;
-          if (delayMs > 0 && (isGroupBoundary || isLastTarget) && !(isLastTarget && round === loopCount - 1)) {
+          // Delay after every pair, including the final pair of each loop.
+          if (delayMs > 0 && (pos + 1) % 2 === 0) {
+            const nextPos = pos + 1;
+            const nextTargetIndex = nextPos < orderedIndices.length ? orderedIndices[nextPos] : null;
+            const nextLoop = nextPos >= orderedIndices.length && round < loopCount - 1 ? round + 2 : null;
             await addProgress(async () => {
               publishKickProgress(execution, {
                 phase: "delay",
@@ -681,38 +693,20 @@ app.post("/api/kick-loop", async (req, res) => {
                 targetIndex: targetIndex + 1,
                 target: targetUsername,
                 sessionId,
+                websocket: wsOrdinal,
+                direction: wsOrdinal <= 5 ? "forward" : "reverse",
                 delayMs,
-                nextTarget: targetList[targetIndex + 1] || (round < loopCount - 1 ? targetList[0] : null),
-                noAck: true
+                nextTarget: nextTargetIndex === null ? (nextLoop ? targetList[orderedIndices[0]] : null) : targetList[nextTargetIndex],
+                nextLoop,
+                noAck: true,
+                targetProgress: targetProgress.map(x => ({ ...x }))
               });
             });
             await sleep(delayMs);
           }
         }
-
-        // Delay before the next loop, after target 10.
-        if (delayMs > 0 && round < loopCount - 1) {
-          await addProgress(async () => {
-            publishKickProgress(execution, {
-              phase: "loop_delay",
-              completedSteps,
-              totalSteps,
-              completedJobs,
-              totalJobs,
-              percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
-              loop: round + 1,
-              targetIndex: targetList.length,
-              target: targetList[targetList.length - 1],
-              sessionId,
-              delayMs,
-              nextLoop: round + 2,
-              noAck: true
-            });
-          });
-          await sleep(delayMs);
-        }
       }
-      return { sessionId, results: troopResults, steps: localSteps };
+      return { sessionId, websocket: wsOrdinal, results: troopResults, steps: localSteps };
     }
 
     try {
@@ -731,10 +725,11 @@ app.post("/api/kick-loop", async (req, res) => {
         sent: 0,
         failedJobs,
         noAck: true,
-        mode: "per_websocket_sequential"
+        mode: "paired_targets_per_websocket",
+        targetProgress: targetProgress.map(x => ({ ...x }))
       });
 
-      const results = await Promise.all(ids.map(runTroop));
+      const results = await Promise.all(ids.map((sessionId, index) => runTroop(sessionId, index + 1)));
       sequenceResults.push(...results);
 
       const hasFailures = failedJobs > 0;
@@ -772,7 +767,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "per_websocket_sequential_no_ack",
+    mode: "paired_targets_per_websocket_no_ack",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,

@@ -733,6 +733,8 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
   if (latency) latency.textContent = "Latency: -";
   if (network) network.textContent = "Queue - • Job -";
+  const targetProgress = el("kickTargetProgress");
+  if (targetProgress) targetProgress.innerHTML = "";
   if (meta) meta.textContent = reason;
 }
 
@@ -748,6 +750,10 @@ async function kickSelectedTargets(){
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
   const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
   const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
+  const targetProgressBox = el("kickTargetProgress");
+  if (targetProgressBox) {
+    targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
+  }
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
@@ -792,6 +798,18 @@ async function kickSelectedTargets(){
         const state = await pr.json();
         const p = state.progress || {};
         if(p.type !== "kick.progress") return;
+
+        if (targetProgressBox && Array.isArray(p.targetProgress)) {
+          p.targetProgress.forEach(tp => {
+            const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
+            if (!cell) return;
+            const span = cell.querySelector("span");
+            const done = Number(tp.completed) || 0;
+            const total = Number(tp.total) || (textloop * wsCount);
+            if (span) span.textContent = `${done}/${total}`;
+            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+          });
+        }
 
         // Timing aplikasi per WebSocket: request → queued → job selesai.
         if(p.latency){
