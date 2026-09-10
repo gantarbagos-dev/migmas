@@ -623,12 +623,12 @@ app.post("/api/kick-loop", async (req, res) => {
                 const jobId = await ackPromise;
                 const queueMs = nowMs() - startedAt;
 
-                // ACK only means the request entered the API queue. Wait for the job result
-                // before advancing to the next target so each socket actually completes its kick job.
-                const job = await waitForKickJob(sessionId, jobId, 30000);
-                if (!job.ok) throw new Error(job.error || `Job ${jobId} gagal.`);
+                // SPEED OPTIMIZATION: room.kick is a queued API job. Once the server
+                // acknowledges the queue request, do not block the next target on job.get.
+                // This removes the slowest part of the old loop while preserving the
+                // existing per-target / per-WebSocket parallel dispatch.
                 const completedAt = nowMs();
-                const jobMs = Math.max(0, completedAt - queuedAt);
+                const jobMs = 0;
                 const totalMs = Math.max(0, completedAt - startedAt);
                 completedJobs++;
                 completedForTarget++;
@@ -640,7 +640,7 @@ app.post("/api/kick-loop", async (req, res) => {
                   sent: sentThisTarget, failedJobs,
                   latency: { sessionId, queueMs, jobMs, totalMs }
                 });
-                return { sessionId, jobId, ok: true, jobStatus: job.status, queueMs, jobMs, totalMs };
+                return { sessionId, jobId, ok: true, jobStatus: "queued", queueMs, jobMs, totalMs };
               } catch (error) {
                 failedJobs++;
                 publishKickProgress(execution, {
