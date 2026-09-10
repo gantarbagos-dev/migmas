@@ -14,11 +14,17 @@ const API_WS = "wss://developer.mig33.id/developer/ws";
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
 const sessions = new Map();
 const subscribers = new Map();
+const eventHistory = new Map();
+const MAX_EVENT_HISTORY = 500;
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
 
 function publish(sessionId, msg) {
+  if (!eventHistory.has(sessionId)) eventHistory.set(sessionId, []);
+  const history = eventHistory.get(sessionId);
+  history.push(msg);
+  if (history.length > MAX_EVENT_HISTORY) history.shift();
   const set = subscribers.get(sessionId);
   if (!set) return;
   const payload = `data: ${JSON.stringify(msg)}\n\n`;
@@ -38,6 +44,7 @@ function closeSession(sessionId, reason = "logout") {
     for (const res of set) { try { res.end(); } catch {} }
     subscribers.delete(sessionId);
   }
+  eventHistory.delete(sessionId);
   return true;
 }
 
@@ -184,6 +191,9 @@ app.get("/api/events", (req, res) => {
   if (!subscribers.has(sessionId)) subscribers.set(sessionId, new Set());
   subscribers.get(sessionId).add(res);
   res.write(`data: ${JSON.stringify({ type: "stream.ready" })}\n\n`);
+  for (const oldEvent of (eventHistory.get(sessionId) || [])) {
+    try { res.write(`data: ${JSON.stringify(oldEvent)}\n\n`); } catch {}
+  }
   const keepAlive = setInterval(() => { try { res.write(": keep-alive\n\n"); } catch {} }, 20000);
   req.on("close", () => {
     clearInterval(keepAlive);
