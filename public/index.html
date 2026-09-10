@@ -766,54 +766,71 @@ async function kickSelectedTargets(){
       return;
     }
 
-    const source = new EventSource(`/api/kick-progress?id=${encodeURIComponent(j.executionId)}`);
-    source.onmessage = (ev) => {
-      let p;
-      try { p = JSON.parse(ev.data); } catch { return; }
-      if(p.type !== "kick.progress") return;
-      const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
-      bar.style.width = `${percent}%`;
+    // Gunakan polling ringan untuk progress KICK ALL.
+    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
+    let progressStopped = false;
+    let progressTimer = null;
 
-      if(p.phase === "started" || p.phase === "connected") {
-        txt.textContent = "Berjalan";
-      } else if(p.phase === "waiting_ack") {
-        txt.textContent = "Menunggu ACK";
-      } else if(p.phase === "delay") {
-        txt.textContent = "Delay";
-      } else if(p.phase === "target_done") {
-        txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
-      } else if(p.phase === "completed") {
-        txt.textContent = "Selesai";
-      } else if(p.phase === "failed") {
-        txt.textContent = "Gagal";
-      }
+    const readProgress = async () => {
+      if(progressStopped) return;
+      try{
+        const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
+        if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
+        const state = await pr.json();
+        const p = state.progress || {};
+        if(p.type !== "kick.progress") return;
 
-      const done = Number(p.completedSteps) || 0;
-      const totalSteps = Number(p.totalSteps) || total;
-      step.textContent = `Target ${done}/${totalSteps}`;
-      if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
+        const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
+        bar.style.width = `${percent}%`;
 
-      if(p.phase === "waiting_ack") {
-        meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • menunggu ACK ${p.total || wsCount} WebSocket`;
-      } else if(p.phase === "delay") {
-        meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
-      } else if(p.phase === "completed") {
-        meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
-        source.close();
-        log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
-      } else if(p.phase === "failed") {
-        meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
-        source.close();
-        log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
-      } else if(p.phase === "target_done") {
-        meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged}/${p.total || wsCount}`;
+        if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
+        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu ACK";
+        else if(p.phase === "delay") txt.textContent = "Delay";
+        else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
+        else if(p.phase === "completed") txt.textContent = "Selesai";
+        else if(p.phase === "failed") txt.textContent = "Gagal";
+
+        const done = Number(p.completedSteps) || 0;
+        const totalSteps = Number(p.totalSteps) || total;
+        step.textContent = `Target ${done}/${totalSteps}`;
+        if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
+
+        if(p.phase === "waiting_ack") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
+        } else if(p.phase === "delay") {
+          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
+        } else if(p.phase === "completed") {
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
+          stopProgress();
+          log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
+        } else if(p.phase === "failed") {
+          meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
+          stopProgress();
+          log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
+        } else if(p.phase === "target_done") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
+        }
+
+        if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
+      }catch(e){
+        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
+        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
+        if(!progressStopped) meta.textContent = "Memuat progress backend…";
       }
     };
-    source.onerror = () => {
-      if(source.readyState === EventSource.CLOSED) return;
-      // Jangan langsung menandai gagal; backend bisa masih bekerja.
-      meta.textContent = "Koneksi progress terputus; proses backend tetap berjalan.";
+
+    const stopProgress = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
     };
+
+    const pollProgress = async () => {
+      await readProgress();
+      if(progressStopped) return;
+      progressTimer = setTimeout(pollProgress, 350);
+    };
+    pollProgress();
+
   }catch(e){
     txt.textContent = "Gagal";
     meta.textContent = e.message;
