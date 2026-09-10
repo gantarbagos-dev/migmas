@@ -19,3 +19,10 @@ Docs: https://mig33.id/api.html
 - Countdown berhenti di 0 dan tetap 0 sampai event `vote_started` baru atau tombol reset ditekan.
 - Pemicu KICK ALL memakai deteksi melewati threshold agar nilai 1500 ms tidak terlewat oleh jitter setTimeout.
 - Tombol reset tetap mengembalikan label ke 60000 ms.
+
+## Perbaikan Pemicu Countdown v3
+- Jalur backend `detectKickCountdown()` dihapus.
+- Backend tidak lagi membuat event `kick.countdown.start` dari teks API umum.
+- Satu-satunya pemicu countdown adalah event API `room.kick.state` dengan `action=vote_started`, `command=kick`, `success != false`, dan format status awal vote-kick yang valid.
+- Saat countdown sedang berjalan, `vote_started` lain tidak dapat me-reset timer.
+- Setelah countdown selesai di 0, timer menunggu event vote baru.

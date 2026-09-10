@@ -82,10 +82,9 @@ function connectAccount(username, password) {
       resolveKickQueued(sessionId, msg);
       resolveJobStatus(sessionId, msg);
 
-      const accountForEvent = sessions.get(sessionId);
-      const countdownSignal = detectKickCountdown(msg, accountForEvent);
-      if (countdownSignal) publish(sessionId, countdownSignal);
-
+      // Jangan membuat event countdown sintetis dari teks umum.
+      // Countdown hanya boleh dipicu frontend oleh event vote-kick yang
+      // strukturnya benar-benar cocok dengan room.kick.state/vote_started.
       publish(sessionId, { type: "api.event", event: msg });
 
       if (msg.type === "auth.required") return;
@@ -292,20 +291,6 @@ function extractEventText(value, depth = 0) {
     .map(v => extractEventText(v, depth + 1))
     .filter(Boolean)
     .join(" ");
-}
-
-function detectKickCountdown(msg, account) {
-  const text = extractEventText(msg);
-  if (!/\bhas\s+been\s+started\s+by\b/i.test(text)) return null;
-  const room = String(
-    msg?.data?.room ?? msg?.data?.room_name ?? msg?.room ?? msg?.room_name ?? account?.joinedRoom ?? ""
-  ).trim();
-  return {
-    type: "kick.countdown.start",
-    room,
-    seconds: Number.isFinite(Number(msg?.seconds)) ? Number(msg.seconds) : null,
-    source: "backend"
-  };
 }
 
 app.get("/api/health", (_req, res) => {
