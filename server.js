@@ -278,27 +278,59 @@ function sleep(ms) {
 }
 
 app.post("/api/kick-loop", async (req, res) => {
-  const { sessionIds, room, targets, delay, loop } = req.body || {};
-  const ids = Array.isArray(sessionIds) ? [...new Set(sessionIds.map(String))].slice(0, 10) : [];
-  const targetList = Array.isArray(targets) ? targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10) : [];
-  const delayMs = Math.max(0, Math.min(Number(delay) || 0, 86400000));
-  const loopCount = Math.max(1, Math.min(parseInt(loop, 10) || 1, 100));
+  const body = req.body || {};
+  const { sessionIds, room, targets } = body;
+
+  // textdelay/textloop come from the frontend and are executed here in the backend.
+  const textdelay = body.textdelay;
+  const textloop = body.textloop;
+
+  const ids = Array.isArray(sessionIds)
+    ? [...new Set(sessionIds.map(String).filter(Boolean))].slice(0, 10)
+    : [];
+  const targetList = Array.isArray(targets)
+    ? targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10)
+    : [];
+  const delayMs = Math.max(0, Math.min(Number(textdelay) || 0, 86400000));
+  const loopCount = Math.max(1, Math.min(parseInt(textloop, 10) || 1, 100));
+
   if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
 
   try {
     let sent = 0;
+
+    // Exact flow:
+    // Loop N -> Target 1 -> Target 2 -> ... -> Target 10 -> textdelay -> next Loop.
+    // All selected WebSockets (max 10) execute each target together.
     for (let round = 0; round < loopCount; round++) {
-      if (round > 0 && delayMs > 0) await sleep(delayMs);
       for (const targetUsername of targetList) {
         const payload = { type: "room.kick", room, target_username: targetUsername };
         for (const sessionId of ids) {
-          try { send(sessionId, payload); sent++; } catch {}
+          try {
+            send(sessionId, payload);
+            sent++;
+          } catch {}
         }
       }
+
+      // Delay ONLY after the complete target list, before the next loop.
+      if (round < loopCount - 1 && delayMs > 0) {
+        await sleep(delayMs);
+      }
     }
-    res.json({ ok: true, completed: true, loops: loopCount, delay: delayMs, targets: targetList.length, sent });
+
+    res.json({
+      ok: true,
+      completed: true,
+      websockets: ids.length,
+      loops: loopCount,
+      textdelay: delayMs,
+      textloop: loopCount,
+      targets: targetList.length,
+      sent
+    });
   } catch (e) {
     res.status(400).json({ ok: false, error: safeError(e) });
   }
