@@ -389,8 +389,8 @@ function resetTimer(){
   renderTimer();
 }
 
-function startCountdown(seconds = TIMER_START){
-  const duration = Math.max(0, Number(seconds) || 0);
+function startCountdown(){
+  const duration = TIMER_START;
   timerValue = Math.ceil(duration);
   timerDeadline = performance.now() + duration * 1000;
   timerRunning = duration > 0;
@@ -412,7 +412,7 @@ function startCountdown(seconds = TIMER_START){
     }
     if(remaining <= 0){
       timerRunning = false;
-      timerValue = 0;
+      timerValue = TIMER_START;
       renderTimer();
       return;
     }
@@ -432,8 +432,7 @@ function clearApiEvents(){
 
 function handleApiEvent(i, msg){
   if(msg?.type === "kick.countdown.start"){
-    const seconds = Number(msg.seconds);
-    if (Number.isFinite(seconds) && seconds > 0) startCountdown(seconds);
+    startCountdown();
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
