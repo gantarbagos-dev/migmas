@@ -370,7 +370,7 @@ function renderTimer(){
 
 function resetTimer(){
   timerRunning = false;
-  if(timerFrame) cancelAnimationFrame(timerFrame);
+  if(timerFrame) clearTimeout(timerFrame);
   timerFrame = 0;
   timerValue = TIMER_START;
   renderTimer();
@@ -389,19 +389,21 @@ function startCountdown(){
       timerFrame = 0;
       return;
     }
-    timerFrame = requestAnimationFrame(tick);
+    timerFrame = setTimeout(() => tick(performance.now()), 10);
   };
-  timerFrame = requestAnimationFrame(tick);
+  timerFrame = setTimeout(() => tick(performance.now()), 10);
 }
 
 function handleApiEvent(i, msg){
   el("apiEvent").textContent = `Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`;
   const roomName = el("room")?.value.trim();
+  const event = msg?.event && typeof msg.event === "object" ? msg.event : msg;
+  const eventData = event?.data && typeof event.data === "object" ? event.data : event;
   if(
-    msg?.event_type === "room.message.received" &&
-    msg?.username === roomName &&
-    typeof msg?.text === "string" &&
-    msg.text.includes("A vote to kick")
+    eventData?.event_type === "room.message.received" &&
+    eventData?.username === roomName &&
+    typeof eventData?.text === "string" &&
+    eventData.text.includes("A vote to kick")
   ){
     startCountdown();
   }
