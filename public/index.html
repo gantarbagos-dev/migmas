@@ -390,6 +390,7 @@ function resetTimer(){
 }
 
 function startCountdown(){
+  if(timerRunning) return;
   const duration = TIMER_START;
   timerValue = Math.ceil(duration);
   timerDeadline = performance.now() + duration * 1000;
