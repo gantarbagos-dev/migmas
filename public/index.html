@@ -214,8 +214,11 @@
   </div>
 
   <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
-    <h3 class="text-sm sm:text-base font-bold text-slate-200">Live API Event</h3>
-    <div id="apiEvent" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 max-h-24 overflow-y-auto whitespace-pre-wrap">Menunggu event dari WebSocket resmi MigReborn…</div>
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="text-sm sm:text-base font-bold text-slate-200">Live API Event</h3>
+      <button onclick="clearApiEvents()" class="px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700">Hapus Log</button>
+    </div>
+    <div id="apiEvent" role="log" aria-live="polite" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-[11px] font-mono text-slate-400 h-56 max-h-72 overflow-y-auto whitespace-pre-wrap">Menunggu event dari WebSocket resmi MigReborn…</div>
     
     <h3 class="text-sm sm:text-base font-bold text-slate-200 pt-1">System Log</h3>
     <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
@@ -394,8 +397,24 @@ function startCountdown(){
   timerFrame = setTimeout(() => tick(performance.now()), 10);
 }
 
+const apiEventHistory = [];
+const MAX_API_EVENT_HISTORY = 200;
+
+function clearApiEvents(){
+  apiEventHistory.length = 0;
+  const box = el("apiEvent");
+  if(box) box.textContent = "Log API dibersihkan. Menunggu event baru…";
+}
+
 function handleApiEvent(i, msg){
-  el("apiEvent").textContent = `Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`;
+  const box = el("apiEvent");
+  const wasNearBottom = box ? (box.scrollHeight - box.scrollTop - box.clientHeight < 40) : true;
+  apiEventHistory.push(`Troop ${i+1} ← ${JSON.stringify(msg, null, 2)}`);
+  if(apiEventHistory.length > MAX_API_EVENT_HISTORY) apiEventHistory.shift();
+  if(box){
+    box.textContent = apiEventHistory.join("\n\n────────────────────────\n\n");
+    if(wasNearBottom) box.scrollTop = box.scrollHeight;
+  }
   const roomName = el("room")?.value.trim();
   const event = msg?.event && typeof msg.event === "object" ? msg.event : msg;
   const eventData = event?.data && typeof event.data === "object" ? event.data : event;
@@ -403,7 +422,7 @@ function handleApiEvent(i, msg){
     eventData?.event_type === "room.message.received" &&
     eventData?.username === roomName &&
     typeof eventData?.text === "string" &&
-    eventData.text.includes("A vote to kick")
+    /(?:^|\s)A?\s*vote to kick/i.test(eventData.text)
   ){
     startCountdown();
   }
