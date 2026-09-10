@@ -220,10 +220,19 @@
     
     
     <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
-  <div class="flex justify-between text-[11px] font-semibold"><span class="text-slate-300">KICK ALL PROGRESS</span><span id="kickProgressText" class="text-blue-400">Siap</span></div>
-  <div class="h-2 rounded-full bg-slate-800 overflow-hidden"><div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div></div>
-  <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
-</div>
+      <div class="flex justify-between items-center gap-2 text-[11px] font-semibold">
+        <span class="text-slate-300">KICK ALL PROGRESS</span>
+        <span id="kickProgressText" class="text-blue-400">Siap</span>
+      </div>
+      <div class="h-2.5 rounded-full bg-slate-800 overflow-hidden">
+        <div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div>
+      </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressStep" class="text-slate-400">Target 0/0</span>
+        <span id="kickProgressWs" class="text-slate-500">WS 0/0</span>
+      </div>
+      <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
+    </div>
   </div>
 
 </div>
@@ -729,41 +738,83 @@ async function kickSelectedTargets(){
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
 
-  // textdelay/textloop are entered in the frontend and executed by the backend.
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
+  const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
+  const step = el("kickProgressStep"), ws = el("kickProgressWs");
   bar.style.width = "0%";
-  txt.textContent = "Berjalan";
-  meta.textContent = `0/${total} kick • textdelay ${textdelay} ms • textloop ${textloop}`;
+  txt.textContent = "Memulai";
+  step.textContent = `Target 0/${total}`;
+  ws.textContent = `WS 0/${wsCount}`;
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
-        room,
-        targets:[...targets],
-        textdelay,
-        textloop
+        room, targets:[...targets], textdelay, textloop
       })
     });
     const j = await r.json();
-    if(!j.ok){
-      bar.style.width = "0%";
+    if(!j.ok || !j.executionId){
       txt.textContent = "Gagal";
-      meta.textContent = j.error || "Gagal menjalankan loop.";
-      log(`KICK ALL gagal: ${j.error || "Gagal menjalankan loop."}`);
+      meta.textContent = j.error || "Gagal memulai KICK ALL.";
+      log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-    log(`KICK ALL: target 1-${targets.length}, ${textloop} loop, textdelay ${textdelay} ms.`);
-    bar.style.width = "100%";
-    txt.textContent = "Selesai";
-    meta.textContent = `${total}/${total} kick • ${textloop} putaran • delay antar-loop ${textdelay} ms`;
+
+    const source = new EventSource(`/api/kick-progress?id=${encodeURIComponent(j.executionId)}`);
+    source.onmessage = (ev) => {
+      let p;
+      try { p = JSON.parse(ev.data); } catch { return; }
+      if(p.type !== "kick.progress") return;
+      const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
+      bar.style.width = `${percent}%`;
+
+      if(p.phase === "started" || p.phase === "connected") {
+        txt.textContent = "Berjalan";
+      } else if(p.phase === "waiting_ack") {
+        txt.textContent = "Menunggu ACK";
+      } else if(p.phase === "delay") {
+        txt.textContent = "Delay";
+      } else if(p.phase === "target_done") {
+        txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
+      } else if(p.phase === "completed") {
+        txt.textContent = "Selesai";
+      } else if(p.phase === "failed") {
+        txt.textContent = "Gagal";
+      }
+
+      const done = Number(p.completedSteps) || 0;
+      const totalSteps = Number(p.totalSteps) || total;
+      step.textContent = `Target ${done}/${totalSteps}`;
+      if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
+
+      if(p.phase === "waiting_ack") {
+        meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • menunggu ACK ${p.total || wsCount} WebSocket`;
+      } else if(p.phase === "delay") {
+        meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
+      } else if(p.phase === "completed") {
+        meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
+        source.close();
+        log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
+      } else if(p.phase === "failed") {
+        meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
+        source.close();
+        log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
+      } else if(p.phase === "target_done") {
+        meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged}/${p.total || wsCount}`;
+      }
+    };
+    source.onerror = () => {
+      if(source.readyState === EventSource.CLOSED) return;
+      // Jangan langsung menandai gagal; backend bisa masih bekerja.
+      meta.textContent = "Koneksi progress terputus; proses backend tetap berjalan.";
+    };
   }catch(e){
-    bar.style.width = "0%";
     txt.textContent = "Gagal";
     meta.textContent = e.message;
     log(`KICK ALL gagal - ${e.message}`);
