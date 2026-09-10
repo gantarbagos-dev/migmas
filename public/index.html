@@ -627,6 +627,7 @@ async function loginAll(){
     for(const a of list) setStatus(a.index, "OFFLINE", "error");
     log(`LOGIN ALL gagal - ${e.message}`);
   }
+  resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
 }
 
 async function logoutAll(){
@@ -639,6 +640,7 @@ async function logoutAll(){
     setBalance(i, "-");
   }
   log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
+  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
 el("generateTroop").onclick = generateTroop;
@@ -714,6 +716,7 @@ async function leaveAll(){
   const room = el("room").value.trim();
   if(!room){ log("LEAVE ALL: nama room belum diisi."); return; }
   await batchAction("leave", {room});
+  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
 async function participants(){
@@ -735,6 +738,27 @@ async function participants(){
 
 async function balanceAll(){
   await batchAction("balance");
+}
+
+function resetKickAllProgress(reason = "Menunggu perintah kick...") {
+  // Hentikan polling progress yang sedang berjalan.
+  if (typeof window.stopKickProgressPolling === "function") {
+    window.stopKickProgressPolling();
+  }
+  const bar = el("kickProgressBar");
+  const txt = el("kickProgressText");
+  const meta = el("kickProgressMeta");
+  const step = el("kickProgressStep");
+  const ws = el("kickProgressWs");
+  const jobs = el("kickProgressJobs");
+  const structure = el("kickProgressStructure");
+  if (bar) bar.style.width = "0%";
+  if (txt) txt.textContent = "Siap";
+  if (step) step.textContent = "Target 0/0";
+  if (ws) ws.textContent = "WS 0/0";
+  if (jobs) jobs.textContent = "Job 0/0";
+  if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
+  if (meta) meta.textContent = reason;
 }
 
 async function kickSelectedTargets(){
@@ -776,6 +800,11 @@ async function kickSelectedTargets(){
     // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
     let progressStopped = false;
     let progressTimer = null;
+    window.stopKickProgressPolling = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+    };
 
     const readProgress = async () => {
       if(progressStopped) return;
@@ -838,6 +867,8 @@ async function kickSelectedTargets(){
     const stopProgress = () => {
       progressStopped = true;
       if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+      if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
     };
 
     const pollProgress = async () => {
