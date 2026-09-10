@@ -219,6 +219,19 @@
     </div>
     
     
+    <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="text-[11px] font-semibold text-slate-300">API FEEDBACK</div>
+          <div class="text-[10px] text-slate-500">Respons/event mentah dari WebSocket API</div>
+        </div>
+        <button id="clearApiEvents" class="text-[10px] font-semibold text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 transition-all">
+          CLEAR
+        </button>
+      </div>
+      <pre id="apiEvent" class="h-48 max-h-64 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-words bg-[#07090e] border border-slate-800 rounded-lg p-3 text-[10px] leading-relaxed text-slate-400 font-mono">Menunggu feedback API…</pre>
+    </div>
+
     <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
       <div class="flex justify-between items-center gap-2 text-[11px] font-semibold">
         <span class="text-slate-300">KICK ALL PROGRESS</span>
@@ -447,7 +460,30 @@ function clearApiEvents(){
   if(box) box.textContent = "Log API dibersihkan. Menunggu event baru…";
 }
 
+function appendApiEvent(i, msg){
+  const box = el("apiEvent");
+  if(!box) return;
+
+  const entry = {
+    time: new Date().toLocaleTimeString(),
+    troop: i + 1,
+    type: msg?.type ?? "unknown",
+    data: msg
+  };
+
+  apiEventHistory.push(entry);
+  if(apiEventHistory.length > MAX_API_EVENT_HISTORY) apiEventHistory.shift();
+
+  box.textContent = apiEventHistory.map(x =>
+    `[${x.time}] Troop ${x.troop} • ${x.type}\n${JSON.stringify(x.data, null, 2)}`
+  ).join("\n\n────────────────────────\n\n");
+
+  // Selalu tampilkan feedback terbaru.
+  box.scrollTop = box.scrollHeight;
+}
+
 function handleApiEvent(i, msg){
+  appendApiEvent(i, msg);
   if(msg?.type === "kick.countdown.start"){
     startCountdown(Number(msg.seconds) || TIMER_START);
   }
@@ -647,6 +683,7 @@ async function logoutAll(){
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
+el("clearApiEvents")?.addEventListener("click", clearApiEvents);
 el("generateTroop").onclick = generateTroop;
 el("generatePassword").onclick = generatePassword;
 el("clearFields").onclick = clearFields;
