@@ -17,10 +17,15 @@ const subscribers = new Map();
 const eventHistory = new Map();
 const MAX_EVENT_HISTORY = 500;
 const kickJobWaiters = new Map();
+const kickJobStatusWaiters = new Map();
 const kickExecutions = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
+
+function resultPermissions(msg) {
+  return Array.isArray(msg?.data?.developer?.permissions) ? msg.data.developer.permissions : [];
+}
 
 function publish(sessionId, msg) {
   if (!eventHistory.has(sessionId)) eventHistory.set(sessionId, []);
@@ -75,6 +80,7 @@ function connectAccount(username, password) {
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
       resolveKickQueued(sessionId, msg);
+      resolveJobStatus(sessionId, msg);
 
       const accountForEvent = sessions.get(sessionId);
       const countdownSignal = detectKickCountdown(msg, accountForEvent);
@@ -95,6 +101,7 @@ function connectAccount(username, password) {
           socket,
           connectedAt: Date.now(),
           joinedRoom: null,
+          permissions: Array.isArray(msg.data?.developer?.permissions) ? msg.data.developer.permissions : [],
           pingTimer: null
         };
         sessions.set(sessionId, account);
@@ -170,8 +177,73 @@ function resolveKickQueued(sessionId, msg) {
   if (list.length) kickJobWaiters.set(sessionId, list);
   else kickJobWaiters.delete(sessionId);
   const jobId = msg?.data?.job?.job_id ?? msg?.job_id ?? null;
+  if (!jobId) {
+    entry.reject(new Error("room.kick.queued tidak berisi job_id."));
+    return true;
+  }
   entry.resolve(jobId);
   return true;
+}
+
+function waitForJobStatus(sessionId, jobId, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const key = `${sessionId}:${jobId}`;
+    const timer = setTimeout(() => {
+      kickJobStatusWaiters.delete(key);
+      reject(new Error(`Timeout menunggu status job ${jobId}.`));
+    }, timeoutMs);
+    kickJobStatusWaiters.set(key, { resolve, reject, timer });
+  });
+}
+
+function resolveJobStatus(sessionId, msg) {
+  if (!msg || !String(msg.type || "").startsWith("job.status")) return false;
+  const data = msg.data || {};
+  const jobId = data.job_id ?? data.job?.job_id ?? msg.job_id ?? msg.data?.id ?? null;
+  if (!jobId) return false;
+  const key = `${sessionId}:${jobId}`;
+  const entry = kickJobStatusWaiters.get(key);
+  if (!entry) return false;
+  clearTimeout(entry.timer);
+  kickJobStatusWaiters.delete(key);
+  entry.resolve(msg);
+  return true;
+}
+
+function extractJobState(msg) {
+  const candidates = [
+    msg?.data?.status, msg?.data?.job?.status, msg?.data?.job?.state,
+    msg?.data?.result?.status, msg?.data?.result?.state, msg?.status, msg?.state
+  ];
+  return candidates.find(v => typeof v === "string")?.toLowerCase() || "";
+}
+
+function extractJobMessage(msg) {
+  return String(msg?.data?.message ?? msg?.data?.error ?? msg?.data?.result?.message ?? msg?.data?.result?.error ?? "");
+}
+
+async function waitForKickJob(sessionId, jobId, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const waiter = waitForJobStatus(sessionId, jobId, Math.max(1000, deadline - Date.now()));
+    try {
+      send(sessionId, { type: "job.get", job_id: jobId });
+    } catch (e) {
+      const entry = kickJobStatusWaiters.get(`${sessionId}:${jobId}`);
+      if (entry) { clearTimeout(entry.timer); kickJobStatusWaiters.delete(`${sessionId}:${jobId}`); }
+      throw e;
+    }
+    const msg = await waiter;
+    const state = extractJobState(msg);
+    if (["completed", "complete", "success", "succeeded", "done", "finished"].includes(state)) {
+      return { ok: true, status: state, event: msg };
+    }
+    if (["failed", "error", "cancelled", "canceled", "rejected"].includes(state)) {
+      return { ok: false, status: state, error: extractJobMessage(msg) || `Job berstatus ${state}.`, event: msg };
+    }
+    await sleep(250);
+  }
+  throw new Error(`Timeout job ${jobId}.`);
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
@@ -405,16 +477,33 @@ app.post("/api/kick-loop", async (req, res) => {
           let sentThisTarget = 0;
 
           for (const sessionId of ids) {
-            try {
-              const ack = waitForKickQueued(sessionId, 15000);
-              pending.push(ack.then(jobId => ({ sessionId, jobId, ok: true }))
-                .catch(error => ({ sessionId, ok: false, error: safeError(error) })));
-              send(sessionId, { type: "room.kick", room, target_username: targetUsername });
-              sent++;
-              sentThisTarget++;
-            } catch (e) {
-              pending.push(Promise.resolve({ sessionId, ok: false, error: safeError(e) }));
-            }
+            const task = (async () => {
+              try {
+                const account = sessions.get(sessionId);
+                if (!account || account.socket.readyState !== WebSocket.OPEN) {
+                  throw new Error("WebSocket tidak terhubung.");
+                }
+                if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
+                  throw new Error("Permission rooms.kick tidak tersedia.");
+                }
+
+                // Register waiter BEFORE sending so a very fast ACK cannot be missed.
+                const ackPromise = waitForKickQueued(sessionId, 15000);
+                send(sessionId, { type: "room.kick", room, target_username: targetUsername });
+                sent++;
+                sentThisTarget++;
+                const jobId = await ackPromise;
+
+                // ACK only means the request entered the API queue. Wait for the job result
+                // before advancing to the next target so each socket actually completes its kick job.
+                const job = await waitForKickJob(sessionId, jobId, 30000);
+                if (!job.ok) throw new Error(job.error || `Job ${jobId} gagal.`);
+                return { sessionId, jobId, ok: true, jobStatus: job.status };
+              } catch (error) {
+                return { sessionId, ok: false, error: safeError(error) };
+              }
+            })();
+            pending.push(task);
           }
 
           publishKickProgress(execution, {
@@ -429,12 +518,13 @@ app.post("/api/kick-loop", async (req, res) => {
           const okCount = acknowledgements.filter(x => x.ok).length;
           queued.push({
             loop: round + 1, target: targetUsername, acknowledged: okCount, total: ids.length,
-            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId })),
+            jobs: acknowledgements.filter(x => x.ok).map(x => ({ sessionId: x.sessionId, jobId: x.jobId, status: x.jobStatus || "completed" })),
             errors: failed
           });
 
-          if (failed.length === acknowledgements.length) {
-            throw new Error(`Semua WebSocket gagal menerima ACK room.kick.queued untuk target ${targetUsername}.`);
+          if (failed.length) {
+            const failedText = failed.map(x => `${x.sessionId}: ${x.error}`).join(" | ");
+            throw new Error(`Sebagian WebSocket gagal menyelesaikan Vote Kick untuk ${targetUsername}: ${failedText}`);
           }
 
           completedSteps++;
