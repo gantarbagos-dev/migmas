@@ -195,7 +195,7 @@
         </div>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
-          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+          <input id="kickTimer" type="number" min="0" step="1" value="3" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
@@ -344,9 +344,15 @@ function clearFields(){
   log("Semua field troop dikosongkan.");
 }
 
+let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
+  // Tampilkan event dari satu WebSocket saja agar log tidak terduplikasi.
+  if(apiDisplayIndex !== null && apiDisplayIndex !== i){
+    return;
+  }
+  apiDisplayIndex = i;
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
   const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(a.sessionId)}`);
   a.eventSource = es;
@@ -365,8 +371,10 @@ function openEvents(i){
 const TIMER_START = 60;
 let timerValue = TIMER_START;
 let timerRunning = false;
-let timerStartedAt = 0;
+let timerDeadline = 0;
 let timerFrame = 0;
+let kickTriggeredForTimer = false;
+let kickTriggerThreshold = 0;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -378,25 +386,41 @@ function resetTimer(){
   if(timerFrame) clearTimeout(timerFrame);
   timerFrame = 0;
   timerValue = TIMER_START;
+  kickTriggeredForTimer = false;
+  kickTriggerThreshold = Math.max(0, Number(el("kickTimer")?.value) || 0);
   renderTimer();
 }
 
-function startCountdown(){
-  if(timerRunning) return;
-  timerRunning = true;
-  timerStartedAt = performance.now();
-  const tick = (now) => {
+function startCountdown(seconds = TIMER_START){
+  const duration = Math.max(0, Number(seconds) || 0);
+  timerValue = Math.ceil(duration);
+  timerDeadline = performance.now() + duration * 1000;
+  timerRunning = duration > 0;
+  kickTriggeredForTimer = false;
+  renderTimer();
+  if(timerFrame) clearTimeout(timerFrame);
+  const tick = () => {
     if(!timerRunning) return;
-    timerValue = Math.max(0, TIMER_START - Math.floor((now - timerStartedAt) / 1000));
-    renderTimer();
-    if(timerValue === 0){
+    const remaining = Math.max(0, (timerDeadline - performance.now()) / 1000);
+    const nextValue = Math.ceil(remaining);
+    if(nextValue !== timerValue){
+      timerValue = nextValue;
+      renderTimer();
+    }
+    if(!kickTriggeredForTimer && timerValue <= kickTriggerThreshold){
+      kickTriggeredForTimer = true;
+      log(`Timer mencapai ${kickTriggerThreshold} detik: menjalankan KICK ALL otomatis.`);
+      kickSelectedTargets();
+    }
+    if(remaining <= 0){
       timerRunning = false;
-      timerFrame = 0;
+      timerValue = 0;
+      renderTimer();
       return;
     }
-    timerFrame = setTimeout(() => tick(performance.now()), 10);
+    timerFrame = setTimeout(tick, Math.min(250, Math.max(25, (remaining % 1) * 1000)));
   };
-  timerFrame = setTimeout(() => tick(performance.now()), 10);
+  timerFrame = setTimeout(tick, 25);
 }
 
 const apiEventHistory = [];
@@ -424,15 +448,11 @@ function handleApiEvent(i, msg){
   const eventRoom = String(eventData?.room ?? eventData?.room_name ?? "").trim();
   const sameRoom = !roomName || !eventRoom || eventRoom === roomName;
   const isKickStart =
-    /(?:^|\b)(?:a\s+)?vote\s+to\s+kick\b/i.test(text) ||
-    /\bstart\s+kick\b/i.test(text) ||
-    (eventData?.event_type === "room.kick.state" &&
-     ["vote_started", "started", "start"].includes(String(eventData?.action || "").toLowerCase()));
+    eventData?.event_type === "room.kick.state" &&
+    ["vote_started", "started", "start"].includes(String(eventData?.action || "").toLowerCase());
   const secondsMatch = text.match(/(\d+)s\s+remaining/i);
   if(sameRoom && isKickStart){
-    timerValue = secondsMatch ? Math.max(0, Number(secondsMatch[1])) : TIMER_START;
-    renderTimer();
-    startCountdown();
+    startCountdown(secondsMatch ? Number(secondsMatch[1]) : TIMER_START);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
@@ -557,6 +577,7 @@ async function logoutOne(i, silent=false){
   const a = accounts[i];
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
   a.eventSource = null;
+  if(apiDisplayIndex === i) apiDisplayIndex = null;
   if(a.sessionId){
     try{ await fetch("/api/logout", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId:a.sessionId})}); }catch{}
   }
