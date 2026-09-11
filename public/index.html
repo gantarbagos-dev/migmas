@@ -2,7 +2,7 @@
 <html lang="id" class="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>MIGMASTER PROTOTIPE 1.0</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,11 +31,11 @@
     outline: none;
   }
   input:focus, button:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
   }
   ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 3px;
+    height: 3px;
   }
   ::-webkit-scrollbar-track {
     background: #0b0f19;
@@ -44,210 +44,263 @@
     background: #1e293b;
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #334155;
+  
+  /* Utility untuk menyembunyikan tab aktif di HP */
+  @media (max-width: 1023px) {
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   }
 </style>
 </head>
-<body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
+<body class="bg-[#07090e] text-slate-100 min-h-screen pb-10 selection:bg-blue-600 selection:text-white">
 
-<div class="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
+<div class="max-w-5xl mx-auto px-2.5 sm:px-4 py-3 space-y-3">
   
-  <!-- Header Card -->
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
-    <div class="absolute -right-12 -top-12 w-48 h-48 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="relative z-10 flex flex-col items-center">
-      <div class="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl shadow-blue-900/30 mb-3.5 sm:mb-4 border border-blue-400/30">
-        <svg class="w-7 h-7 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <!-- Header Card (Sangat Ringkas di HP) -->
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 sm:p-5 shadow-xl flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/30 border border-blue-400/30 shrink-0">
+        <svg class="w-5 h-5 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       </div>
-      <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-indigo-500">
-        MIGMASTER PROTOTIPE 1.0
-      </h1>
-      <p class="text-xs sm:text-sm text-slate-400 mt-2 max-w-lg leading-relaxed px-2">
-        
-      </p>
+      <div>
+        <h1 class="text-base sm:text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-indigo-500">
+          MIGMASTER 1.0
+        </h1>
+        <p class="text-[10px] sm:text-xs text-slate-400">Mobile Optimized Panel</p>
+      </div>
     </div>
   </div>
 
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5">
-    <div class="flex items-center justify-between">
-      <h3 class="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-        
+  <!-- Navigation Tabs (Tampil khusus Layar HP / Mobile) -->
+  <div class="flex lg:hidden overflow-x-auto gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 text-xs font-semibold">
+    <button onclick="switchTab('tab-troop')" id="btn-tab-troop" class="tab-btn flex-1 min-w-[70px] py-2 text-center rounded-lg bg-blue-600 text-white transition-all">Troop</button>
+    <button onclick="switchTab('tab-room')" id="btn-tab-room" class="tab-btn flex-1 min-w-[70px] py-2 text-center rounded-lg text-slate-400 hover:text-slate-200 transition-all">Room</button>
+    <button onclick="switchTab('tab-targets')" id="btn-tab-targets" class="tab-btn flex-1 min-w-[70px] py-2 text-center rounded-lg text-slate-400 hover:text-slate-200 transition-all">Targets</button>
+    <button onclick="switchTab('tab-progress')" id="btn-tab-progress" class="tab-btn flex-1 min-w-[70px] py-2 text-center rounded-lg text-slate-400 hover:text-slate-200 transition-all">Progress</button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+    
+    <!-- LEFT COLUMN: Troop & Config -->
+    <div id="tab-troop" class="tab-content active lg:block lg:col-span-5 space-y-3">
       
-      </h3>
-    </div>
-    
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-      <div class="space-y-1.5">
-        <label class="text-xs font-semibold text-slate-400">Main troop</label>
-        <input id="mainTroop" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Contoh: u1" autocomplete="off">
-      </div>
-      <div class="space-y-1.5">
-        <label class="text-xs font-semibold text-slate-400">Main password</label>
-        <div class="flex gap-2">
-          <input id="mainPassword" type="password" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Password akun" autocomplete="off">
-          <button id="generatePassword" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
+      <!-- Troop Control Box -->
+      <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 shadow-xl space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <div class="space-y-1">
+            <label class="text-[11px] font-semibold text-slate-400">Main Troop</label>
+            <input id="mainTroop" class="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="u1" autocomplete="off">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-semibold text-slate-400">Password</label>
+            <div class="flex gap-1">
+              <input id="mainPassword" type="password" class="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Pass" autocomplete="off">
+              <button id="generatePassword" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap border border-slate-700 active:scale-95">Set</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+          <div class="flex items-center gap-1.5">
+            <input id="rangeStart" type="number" class="w-12 bg-slate-950/80 border border-slate-800 rounded-lg py-1 text-center text-xs font-bold text-slate-200 focus:border-blue-500" value="1">
+            <span class="text-slate-500 text-[10px]">s/d</span>
+            <input id="rangeEnd" type="number" class="w-12 bg-slate-950/80 border border-slate-800 rounded-lg py-1 text-center text-xs font-bold text-slate-200 focus:border-blue-500" value="10">
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button id="generateTroop" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-md shadow-blue-600/25 active:scale-95 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              GENERATE
+            </button>
+            <button id="clearFields" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 p-1.5 rounded-lg text-xs active:scale-95" title="Hapus Semua">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Toggle Accounts List (Collapsible untuk hemat Layar HP) -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <button onclick="toggleTroopList()" class="w-full flex items-center justify-between text-xs font-bold text-slate-400 bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
+            <span>DAFTAR AKUN TROOP (10)</span>
+            <span id="troopToggleIcon" class="text-blue-400">▼ Buka</span>
+          </button>
+          
+          <div id="accountsContainer" class="hidden space-y-2 pt-2 max-h-[280px] overflow-y-auto">
+            <div id="accounts" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/60">
+          <button id="loginAll" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-2 rounded-lg text-xs shadow-md shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            LOGIN ALL
+          </button>
+          <button id="logoutAll" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-2 rounded-lg text-xs border border-slate-700 active:scale-95 flex items-center justify-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            LOGOUT ALL
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 pt-3 border-t border-slate-800/60">
-      <div class="flex items-center gap-2.5 justify-between sm:justify-start">
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-slate-400">Mulai</label>
-          <input id="rangeStart" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
+      <!-- Save / Load Box -->
+      <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-2.5 shadow-xl">
+        <div class="flex items-center gap-2">
+          <input id="saveName" class="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" value="troop1" placeholder="Nama file save">
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button id="saveAccounts" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg shadow-md active:scale-95 flex items-center justify-center w-8 h-8" title="Save JSON">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </button>
+            <button id="loadAccounts" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-2 rounded-lg active:scale-95 flex items-center justify-center w-8 h-8" title="Load JSON">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            </button>
+          </div>
+          <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
         </div>
-        <span class="text-slate-500 mt-6 text-xs font-medium">s/d</span>
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-slate-400">Akhir</label>
-          <input id="rangeEnd" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
+      </div>
+
+    </div>
+
+    <!-- CENTER COLUMN: Room & Actions -->
+    <div id="tab-room" class="tab-content lg:block lg:col-span-7 space-y-3">
+      
+      <!-- Room Controls Box -->
+      <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 shadow-xl space-y-2.5">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="room" class="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
+          <div class="grid grid-cols-2 sm:flex gap-2">
+            <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md active:scale-95">JOIN</button>
+            <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-lg text-xs border border-slate-700 active:scale-95">LEAVE</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="participants()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-2 px-2 rounded-lg text-xs border border-slate-700 active:scale-95">LIST PESERTA</button>
+          <button onclick="balanceAll()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-2 px-2 rounded-lg text-xs border border-slate-700 active:scale-95">CEK SALDO ALL</button>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button id="generateTroop" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          GENERATE TROOP
-        </button>
-        <button id="clearFields" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold px-3.5 py-3 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center" title="Hapus Semua">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Accounts List Container -->
-    <div id="accounts" class="space-y-2.5 pt-1"></div>
-
-    <div class="flex flex-row gap-2.5 pt-3 border-t border-slate-800/60">
-      <button id="loginAll" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-        LOGIN ALL
-      </button>
-      <button id="logoutAll" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        LOGOUT ALL
-      </button>
-    </div>
-  </div>
-
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
-    <div class="flex items-center gap-2">
-      <input id="saveName" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" value="troop1" placeholder="Nama file save">
-      <div class="flex items-center gap-2 shrink-0">
-        <button id="saveAccounts" class="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Save JSON">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        </button>
-        <button id="loadAccounts" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-3 rounded-xl transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Load JSON">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        </button>
-      </div>
-      <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
-    </div>
-  </div>
-
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
-    <div class="flex flex-col sm:flex-row gap-2.5">
-      <input id="room" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
-      <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
-        <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
-        <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-2.5">
-      <button onclick="participants()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">LIST PESERTA</button>
-      <button onclick="balanceAll()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">CEK SALDO ALL</button>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-    
-    <!-- Participants Column -->
-    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm sm:text-base font-bold text-slate-200">Participants</h3>
-        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Centang untuk pilih</span>
-      </div>
-      <div id="participantsList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
-        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="moveCheckedToTargets()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md shadow-blue-600/20 active:scale-95">PINDAHKAN KE TARGET</button>
-        <button onclick="clearParticipants()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold py-2.5 px-3.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-11 h-11 shrink-0" title="Bersihkan List">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Target Kick Column -->
-    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm sm:text-base font-bold text-slate-200">Target Kick</h3>
-        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Daftar Eksekusi</span>
-      </div>
-      <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
-        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
-      </div>
-      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px_42px] items-end gap-1.5">
-        <div class="min-w-0">
-          <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
-          <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
+      <!-- Participants & Target Lists Dual Box -->
+      <div id="tab-targets" class="tab-content lg:block grid grid-cols-1 sm:grid-cols-2 gap-3">
+        
+        <!-- Participants Column -->
+        <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 shadow-xl space-y-2 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs sm:text-sm font-bold text-slate-200">Participants</h3>
+            <span class="text-[9px] font-medium text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">Centang pilih</span>
+          </div>
+          <div id="participantsList" class="flex-1 min-h-[140px] max-h-[180px] overflow-y-auto bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 space-y-1">
+            <div class="flex items-center justify-center h-full text-xs text-slate-500 py-6">Belum ada data.</div>
+          </div>
+          <div class="flex gap-1.5">
+            <button onclick="moveCheckedToTargets()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-2 rounded-lg text-xs active:scale-95">PINDAH KE TARGET</button>
+            <button onclick="clearParticipants()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 font-bold p-2 rounded-lg text-xs active:scale-95 flex items-center justify-center w-8 h-8 shrink-0" title="Bersihkan">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
         </div>
-        <label class="min-w-0">
-          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
-          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
-        </label>
-        <label class="min-w-0">
-          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
-          <input id="textdelay" type="number" min="0" step="1" value="50" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
-        </label>
-        <label class="min-w-0">
-          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
-          <input id="textloop" type="number" min="1" step="1" value="5" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
-        </label>
-        <button id="resetTimerButton" class="bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-900/40 hover:bg-sky-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Reset Timer ke 60000 ms" aria-label="Reset Timer">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4l2.5 1.5M9 3h6M12 3v2"></path></svg>
-        </button>
-        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
+
+        <!-- Target Kick Column -->
+        <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 shadow-xl space-y-2 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs sm:text-sm font-bold text-slate-200">Target Kick</h3>
+            <span class="text-[9px] font-medium text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">Daftar Eksekusi</span>
+          </div>
+          <div id="targetList" class="flex-1 min-h-[140px] max-h-[180px] overflow-y-auto bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 space-y-1">
+            <div class="flex items-center justify-center h-full text-xs text-slate-500 py-6">Belum ada target.</div>
+          </div>
+          
+          <!-- Compact Settings Controls -->
+          <div class="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-end gap-1 pt-1">
+            <div>
+              <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold px-1 rounded-md text-[10px] active:scale-95">KICK ALL</button>
+              <div id="timerValue" class="mt-1 w-full h-5 flex items-center justify-center rounded-md bg-slate-950 border border-slate-800 text-[9px] font-bold text-slate-300">60000</div>
+            </div>
+            <label class="w-10">
+              <span class="block text-[7px] text-slate-500 text-center">Timer</span>
+              <input id="kickTimer" type="number" min="0" value="1500" class="w-full h-8 bg-slate-950 border border-slate-700 rounded-md text-center text-[9px] text-slate-200">
+            </label>
+            <label class="w-10">
+              <span class="block text-[7px] text-slate-500 text-center">Delay</span>
+              <input id="textdelay" type="number" min="0" value="50" class="w-full h-8 bg-slate-950 border border-slate-700 rounded-md text-center text-[9px] text-slate-200">
+            </label>
+            <label class="w-9">
+              <span class="block text-[7px] text-slate-500 text-center">Loop</span>
+              <input id="textloop" type="number" min="1" value="5" class="w-full h-8 bg-slate-950 border border-slate-700 rounded-md text-center text-[9px] text-slate-200">
+            </label>
+            <button id="resetTimerButton" class="bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-900/40 font-bold rounded-md w-7 h-8 flex items-center justify-center shrink-0" title="Reset Timer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 1.5M9 3h6M12 3v2"></path></svg>
+            </button>
+            <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 font-bold rounded-md w-7 h-8 flex items-center justify-center shrink-0" title="Hapus Target">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
+        </div>
+
       </div>
+
+      <!-- Kick Progress Card -->
+      <div id="tab-progress" class="tab-content lg:block bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-xl p-3 shadow-xl space-y-2">
+        <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-lg p-2.5 space-y-1.5">
+          <div class="flex justify-between items-center gap-2 text-[10px] font-semibold">
+            <span class="text-slate-300">KICK ALL PROGRESS</span>
+            <span id="kickProgressText" class="text-blue-400">Siap</span>
+          </div>
+          <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div>
+          </div>
+          <div class="flex justify-between gap-1 text-[9px]">
+            <span id="kickProgressStep" class="text-slate-400">Target 0/0</span>
+            <span id="kickProgressWs" class="text-slate-500">WS 0/0</span>
+          </div>
+          <div class="flex justify-between gap-1 text-[9px]">
+            <span id="kickProgressJobs" class="text-slate-400">Job 0/0</span>
+            <span id="kickProgressStructure" class="text-slate-500">Loop 0/0 • Target 0/0</span>
+          </div>
+          <div class="flex justify-between gap-1 text-[9px]">
+            <span id="kickProgressLatency" class="text-slate-400">Latency: -</span>
+            <span id="kickProgressNetwork" class="text-slate-500">Queue - • Job -</span>
+          </div>
+          <div id="kickTargetProgress" class="grid grid-cols-5 gap-1 pt-1"></div>
+          <div id="kickProgressMeta" class="text-[9px] text-slate-500 truncate">Menunggu perintah kick...</div>
+        </div>
+      </div>
+
     </div>
 
-  </div>
-
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
-    <div class="flex items-center justify-between gap-2">
-      <h3 class="sr-only">API Event</h3>
-    </div>
-    
-    
-    <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
-      <div class="flex justify-between items-center gap-2 text-[11px] font-semibold">
-        <span class="text-slate-300">KICK ALL PROGRESS</span>
-        <span id="kickProgressText" class="text-blue-400">Siap</span>
-      </div>
-      <div class="h-2.5 rounded-full bg-slate-800 overflow-hidden">
-        <div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div>
-      </div>
-      <div class="flex justify-between gap-2 text-[10px]">
-        <span id="kickProgressStep" class="text-slate-400">Target 0/0</span>
-        <span id="kickProgressWs" class="text-slate-500">WS 0/0</span>
-      </div>
-      <div class="flex justify-between gap-2 text-[10px]">
-        <span id="kickProgressJobs" class="text-slate-400">Job 0/0</span>
-        <span id="kickProgressStructure" class="text-slate-500">Loop 0/0 • Target 0/0</span>
-      </div>
-      <div class="flex justify-between gap-2 text-[10px]">
-        <span id="kickProgressLatency" class="text-slate-400">Latency: -</span>
-        <span id="kickProgressNetwork" class="text-slate-500">Queue - • Job -</span>
-      </div>
-      <div id="kickTargetProgress" class="grid grid-cols-5 gap-1 pt-1"></div>
-      <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
-    </div>
   </div>
 
 </div>
+
+<!-- Logic Mobile Tab Navigation & Troop Collapse -->
+<script>
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => {
+      el.classList.remove('bg-blue-600', 'text-white');
+      el.classList.add('text-slate-400');
+    });
+
+    const activeContent = document.getElementById(tabId);
+    if(activeContent) activeContent.classList.add('active');
+
+    const activeBtn = document.getElementById('btn-' + tabId);
+    if(activeBtn) {
+      activeBtn.classList.remove('text-slate-400');
+      activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
+  }
+
+  function toggleTroopList() {
+    const container = document.getElementById('accountsContainer');
+    const icon = document.getElementById('troopToggleIcon');
+    if (container.classList.contains('hidden')) {
+      container.classList.remove('hidden');
+      icon.textContent = '▲ Tutup';
+    } else {
+      container.classList.add('hidden');
+      icon.textContent = '▼ Buka';
+    }
+  }
+</script>
 
 <script>
 const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
@@ -274,21 +327,21 @@ function sync(){
 
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
-    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-3 space-y-2.5 transition-all hover:border-slate-700">
+    <div class="bg-slate-950 border border-slate-800/80 rounded-lg p-2 space-y-1.5">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
-        <div class="flex items-center gap-2">
-          <span id="b${i}" class="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md">${esc(a.balance)}</span>
-          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
+        <span class="text-[10px] font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
+        <div class="flex items-center gap-1.5">
+          <span id="b${i}" class="text-[9px] bg-slate-900 border border-slate-800 text-slate-300 px-1.5 py-0.5 rounded">${esc(a.balance)}</span>
+          <span id="status${i}" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
         </div>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
+      <div class="grid grid-cols-2 gap-1.5">
+        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
+        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
       </div>
-      <div class="flex gap-2 pt-0.5">
-        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGIN</button>
-        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGOUT</button>
+      <div class="flex gap-1 pt-0.5">
+        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1 px-2 rounded text-[10px] active:scale-95">LOGIN</button>
+        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1 px-2 rounded text-[10px] active:scale-95">LOGOUT</button>
       </div>
     </div>
   `).join("");
@@ -299,11 +352,11 @@ function setStatus(i, text, kind=""){
   if(!s) return;
   s.textContent = text;
   if(kind === "online") {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
+    s.className = "text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
   } else if(kind === "error") {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
+    s.className = "text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
   } else {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
+    s.className = "text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
   }
 }
 
@@ -367,7 +420,6 @@ let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
-  // Tampilkan event dari satu WebSocket saja agar log tidak terduplikasi.
   if(apiDisplayIndex !== null && apiDisplayIndex !== i){
     return;
   }
@@ -422,9 +474,6 @@ function triggerKickAllIfReached(previousValue = null){
   const configuredMs = getKickTimerMs();
   if(kickTriggeredForTimer || configuredMs < 0) return;
 
-  // Jangan bergantung pada exact millisecond tick. Trigger saat countdown
-  // melewati nilai textbox, sehingga 1500 ms tidak akan terlewat akibat
-  // setTimeout/performance jitter.
   const reached = previousValue === null
     ? timerValue <= configuredMs
     : previousValue > configuredMs && timerValue <= configuredMs;
@@ -439,7 +488,6 @@ function triggerKickAllIfReached(previousValue = null){
 }
 
 function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
-  // Event yang sama/duplikat tidak boleh menghidupkan ulang timer.
   if(eventKey && eventKey === lastTimerEventKey){
     return;
   }
@@ -463,8 +511,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
 
-  // Asynchronous countdown. Tidak ada interval blocking dan timer tidak
-  // pernah di-reset ke 60000 saat mencapai 0.
   const tick = () => {
     if(!timerRunning || generation !== timerGeneration) return;
 
@@ -485,8 +531,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
       return;
     }
 
-    // Update cukup sering untuk tampilan, tetapi tidak memaksa 1 callback
-    // untuk setiap 1 ms.
     timerFrame = setTimeout(tick, Math.min(100, Math.max(10, remaining % 100 || 25)));
   };
 
@@ -543,16 +587,12 @@ function getVoteRemainingMs(msg){
 }
 
 function getVoteCountdownMs(msg){
-  // Prioritaskan waktu event asli dari API. Jika WebSocket terlambat 8 detik,
-  // countdown dimulai dari ~52.000 ms, bukan 60.000 ms.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime)){
     const age = Math.max(0, Date.now() - eventTime);
     return Math.max(0, TIMER_START_MS - age);
   }
 
-  // Fallback jika API tidak memberi timestamp: gunakan sisa waktu yang tertulis
-  // pada status event. Ini tetap lebih akurat daripada selalu memulai 60 detik.
   const remaining = getVoteRemainingMs(msg);
   if(Number.isFinite(remaining)) return Math.min(TIMER_START_MS, Math.max(0, remaining));
 
@@ -567,12 +607,9 @@ function isVoteStartedKickEvent(msg){
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
 
-  // Harus persis state awal vote-kick. Event status lain tidak boleh
-  // menyalakan/restart countdown.
   if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
   if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
 
-  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
 
@@ -591,9 +628,6 @@ function getVoteKey(msg){
   const room = String(data?.room ?? data?.room_name ?? "").trim().toLowerCase();
   const time = String(data?.time ?? msg?.time ?? "").trim();
 
-  // Jika API tidak menyediakan event_id, waktu event tetap dipakai untuk
-  // membedakan dua vote yang benar-benar berbeda. Status countdown tidak
-  // pernah dipakai sebagai identitas event.
   return `vote:${room}|${target}|${starter}|${time}`;
 }
 
@@ -618,19 +652,11 @@ function appendApiEvent(i, msg){
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
   if(isVoteFinishedEvent(msg)){
-    // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
   }
   if(isVoteStartedKickEvent(msg)){
     const eventKey = getVoteKey(msg);
-
-    // Event yang sama dapat dikirim berkali-kali oleh stream. Jangan pernah
-    // restart countdown hanya karena ada salinan event vote_started.
     if(eventKey && eventKey === activeVoteKey) return;
-
-    // Selama countdown aktif, event vote_started lain tidak boleh me-reset
-    // timer yang sedang berjalan. Timer berikutnya hanya boleh dimulai setelah
-    // countdown selesai (atau setelah reset manual).
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
@@ -695,20 +721,20 @@ function renderParticipants(list, merge=true){
   participantNames.length = 0;
   participantNames.push(...unique);
   if(!unique.length){
-    el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Tidak ada peserta.</div>';
+    el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-6">Tidak ada peserta.</div>';
     return;
   }
   el("participantsList").innerHTML = unique.map(n => `
-    <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
-      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
-      <span class="text-xs sm:text-sm text-slate-200 truncate">${esc(n)}</span>
+    <label class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
+      <input type="checkbox" class="participant-check w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
+      <span class="text-xs text-slate-200 truncate">${esc(n)}</span>
     </label>
   `).join("");
 }
 
 function clearParticipants(){
   participantNames.length = 0;
-  el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>';
+  el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-6">Belum ada data.</div>';
 }
 
 function moveCheckedToTargets(){
@@ -721,11 +747,11 @@ function moveCheckedToTargets(){
 
 function renderTargets(){
   el("targetList").innerHTML = targets.length ? targets.map((n, i) => `
-    <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80">
-      <span class="text-[11px] font-mono font-bold text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">${String(i+1).padStart(2,"0")}</span>
-      <span class="text-xs sm:text-sm text-slate-200 truncate flex-1">${esc(n)}</span>
+    <div class="flex items-center gap-2 px-2 py-1 rounded bg-slate-900 border border-slate-800/80">
+      <span class="text-[9px] font-mono font-bold text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-800/40">${String(i+1).padStart(2,"0")}</span>
+      <span class="text-xs text-slate-200 truncate flex-1">${esc(n)}</span>
     </div>
-  `).join("") : '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>';
+  `).join("") : '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-6">Belum ada target.</div>';
 }
 
 function clearTargets(){
@@ -932,8 +958,6 @@ async function participants(){
 async function balanceAll(){
   const online = accounts.map((a, i) => ({i, sessionId:a.sessionId})).filter(x => x.sessionId);
   if(!online.length){ log("CEK SALDO ALL: tidak ada Troop yang ONLINE."); return; }
-  // Saldo tidak bergantung pada satu SSE event-source. Backend menunggu
-  // wallet.balance.result untuk setiap session dan mengembalikan hasilnya.
   try{
     const r = await fetch("/api/balance-all", {
       method:"POST",
@@ -963,7 +987,6 @@ async function balanceAll(){
 }
 
 function resetKickAllProgress(reason = "Menunggu perintah kick...") {
-  // Hentikan polling progress yang sedang berjalan.
   if (typeof window.stopKickProgressPolling === "function") {
     window.stopKickProgressPolling();
   }
@@ -1003,7 +1026,7 @@ async function kickSelectedTargets(){
   const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
   const targetProgressBox = el("kickTargetProgress");
   if (targetProgressBox) {
-    targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
+    targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1 py-0.5 text-[8px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
   }
   bar.style.width = "0%";
   txt.textContent = "Memulai";
@@ -1031,8 +1054,6 @@ async function kickSelectedTargets(){
       return;
     }
 
-    // Gunakan polling ringan untuk progress KICK ALL.
-    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
     let progressStopped = false;
     let progressTimer = null;
     window.stopKickProgressPolling = () => {
@@ -1058,11 +1079,10 @@ async function kickSelectedTargets(){
             const done = Number(tp.completed) || 0;
             const total = Number(tp.total) || (textloop * wsCount);
             if (span) span.textContent = `${done}/${total}`;
-            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+            cell.className = `rounded-md border px-1 py-0.5 text-[8px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
           });
         }
 
-        // Timing aplikasi per WebSocket: request → queued → job selesai.
         if(p.latency){
           if(Number.isFinite(Number(p.latency.totalMs))){
             latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
@@ -1119,8 +1139,6 @@ async function kickSelectedTargets(){
 
         if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
       }catch(e){
-        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
-        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
         if(!progressStopped) meta.textContent = "Memuat progress backend…";
       }
     };
