@@ -211,6 +211,13 @@
         <div class="col-span-2 min-w-0">
           <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold px-1 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/40 border border-rose-400 active:scale-95">KICK ALL</button>
           <div id="timerValue" class="mt-1 w-full h-5 flex items-center justify-center rounded-lg bg-slate-950 border border-slate-600 text-[10px] font-extrabold text-amber-300">60000</div>
+          <div class="mt-1 w-full">
+            <div class="h-2.5 w-full overflow-hidden rounded-full bg-slate-800 border border-slate-700">
+              <div id="kickProgressBar" class="h-full w-0 rounded-full bg-rose-500 transition-all duration-150" style="width:0%"></div>
+            </div>
+            <div id="kickProgressText" class="mt-0.5 text-center text-[8px] font-bold text-slate-300">KICK ALL: 0%</div>
+            <div id="kickWsProgress" class="mt-1.5 space-y-1.5"></div>
+          </div>
         </div>
         <label class="col-span-1 min-w-0 text-center">
           <span class="block text-[8px] uppercase tracking-wide font-extrabold text-slate-200 mb-0.5">Timer</span>
@@ -240,7 +247,8 @@
 </div>
 
 <script>
-const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
+const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null,status:"OFFLINE"}));
+let kickProgressSource = null;
 const targets = [];
 const participantNames = [];
 const el = id => document.getElementById(id);
@@ -286,12 +294,15 @@ function renderAccounts(){
 
 function setStatus(i, text, kind=""){
   const s = el(`status${i}`);
+  accounts[i].status = text;
   if(!s) return;
   s.textContent = text;
-  if(kind === "online") {
+  if(kind === "online" || text === "ONLINE") {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500";
-  } else if(kind === "error") {
+  } else if(kind === "error" || text === "ERROR") {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-500";
+  } else if(text === "LOGIN…" || text === "AUTH…") {
+    s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500";
   } else {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-950 text-slate-300 border border-slate-600";
   }
@@ -373,7 +384,12 @@ function openEvents(i){
       handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
     }
   };
-  es.onerror = () => {};
+  es.onerror = () => {
+    if(accounts[i].sessionId){
+      setStatus(i, "ERROR", "error");
+      log(`Troop ${i+1}: koneksi status/event terputus.`);
+    }
+  };
 }
 
 const TIMER_START_MS = 60000;
@@ -926,34 +942,68 @@ async function balanceAll(){
 }
 
 
-async function kickSelectedTargets(){
+async async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
 
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "50", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const onlineWs = accounts.map(a=>a.sessionId).filter(Boolean).length;
+  const sessionIds = accounts.map(a=>a.sessionId).filter(Boolean);
+  const onlineWs = sessionIds.length;
+  if(kickProgressSource) { try{ kickProgressSource.close(); }catch{}; kickProgressSource=null; }
+
+  const reset = el("kickProgressBar");
+  const resetText = el("kickProgressText");
+  if(reset) reset.style.width = "0%";
+  if(resetText) resetText.textContent = "KICK ALL: 0%";
+  renderKickWsProgress(Array.from({length:10},(_,i)=>({websocket:i+1,completed:0,total:targets.length*textloop,percent:0,status:i<onlineWs?"waiting":"offline",phase:i<onlineWs?"waiting":"offline"})));
 
   try{
     const r = await fetch("/api/kick-loop", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
-        room, targets:[...targets], textdelay, textloop
-      })
+      body:JSON.stringify({sessionIds, room, targets:[...targets], textdelay, textloop})
     });
     const j = await r.json();
     if(!j.ok || !j.executionId){
       log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • pair delay ${textdelay} ms.`);
+    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • 1-2 → delay → 3-4 → delay → 5-6 → delay → 7-8 → delay → 9-10.`);
+
+    kickProgressSource = new EventSource(`/api/kick-progress?id=${encodeURIComponent(j.executionId)}`);
+    kickProgressSource.onmessage = ev => {
+      try{
+        const p = JSON.parse(ev.data);
+        if(p.wsProgress) renderKickWsProgress(p.wsProgress);
+        const pct = Math.max(0, Math.min(100, Number(p.percent)||0));
+        if(el("kickProgressBar")) el("kickProgressBar").style.width = pct + "%";
+        if(el("kickProgressText")) el("kickProgressText").textContent = `KICK ALL: ${pct}% • ${p.completedJobs||0}/${p.totalJobs||0}`;
+        if(p.phase === "done") log(`KICK ALL selesai: ${p.completedJobs||0}/${p.totalJobs||0} perintah terkirim.`);
+      }catch{}
+    };
+    kickProgressSource.onerror = () => {};
   }catch(e){
     log(`KICK ALL gagal - ${e.message}`);
   }
 }
 
+function renderKickWsProgress(list){
+  const box = el("kickWsProgress");
+  if(!box) return;
+  const rows = Array.isArray(list) ? list : [];
+  box.innerHTML = rows.map(x=>{
+    const pct = Math.max(0, Math.min(100, Number(x.percent)||0));
+    const done = Number(x.completed)||0;
+    const total = Number(x.total)||0;
+    const label = x.status === "offline" ? "OFFLINE" : x.status === "done" ? "DONE" : x.status === "error" ? "ERROR" : (x.phase === "delay" ? "DELAY" : "RUN");
+    return `<div class="grid grid-cols-[38px_1fr_58px] items-center gap-1.5">
+      <span class="text-[8px] font-extrabold text-slate-200">WS ${x.websocket}</span>
+      <div class="h-2.5 overflow-hidden rounded-full bg-slate-800 border border-slate-700"><div class="h-full rounded-full bg-rose-500 transition-all duration-150" style="width:${pct}%"></div></div>
+      <span class="text-[8px] text-right font-bold ${label==='ERROR'?'text-rose-300':label==='DONE'?'text-emerald-300':'text-slate-300'}">${pct}% ${done}/${total}</span>
+    </div>`;
+  }).join("");
+}
 renderAccounts();
 renderTargets();
 renderTimer();
