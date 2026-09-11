@@ -2,6 +2,8 @@
 const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
 const targets = [];
 const participantNames = [];
+let kickProgressSource = null;
+let activeKickExecutionId = null;
 const el = id => document.getElementById(id);
 
 const log = msg => {
@@ -49,6 +51,8 @@ function setStatus(i, text, kind=""){
   s.textContent = text;
   if(kind === "online") {
     s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
+  } else if(kind === "auth") {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-700/60";
   } else if(kind === "error") {
     s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
   } else {
@@ -116,11 +120,6 @@ let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
-  // Tampilkan event dari satu WebSocket saja agar log tidak terduplikasi.
-  if(apiDisplayIndex !== null && apiDisplayIndex !== i){
-    return;
-  }
-  apiDisplayIndex = i;
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
   const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(a.sessionId)}`);
   a.eventSource = es;
@@ -133,7 +132,10 @@ function openEvents(i){
       handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
     }
   };
-  es.onerror = () => {};
+  es.onerror = () => {
+    // EventSource boleh reconnect otomatis. Status akun ditentukan oleh
+    // session.closed/session.error dari backend, bukan oleh error SSE sesaat.
+  };
 }
 
 const TIMER_START_MS = 60000;
@@ -366,6 +368,23 @@ function appendApiEvent(i, msg){
 
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
+
+  const type = String(msg?.type || "").toLowerCase();
+  if(type === "session.ready") {
+    setStatus(i, "ONLINE", "online");
+  } else if(type === "session.error") {
+    setStatus(i, "ERROR", "error");
+  } else if(type === "session.replaced") {
+    setStatus(i, "ERROR", "error");
+    accounts[i].sessionId = null;
+    setBalance(i, "-");
+  } else if(type === "session.closed") {
+    // Jika socket benar-benar ditutup oleh server, akun tidak lagi online.
+    setStatus(i, "OFFLINE");
+    accounts[i].sessionId = null;
+    setBalance(i, "-");
+  }
+
   if(isVoteFinishedEvent(msg)){
     // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
@@ -391,11 +410,6 @@ function handleApiEvent(i, msg){
     const w = msg.data?.wallet;
     if(w?.label) setBalance(i, w.label);
     else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
-  }
-  if(msg.type === "session.replaced"){
-    setStatus(i, "OFFLINE");
-    accounts[i].sessionId = null;
-    setBalance(i, "-");
   }
   if(String(msg.type||"").includes("participants") || hasParticipantContainer(msg.data)){
     const list = extractParticipantNames(msg);
@@ -491,7 +505,7 @@ async function loginOne(i){
   const a = accounts[i];
   if(!a.username || !a.password){ log(`Troop ${i+1}: nama dan password wajib diisi.`); return; }
   if(a.sessionId) await logoutOne(i, true);
-  setStatus(i, "LOGIN…");
+  setStatus(i, "AUTH…", "auth");
   try{
     const r = await fetch("/api/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:a.username, password:a.password})});
     const j = await r.json();
@@ -505,7 +519,8 @@ async function loginOne(i){
     openEvents(i);
     log(`Troop ${i+1} ${a.username}: ONLINE`);
   }catch(e){
-    setStatus(i, "OFFLINE", "error");
+    setStatus(i, "ERROR", "error");
+    accounts[i].sessionId = null;
     log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);
   }
 }
@@ -543,7 +558,7 @@ async function loginAll(){
   sync();
   const list = accounts.map((a, i) => ({index:i, username:a.username, password:a.password, sessionId:a.sessionId})).filter(a => a.username && a.password);
   if(!list.length){ log("LOGIN ALL: isi minimal satu Troop."); return; }
-  list.forEach(a => setStatus(a.index, "LOGIN…"));
+  list.forEach(a => setStatus(a.index, "AUTH…", "auth"));
   try{
     const r = await fetch("/api/login-batch", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({accounts:list})});
     const j = await r.json();
@@ -559,7 +574,7 @@ async function loginAll(){
         openEvents(i);
       } else {
         accounts[i].sessionId = null;
-        setStatus(i, "OFFLINE", "error");
+        setStatus(i, "ERROR", "error");
         setBalance(i, "-");
       }
     }
@@ -568,7 +583,7 @@ async function loginAll(){
     log(`LOGIN ALL: ${ok}/${total} Troop login bersamaan.`);
     for(const item of (j.results || [])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN GAGAL - ${item.error}`);
   }catch(e){
-    for(const a of list) setStatus(a.index, "OFFLINE", "error");
+    for(const a of list) setStatus(a.index, "ERROR", "error");
     log(`LOGIN ALL gagal - ${e.message}`);
   }
 }
@@ -713,6 +728,66 @@ async function balanceAll(){
 }
 
 
+function resetKickProgress(){
+  if(kickProgressSource){ try{ kickProgressSource.close(); }catch{} }
+  kickProgressSource = null;
+  activeKickExecutionId = null;
+  const bar = el("kickProgressBar");
+  const text = el("kickProgressText");
+  if(bar) bar.style.width = "0%";
+  if(text) text.textContent = "KICK: 0%";
+}
+
+function updateKickProgress(p){
+  if(!p) return;
+  const total = Number(p.totalJobs ?? 0);
+  const done = Math.max(0, Math.min(total || Number.MAX_SAFE_INTEGER, Number(p.completedJobs ?? 0)));
+  const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : Number(p.percent || 0);
+  const bar = el("kickProgressBar");
+  const text = el("kickProgressText");
+  if(bar) bar.style.width = `${percent}%`;
+  if(text){
+    const ws = Number(p.websockets ?? 0);
+    const targetsCount = Number(p.targets ?? 0);
+    const loops = Number(p.loops ?? p.textloop ?? 0);
+    const suffix = total > 0 ? ` • ${done}/${total}` : "";
+    text.textContent = `KICK: ${percent}%${suffix}${ws ? ` • WS ${ws}` : ""}${targetsCount ? ` • T ${targetsCount}` : ""}${loops ? ` • L ${loops}` : ""}`;
+  }
+  if(p.phase === "delay" && p.delayMs != null){
+    // Tidak mengubah persen saat jeda; persen tetap merepresentasikan target
+    // yang sudah benar-benar dikirim oleh seluruh WS.
+  }
+}
+
+function watchKickProgress(executionId){
+  resetKickProgress();
+  if(!executionId) return;
+  activeKickExecutionId = executionId;
+  const es = new EventSource(`/api/kick-progress?id=${encodeURIComponent(executionId)}`);
+  kickProgressSource = es;
+  es.onmessage = event => {
+    try{
+      const data = JSON.parse(event.data);
+      if(data.type === "kick.progress") updateKickProgress(data);
+      if(data.phase === "completed"){
+        updateKickProgress(data);
+        log("KICK ALL selesai: seluruh sequence sesuai logic WS independen telah diproses.");
+        es.close();
+        if(kickProgressSource === es) kickProgressSource = null;
+      } else if(data.phase === "error"){
+        updateKickProgress(data);
+        log(`KICK ALL error: ${data.error || "Eksekusi gagal."}`);
+        es.close();
+        if(kickProgressSource === es) kickProgressSource = null;
+      }
+    }catch{}
+  };
+  es.onerror = () => {
+    // Jangan mengubah persen. Endpoint SSE dapat reconnect sendiri; state
+    // eksekusi tetap menjadi sumber kebenaran progress.
+  };
+}
+
 async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
@@ -735,7 +810,8 @@ async function kickSelectedTargets(){
       log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • pair delay ${textdelay} ms.`);
+    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • urutan 1-2 → delay → 3-4 → delay → 5-6 → delay → 7-8 → delay → 9-10.`);
+    watchKickProgress(j.executionId);
   }catch(e){
     log(`KICK ALL gagal - ${e.message}`);
   }
