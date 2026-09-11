@@ -2,7 +2,7 @@
 <html lang="id" class="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MIGMASTER PROTOTIPE 1.0</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,15 +16,6 @@
         fontFamily: {
           sans: ['"Plus Jakarta Sans"', 'sans-serif'],
         },
-        colors: {
-          brand: {
-            50: '#f0f6ff',
-            500: '#3b82f6',
-            600: '#2563eb',
-            900: '#0f172a',
-            dark: '#07090e'
-          }
-        }
       }
     }
   }
@@ -32,212 +23,228 @@
 <style>
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background-color: #0b0f19;
-    color: #ffffff;
+    background-color: #07090e;
+    color: #f1f5f9;
     -webkit-tap-highlight-color: transparent;
   }
   input, button {
     outline: none;
   }
   input:focus, button:focus {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
   }
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
   }
   ::-webkit-scrollbar-track {
-    background: #0f172a;
+    background: #0b0f19;
   }
   ::-webkit-scrollbar-thumb {
-    background: #475569;
+    background: #1e293b;
     border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
   }
 </style>
 </head>
-<body class="bg-[#0b0f19] text-white min-h-screen pb-12 selection:bg-blue-600 selection:text-white">
+<body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
-<div class="max-w-4xl mx-auto px-2.5 sm:px-6 py-3 sm:py-8 space-y-3 sm:space-y-6">
+<div class="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
   
-  <!-- Header Card dengan Logo Kustom MigMaster -->
-  <div class="bg-slate-900 border border-slate-600 rounded-2xl p-4 sm:p-6 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
-    <div class="absolute -right-12 -top-12 w-40 h-40 bg-blue-600/30 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -left-12 -bottom-12 w-40 h-40 bg-emerald-600/30 rounded-full blur-3xl pointer-events-none"></div>
-    
+  <!-- Header Card -->
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+    <div class="absolute -right-12 -top-12 w-48 h-48 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
     <div class="relative z-10 flex flex-col items-center">
-      <!-- Logo MigMaster Custom SVG -->
-      <div class="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/50 mb-2.5 border border-blue-400">
-        <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 2L4 7V15C4 22.38 9.12 29.21 16 30C22.88 29.21 28 22.38 28 15V7L16 2Z" fill="url(#mig_grad)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M8 20V12L12 16L16 12L20 16L24 12V20" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="16" cy="22" r="1.5" fill="#10B981"/>
-          <defs>
-            <linearGradient id="mig_grad" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#1E40AF"/>
-              <stop offset="0.5" stop-color="#3B82F6"/>
-              <stop offset="1" stop-color="#059669"/>
-            </linearGradient>
-          </defs>
-        </svg>
+      <div class="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-xl shadow-blue-900/30 mb-3.5 sm:mb-4 border border-blue-400/30">
+        <svg class="w-7 h-7 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       </div>
-
-      <h1 class="text-lg sm:text-2xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-100 to-emerald-400 uppercase">
+      <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-indigo-500">
         MIGMASTER PROTOTIPE 1.0
       </h1>
-      <p class="text-[11px] sm:text-xs text-slate-200 mt-1 max-w-lg leading-relaxed font-semibold">
-        Troop Automation & Control System
+      <p class="text-xs sm:text-sm text-slate-400 mt-2 max-w-lg leading-relaxed px-2">
+        
       </p>
     </div>
   </div>
 
-  <!-- Main Config Card -->
-  <div class="bg-slate-900 border border-slate-600 rounded-2xl p-3.5 sm:p-6 shadow-xl space-y-3.5 sm:space-y-5">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div class="space-y-1">
-        <label class="text-[11px] font-bold text-slate-200 uppercase tracking-wider">Main Troop</label>
-        <input id="mainTroop" class="w-full bg-slate-800 border border-slate-500 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:border-blue-400 transition-all placeholder:text-slate-400 font-semibold" placeholder="Contoh: u1" autocomplete="off">
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+        
+      
+      </h3>
+    </div>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400">Main troop</label>
+        <input id="mainTroop" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Contoh: u1" autocomplete="off">
       </div>
-      <div class="space-y-1">
-        <label class="text-[11px] font-bold text-slate-200 uppercase tracking-wider">Main Password</label>
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400">Main password</label>
         <div class="flex gap-2">
-          <input id="mainPassword" type="password" class="w-full bg-slate-800 border border-slate-500 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:border-blue-400 transition-all placeholder:text-slate-400 font-semibold" placeholder="Password akun" autocomplete="off">
-          <button id="generatePassword" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border border-indigo-400 shrink-0 shadow-md">Set Pass</button>
+          <input id="mainPassword" type="password" class="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 transition-all placeholder:text-slate-600" placeholder="Password akun" autocomplete="off">
+          <button id="generatePassword" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
         </div>
       </div>
     </div>
 
-    <!-- Range & Generate -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-700">
-      <div class="flex items-center gap-2 justify-between">
-        <div class="space-y-1 flex-1 sm:flex-initial">
-          <label class="text-[10px] font-bold text-slate-200 uppercase">Mulai</label>
-          <input id="rangeStart" type="number" class="w-full sm:w-20 bg-slate-800 border border-slate-500 rounded-xl px-2.5 py-2 text-center text-xs font-bold text-white focus:border-blue-400" value="1">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 pt-3 border-t border-slate-800/60">
+      <div class="flex items-center gap-2.5 justify-between sm:justify-start">
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-400">Mulai</label>
+          <input id="rangeStart" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
         </div>
-        <span class="text-slate-300 mt-4 text-xs font-bold">s/d</span>
-        <div class="space-y-1 flex-1 sm:flex-initial">
-          <label class="text-[10px] font-bold text-slate-200 uppercase">Akhir</label>
-          <input id="rangeEnd" type="number" class="w-full sm:w-20 bg-slate-800 border border-slate-500 rounded-xl px-2.5 py-2 text-center text-xs font-bold text-white focus:border-blue-400" value="10">
+        <span class="text-slate-500 mt-6 text-xs font-medium">s/d</span>
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-400">Akhir</label>
+          <input id="rangeEnd" type="number" class="w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
         </div>
       </div>
 
       <div class="flex items-center gap-2">
-        <button id="generateTroop" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-blue-600/40 transition-all active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400">
+        <button id="generateTroop" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
           GENERATE TROOP
         </button>
-        <button id="clearFields" class="bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 font-bold p-2.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-md shadow-rose-900/40" title="Hapus Semua">
+        <button id="clearFields" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold px-3.5 py-3 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center" title="Hapus Semua">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
     </div>
 
     <!-- Accounts List Container -->
-    <div id="accounts" class="space-y-2 pt-1"></div>
+    <div id="accounts" class="space-y-2.5 pt-1"></div>
 
-    <div class="flex flex-row gap-2 pt-3 border-t border-slate-700">
-      <button id="loginAll" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs shadow-lg shadow-emerald-600/40 border border-emerald-400 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+    <div class="flex flex-row gap-2.5 pt-3 border-t border-slate-800/60">
+      <button id="loginAll" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         LOGIN ALL
       </button>
-      <button id="logoutAll" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-3 rounded-xl text-xs border border-slate-400 shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5">
+      <button id="logoutAll" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
         LOGOUT ALL
       </button>
     </div>
   </div>
 
-  <!-- Save / Load Section -->
-  <div class="bg-slate-900 border border-slate-600 rounded-2xl p-3.5 sm:p-5 shadow-xl">
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
     <div class="flex items-center gap-2">
-      <input id="saveName" class="flex-1 bg-slate-800 border border-slate-500 rounded-xl px-3 py-2.5 text-xs text-white focus:border-blue-400 placeholder:text-slate-400 font-semibold" value="troop1" placeholder="Nama file save">
+      <input id="saveName" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" value="troop1" placeholder="Nama file save">
       <div class="flex items-center gap-2 shrink-0">
-        <button id="saveAccounts" class="bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 p-2.5 rounded-xl shadow-lg shadow-blue-600/40 transition-all active:scale-95 flex items-center justify-center w-10 h-10" title="Save JSON">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <button id="saveAccounts" class="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Save JSON">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         </button>
-        <button id="loadAccounts" class="bg-slate-700 hover:bg-slate-600 text-white border border-slate-400 p-2.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center w-10 h-10" title="Load JSON">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <button id="loadAccounts" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-3 rounded-xl transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Load JSON">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         </button>
       </div>
       <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
     </div>
   </div>
 
-  <!-- Room Actions Card -->
-  <div class="bg-slate-900 border border-slate-600 rounded-2xl p-3.5 sm:p-5 shadow-xl space-y-3">
-    <div class="flex flex-col sm:flex-row gap-2">
-      <input id="room" class="flex-1 bg-slate-800 border border-slate-500 rounded-xl px-3 py-2.5 text-xs text-white focus:border-blue-400 placeholder:text-slate-400 font-semibold" placeholder="Nama room tujuan..." autocomplete="off">
-      <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2">
-        <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-blue-600/40 border border-blue-400 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
-        <button onclick="leaveAll()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs border border-slate-400 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <div class="flex flex-col sm:flex-row gap-2.5">
+      <input id="room" class="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
+      <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
+        <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
+        <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-2">
-      <button onclick="participants()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold py-2.5 px-2 rounded-xl text-xs border border-cyan-500/50 transition-all active:scale-95 shadow-sm">LIST PESERTA</button>
-      <button onclick="balanceAll()" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold py-2.5 px-2 rounded-xl text-xs border border-emerald-500/50 transition-all active:scale-95 shadow-sm">CEK SALDO ALL</button>
+    <div class="grid grid-cols-2 gap-2.5">
+      <button onclick="participants()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">LIST PESERTA</button>
+      <button onclick="balanceAll()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95">CEK SALDO ALL</button>
     </div>
   </div>
 
-  <!-- Main Lists (Participants & Target Kick) -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     
     <!-- Participants Column -->
-    <div class="bg-slate-900 border border-slate-600 rounded-2xl p-3.5 sm:p-5 shadow-xl space-y-3 flex flex-col">
+    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
       <div class="flex items-center justify-between">
-        <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Participants</h3>
-        <span class="text-[10px] font-bold text-cyan-300 bg-slate-800 px-2.5 py-1 rounded-full border border-cyan-500/40">Centang pilih</span>
+        <h3 class="text-sm sm:text-base font-bold text-slate-200">Participants</h3>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Centang untuk pilih</span>
       </div>
-      <div id="participantsList" class="flex-1 min-h-[160px] max-h-[240px] overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl p-2 space-y-1">
-        <div class="flex items-center justify-center h-full text-xs text-slate-300 py-8 font-medium">Belum ada data participants.</div>
+      <div id="participantsList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
+        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>
       </div>
       <div class="flex gap-2">
-        <button onclick="clearParticipants()" class="bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 font-bold p-2.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-10 shrink-0 shadow-md" title="Bersihkan List">
+        <button onclick="moveCheckedToTargets()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md shadow-blue-600/20 active:scale-95">PINDAHKAN KE TARGET</button>
+        <button onclick="clearParticipants()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold py-2.5 px-3.5 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center w-11 h-11 shrink-0" title="Bersihkan List">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
     </div>
 
     <!-- Target Kick Column -->
-    <div class="bg-slate-900 border border-slate-600 rounded-2xl p-3.5 sm:p-5 shadow-xl space-y-3 flex flex-col">
+    <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5 flex flex-col">
       <div class="flex items-center justify-between">
-        <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Target Kick</h3>
-        <span class="text-[10px] font-bold text-amber-300 bg-slate-800 px-2.5 py-1 rounded-full border border-amber-500/40">Daftar Eksekusi</span>
+        <h3 class="text-sm sm:text-base font-bold text-slate-200">Target Kick</h3>
+        <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Daftar Eksekusi</span>
       </div>
-      <div id="targetList" class="flex-1 min-h-[160px] max-h-[240px] overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl p-2 space-y-1">
-        <div class="flex items-center justify-center h-full text-xs text-slate-300 py-8 font-medium">Belum ada target.</div>
+      <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
+        <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
       </div>
-
-      <!-- Controls Container Mobile Friendly -->
-      <div class="grid grid-cols-6 gap-1.5 items-end pt-1">
-        <div class="col-span-2 min-w-0">
-          <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold px-1 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/40 border border-rose-400 active:scale-95">KICK ALL</button>
-          <div id="timerValue" class="mt-1 w-full h-5 flex items-center justify-center rounded-lg bg-slate-950 border border-slate-600 text-[10px] font-extrabold text-amber-300">60000</div>
-          <div class="mt-1 w-full">
-            <div id="kickWsProgress" class="space-y-0.5"></div>
-          </div>
+      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px_42px] items-end gap-1.5">
+        <div class="min-w-0">
+          <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
+          <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
         </div>
-        <label class="col-span-1 min-w-0 text-center">
-          <span class="block text-[8px] uppercase tracking-wide font-extrabold text-slate-200 mb-0.5">Timer</span>
-          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-8 bg-slate-800 border border-slate-500 rounded-lg px-0.5 text-center text-[10px] font-bold text-white outline-none focus:border-blue-400" inputmode="numeric">
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Timer</span>
+          <input id="kickTimer" type="number" min="0" step="1" value="1500" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
-        <label class="col-span-1 min-w-0 text-center">
-          <span class="block text-[8px] uppercase tracking-wide font-extrabold text-slate-200 mb-0.5">Delay</span>
-          <input id="textdelay" type="number" min="0" step="1" value="50" class="w-full h-8 bg-slate-800 border border-slate-500 rounded-lg px-0.5 text-center text-[10px] font-bold text-white outline-none focus:border-blue-400" inputmode="numeric">
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
+          <input id="textdelay" type="number" min="0" step="1" value="50" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
-        <label class="col-span-1 min-w-0 text-center">
-          <span class="block text-[8px] uppercase tracking-wide font-extrabold text-slate-200 mb-0.5">Loop</span>
-          <input id="textloop" type="number" min="1" step="1" value="5" class="w-full h-8 bg-slate-800 border border-slate-500 rounded-lg px-0.5 text-center text-[10px] font-bold text-white outline-none focus:border-blue-400" inputmode="numeric">
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
+          <input id="textloop" type="number" min="1" step="1" value="5" class="w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
-        <div class="col-span-1 flex gap-1 justify-end">
-          <button id="resetTimerButton" class="bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-full h-8 shadow-sm border border-sky-400" title="Reset Timer ke 60000 ms" aria-label="Reset Timer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4l2.5 1.5M9 3h6M12 3v2"></path></svg>
-          </button>
-          <button onclick="clearTargets()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-full h-8 shadow-sm border border-rose-400" title="Hapus Semua Target">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </div>
+        <button id="resetTimerButton" class="bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-900/40 hover:bg-sky-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Reset Timer ke 60000 ms" aria-label="Reset Timer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4l2.5 1.5M9 3h6M12 3v2"></path></svg>
+        </button>
+        <button onclick="clearTargets()" class="bg-slate-800 hover:bg-slate-700 text-rose-400 border border-rose-900/40 hover:bg-rose-950/30 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-10 h-9 shrink-0" title="Hapus Semua Target">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
       </div>
     </div>
 
+  </div>
+
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="sr-only">API Event</h3>
+    </div>
+    
+    
+    <div id="kickProgress" class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
+      <div class="flex justify-between items-center gap-2 text-[11px] font-semibold">
+        <span class="text-slate-300">KICK ALL PROGRESS</span>
+        <span id="kickProgressText" class="text-blue-400">Siap</span>
+      </div>
+      <div class="h-2.5 rounded-full bg-slate-800 overflow-hidden">
+        <div id="kickProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400 transition-all duration-300"></div>
+      </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressStep" class="text-slate-400">Target 0/0</span>
+        <span id="kickProgressWs" class="text-slate-500">WS 0/0</span>
+      </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressJobs" class="text-slate-400">Job 0/0</span>
+        <span id="kickProgressStructure" class="text-slate-500">Loop 0/0 • Target 0/0</span>
+      </div>
+      <div class="flex justify-between gap-2 text-[10px]">
+        <span id="kickProgressLatency" class="text-slate-400">Latency: -</span>
+        <span id="kickProgressNetwork" class="text-slate-500">Queue - • Job -</span>
+      </div>
+      <div id="kickTargetProgress" class="grid grid-cols-5 gap-1 pt-1"></div>
+      <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
+    </div>
   </div>
 
 </div>
@@ -267,21 +274,21 @@ function sync(){
 
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
-    <div class="bg-slate-800 border border-slate-600 rounded-xl p-2.5 space-y-2 transition-all hover:border-slate-400 shadow-md">
+    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-3 space-y-2.5 transition-all hover:border-slate-700">
       <div class="flex items-center justify-between">
-        <span class="text-[11px] font-bold tracking-wide text-white">Troop ${i+1}</span>
-        <div class="flex items-center gap-1.5">
-          <span id="b${i}" class="text-[10px] bg-slate-950 border border-slate-700 text-emerald-300 px-2 py-0.5 rounded-md font-mono font-bold">${esc(a.balance)}</span>
-          <span id="status${i}" class="text-[9px] font-bold px-2 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950 text-emerald-300 border border-emerald-500' : 'bg-slate-950 text-slate-300 border border-slate-600'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
+        <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
+        <div class="flex items-center gap-2">
+          <span id="b${i}" class="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md">${esc(a.balance)}</span>
+          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
         </div>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900 border border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-blue-400 placeholder:text-slate-400 font-semibold" placeholder="Username" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900 border border-slate-500 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-blue-400 placeholder:text-slate-400 font-semibold" placeholder="Password" autocomplete="off">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
+        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
       </div>
-      <div class="flex gap-1.5 pt-0.5">
-        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-2 rounded-lg text-[11px] border border-blue-400 transition-all active:scale-95 shadow-sm">LOGIN</button>
-        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-1 px-2 rounded-lg text-[11px] border border-rose-400 transition-all active:scale-95 shadow-sm">LOGOUT</button>
+      <div class="flex gap-2 pt-0.5">
+        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGIN</button>
+        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGOUT</button>
       </div>
     </div>
   `).join("");
@@ -292,11 +299,11 @@ function setStatus(i, text, kind=""){
   if(!s) return;
   s.textContent = text;
   if(kind === "online") {
-    s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500";
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
   } else if(kind === "error") {
-    s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-500";
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
   } else {
-    s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-950 text-slate-300 border border-slate-600";
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
   }
 }
 
@@ -360,6 +367,7 @@ let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
+  // Tampilkan event dari satu WebSocket saja agar log tidak terduplikasi.
   if(apiDisplayIndex !== null && apiDisplayIndex !== i){
     return;
   }
@@ -414,6 +422,9 @@ function triggerKickAllIfReached(previousValue = null){
   const configuredMs = getKickTimerMs();
   if(kickTriggeredForTimer || configuredMs < 0) return;
 
+  // Jangan bergantung pada exact millisecond tick. Trigger saat countdown
+  // melewati nilai textbox, sehingga 1500 ms tidak akan terlewat akibat
+  // setTimeout/performance jitter.
   const reached = previousValue === null
     ? timerValue <= configuredMs
     : previousValue > configuredMs && timerValue <= configuredMs;
@@ -428,6 +439,7 @@ function triggerKickAllIfReached(previousValue = null){
 }
 
 function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
+  // Event yang sama/duplikat tidak boleh menghidupkan ulang timer.
   if(eventKey && eventKey === lastTimerEventKey){
     return;
   }
@@ -451,6 +463,8 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
 
+  // Asynchronous countdown. Tidak ada interval blocking dan timer tidak
+  // pernah di-reset ke 60000 saat mencapai 0.
   const tick = () => {
     if(!timerRunning || generation !== timerGeneration) return;
 
@@ -471,6 +485,8 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
       return;
     }
 
+    // Update cukup sering untuk tampilan, tetapi tidak memaksa 1 callback
+    // untuk setiap 1 ms.
     timerFrame = setTimeout(tick, Math.min(100, Math.max(10, remaining % 100 || 25)));
   };
 
@@ -527,12 +543,16 @@ function getVoteRemainingMs(msg){
 }
 
 function getVoteCountdownMs(msg){
+  // Prioritaskan waktu event asli dari API. Jika WebSocket terlambat 8 detik,
+  // countdown dimulai dari ~52.000 ms, bukan 60.000 ms.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime)){
     const age = Math.max(0, Date.now() - eventTime);
     return Math.max(0, TIMER_START_MS - age);
   }
 
+  // Fallback jika API tidak memberi timestamp: gunakan sisa waktu yang tertulis
+  // pada status event. Ini tetap lebih akurat daripada selalu memulai 60 detik.
   const remaining = getVoteRemainingMs(msg);
   if(Number.isFinite(remaining)) return Math.min(TIMER_START_MS, Math.max(0, remaining));
 
@@ -547,9 +567,12 @@ function isVoteStartedKickEvent(msg){
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
 
+  // Harus persis state awal vote-kick. Event status lain tidak boleh
+  // menyalakan/restart countdown.
   if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
   if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
 
+  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
 
@@ -568,6 +591,9 @@ function getVoteKey(msg){
   const room = String(data?.room ?? data?.room_name ?? "").trim().toLowerCase();
   const time = String(data?.time ?? msg?.time ?? "").trim();
 
+  // Jika API tidak menyediakan event_id, waktu event tetap dipakai untuk
+  // membedakan dua vote yang benar-benar berbeda. Status countdown tidak
+  // pernah dipakai sebagai identitas event.
   return `vote:${room}|${target}|${starter}|${time}`;
 }
 
@@ -592,12 +618,19 @@ function appendApiEvent(i, msg){
 function handleApiEvent(i, msg){
   appendApiEvent(i, msg);
   if(isVoteFinishedEvent(msg)){
+    // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
   }
   if(isVoteStartedKickEvent(msg)){
     const eventKey = getVoteKey(msg);
 
+    // Event yang sama dapat dikirim berkali-kali oleh stream. Jangan pernah
+    // restart countdown hanya karena ada salinan event vote_started.
     if(eventKey && eventKey === activeVoteKey) return;
+
+    // Selama countdown aktif, event vote_started lain tidak boleh me-reset
+    // timer yang sedang berjalan. Timer berikutnya hanya boleh dimulai setelah
+    // countdown selesai (atau setelah reset manual).
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
@@ -662,41 +695,37 @@ function renderParticipants(list, merge=true){
   participantNames.length = 0;
   participantNames.push(...unique);
   if(!unique.length){
-    el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-300 py-8 font-medium">Tidak ada peserta.</div>';
+    el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Tidak ada peserta.</div>';
     return;
   }
   el("participantsList").innerHTML = unique.map(n => `
-    <label class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-blue-400 cursor-pointer transition-colors shadow-sm">
-      <input type="checkbox" class="participant-check w-3.5 h-3.5 rounded border-slate-500 bg-slate-800 text-blue-500 accent-blue-500" data-name="${esc(n)}" onchange="toggleParticipantTarget(this)">
-      <span class="text-xs font-semibold text-white truncate">${esc(n)}</span>
+    <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
+      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
+      <span class="text-xs sm:text-sm text-slate-200 truncate">${esc(n)}</span>
     </label>
   `).join("");
 }
 
 function clearParticipants(){
   participantNames.length = 0;
-  el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-300 py-8 font-medium">Belum ada data participants.</div>';
+  el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>';
 }
 
-function toggleParticipantTarget(checkbox){
-  const n = String(checkbox?.dataset?.name || "").trim();
-  if(!n) return;
-  if(checkbox.checked){
-    if(!targets.includes(n)) targets.push(n);
-  }else{
-    const idx = targets.indexOf(n);
-    if(idx >= 0) targets.splice(idx, 1);
-  }
+function moveCheckedToTargets(){
+  document.querySelectorAll(".participant-check:checked").forEach(c => {
+    const n = c.dataset.name;
+    if(n && !targets.includes(n)) targets.push(n);
+  });
   renderTargets();
 }
 
 function renderTargets(){
   el("targetList").innerHTML = targets.length ? targets.map((n, i) => `
-    <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 shadow-sm">
-      <span class="text-[10px] font-mono font-extrabold text-blue-300 bg-blue-900 px-1.5 py-0.5 rounded border border-blue-500">${String(i+1).padStart(2,"0")}</span>
-      <span class="text-xs font-semibold text-white truncate flex-1">${esc(n)}</span>
+    <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80">
+      <span class="text-[11px] font-mono font-bold text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">${String(i+1).padStart(2,"0")}</span>
+      <span class="text-xs sm:text-sm text-slate-200 truncate flex-1">${esc(n)}</span>
     </div>
-  `).join("") : '<div class="flex items-center justify-center h-full text-xs text-slate-300 py-8 font-medium">Belum ada target.</div>';
+  `).join("") : '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>';
 }
 
 function clearTargets(){
@@ -789,6 +818,7 @@ async function loginAll(){
     for(const a of list) setStatus(a.index, "OFFLINE", "error");
     log(`LOGIN ALL gagal - ${e.message}`);
   }
+  resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
 }
 
 async function logoutAll(){
@@ -801,6 +831,7 @@ async function logoutAll(){
     setBalance(i, "-");
   }
   log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
+  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
 el("resetTimerButton")?.addEventListener("click", resetTimer);
@@ -810,79 +841,59 @@ el("generatePassword").onclick = generatePassword;
 el("clearFields").onclick = clearFields;
 
 el("saveAccounts").onclick = function(){
-  try{
-    sync();
-    let name = (el("saveName")?.value || "troop1").trim().replace(/\\/g,"-").replace(/[\\/:*?"<>|]/g,"-").replace(/\.json$/i,"").trim() || "troop1";
-    const data = {
-      app: "MIGMASTER PROTOTIPE 1.0",
-      version: 5,
-      savedAt: new Date().toISOString(),
-      mainTroop: el("mainTroop")?.value?.trim() || "",
-      mainPassword: el("mainPassword")?.value || "",
-      rangeStart: el("rangeStart")?.value || "1",
-      rangeEnd: el("rangeEnd")?.value || "10",
-      accounts: accounts.map(a => ({username:String(a.username || ""), password:String(a.password || "")}))
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.style.display = "none";
-    link.href = url;
-    link.download = name + ".json";
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 1500);
-    log(`Save berhasil: ${name}.json`);
-  }catch(err){
-    log(`Save gagal: ${err.message}`);
-  }
+  sync();
+  let name = el("saveName").value.trim() || "troop1";
+  name = name.replace(/\.json$/i, "") || "troop1";
+  const data = {
+    app: "MIGMASTER PROTOTIPE 1.0",
+    version: 5,
+    savedAt: new Date().toISOString(),
+    mainTroop: el("mainTroop").value.trim(),
+    mainPassword: el("mainPassword").value,
+    rangeStart: el("rangeStart").value,
+    rangeEnd: el("rangeEnd").value,
+    accounts: accounts.map(a => ({username:a.username, password:a.password}))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name + ".json";
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  log(`Save berhasil: ${name}`);
 };
 
-el("loadAccounts").onclick = function(){
-  const input = el("loadFile");
-  if(!input){ log("Load gagal: input file tidak ditemukan."); return; }
-  input.value = "";
-  input.click();
-};
-
-el("loadFile").onchange = function(e){
-  const input = e.target;
-  const file = input.files && input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(){
-    try{
-      const data = JSON.parse(String(reader.result || ""));
-      if(!data || !Array.isArray(data.accounts)) throw new Error("Format file save tidak valid.");
-
-      el("mainTroop").value = String(data.mainTroop ?? "");
-      el("mainPassword").value = String(data.mainPassword ?? "");
-      el("rangeStart").value = String(data.rangeStart ?? "1");
-      el("rangeEnd").value = String(data.rangeEnd ?? "10");
-
-      for(let i=0; i<10; i++){
-        const a = data.accounts[i] || {};
-        accounts[i].username = String(a.username ?? "");
-        accounts[i].password = String(a.password ?? "");
-        accounts[i].sessionId = null;
-        accounts[i].balance = "-";
+el("loadAccounts").onclick = ()=> el("loadFile").click();
+el("loadFile").onchange = e => {
+  const file = e.target.files[0];
+  if(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+        if(!Array.isArray(data.accounts)) throw new Error("Format save tidak valid.");
+        el("mainTroop").value = String(data.mainTroop || "");
+        el("mainPassword").value = String(data.mainPassword || "");
+        el("rangeStart").value = String(data.rangeStart ?? "1");
+        el("rangeEnd").value = String(data.rangeEnd ?? "10");
+        for(let i=0; i<10; i++){
+          const a = data.accounts[i] || {};
+          accounts[i].username = String(a.username || "");
+          accounts[i].password = String(a.password || "");
+          accounts[i].balance = "-";
+        }
+        const base = file.name.replace(/\.json$/i, "");
+        el("saveName").value = base || "troop1";
+        renderAccounts();
+        log(`Load berhasil: ${file.name}`);
+      }catch(err){
+        log(`Load gagal: ${err.message}`);
       }
-
-      const base = String(file.name || "troop1").replace(/\.json$/i, "");
-      el("saveName").value = base || "troop1";
-      renderAccounts();
-      log(`Load berhasil: ${file.name}`);
-    }catch(err){
-      log(`Load gagal: ${err.message}`);
-    }finally{
-      input.value = "";
-    }
-  };
-  reader.onerror = function(){
-    log("Load gagal: file tidak dapat dibaca.");
-    input.value = "";
-  };
-  reader.readAsText(file);
+    };
+    reader.readAsText(file);
+  }
+  e.target.value = "";
 };
 
 el("loginAll").onclick = loginAll;
@@ -898,6 +909,7 @@ async function leaveAll(){
   const room = el("room").value.trim();
   if(!room){ log("LEAVE ALL: nama room belum diisi."); return; }
   await batchAction("leave", {room});
+  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
 async function participants(){
@@ -920,6 +932,8 @@ async function participants(){
 async function balanceAll(){
   const online = accounts.map((a, i) => ({i, sessionId:a.sessionId})).filter(x => x.sessionId);
   if(!online.length){ log("CEK SALDO ALL: tidak ada Troop yang ONLINE."); return; }
+  // Saldo tidak bergantung pada satu SSE event-source. Backend menunggu
+  // wallet.balance.result untuk setiap session dan mengembalikan hasilnya.
   try{
     const r = await fetch("/api/balance-all", {
       method:"POST",
@@ -948,15 +962,58 @@ async function balanceAll(){
   }
 }
 
+function resetKickAllProgress(reason = "Menunggu perintah kick...") {
+  // Hentikan polling progress yang sedang berjalan.
+  if (typeof window.stopKickProgressPolling === "function") {
+    window.stopKickProgressPolling();
+  }
+  const bar = el("kickProgressBar");
+  const txt = el("kickProgressText");
+  const meta = el("kickProgressMeta");
+  const step = el("kickProgressStep");
+  const ws = el("kickProgressWs");
+  const jobs = el("kickProgressJobs");
+  const structure = el("kickProgressStructure");
+  const latency = el("kickProgressLatency");
+  const network = el("kickProgressNetwork");
+  if (bar) bar.style.width = "0%";
+  if (txt) txt.textContent = "Siap";
+  if (step) step.textContent = "Target 0/0";
+  if (ws) ws.textContent = "WS 0/0";
+  if (jobs) jobs.textContent = "Job 0/0";
+  if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
+  if (latency) latency.textContent = "Latency: -";
+  if (network) network.textContent = "Queue - • Job -";
+  const targetProgress = el("kickTargetProgress");
+  if (targetProgress) targetProgress.innerHTML = "";
+  if (meta) meta.textContent = reason;
+}
 
 async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
 
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "50", 10) || 0);
+  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const onlineWs = accounts.map(a=>a.sessionId).filter(Boolean).length;
+  const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
+  const total = textloop * targets.length;
+  const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
+  const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
+  const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
+  const targetProgressBox = el("kickTargetProgress");
+  if (targetProgressBox) {
+    targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
+  }
+  bar.style.width = "0%";
+  txt.textContent = "Memulai";
+  step.textContent = `Target 0/${targets.length * textloop}`;
+  ws.textContent = `WS 0/${wsCount}`;
+  jobs.textContent = `Job 0/${total * wsCount}`;
+  structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
+  latency.textContent = "Latency: -";
+  network.textContent = "Queue - • Job -";
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
@@ -968,11 +1025,123 @@ async function kickSelectedTargets(){
     });
     const j = await r.json();
     if(!j.ok || !j.executionId){
+      txt.textContent = "Gagal";
+      meta.textContent = j.error || "Gagal memulai KICK ALL.";
       log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • pair delay ${textdelay} ms.`);
+
+    // Gunakan polling ringan untuk progress KICK ALL.
+    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
+    let progressStopped = false;
+    let progressTimer = null;
+    window.stopKickProgressPolling = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+    };
+
+    const readProgress = async () => {
+      if(progressStopped) return;
+      try{
+        const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
+        if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
+        const state = await pr.json();
+        const p = state.progress || {};
+        if(p.type !== "kick.progress") return;
+
+        if (targetProgressBox && Array.isArray(p.targetProgress)) {
+          p.targetProgress.forEach(tp => {
+            const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
+            if (!cell) return;
+            const span = cell.querySelector("span");
+            const done = Number(tp.completed) || 0;
+            const total = Number(tp.total) || (textloop * wsCount);
+            if (span) span.textContent = `${done}/${total}`;
+            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+          });
+        }
+
+        // Timing aplikasi per WebSocket: request → queued → job selesai.
+        if(p.latency){
+          if(Number.isFinite(Number(p.latency.totalMs))){
+            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
+          }
+          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
+            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
+            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
+            network.textContent = `Queue ${q} ms • Job ${j} ms`;
+          } else if(Number.isFinite(Number(p.latency.avgMs))){
+            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
+          }
+        }
+
+        const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
+        bar.style.width = `${percent}%`;
+
+        if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
+        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu ACK";
+        else if(p.phase === "job_done") txt.textContent = "KICK OK";
+        else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
+        else if(p.phase === "delay") txt.textContent = "Delay";
+        else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
+        else if(p.phase === "completed") txt.textContent = "Selesai";
+        else if(p.phase === "failed") txt.textContent = "Gagal";
+
+        const done = Number(p.completedSteps) || 0;
+        const totalSteps = Number(p.totalSteps) || total;
+        const completedJobs = Number(p.completedJobs) || 0;
+        const totalJobs = Number(p.totalJobs) || (totalSteps * wsCount);
+        step.textContent = `Target ${done}/${totalSteps}`;
+        jobs.textContent = `Job ${completedJobs}/${totalJobs}`;
+        structure.textContent = `Loop ${Number(p.loop)||0}/${textloop} • Target ${Number(p.targetIndex)||0}/${targets.length}`;
+        if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
+
+        if(p.phase === "waiting_ack") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
+        } else if(p.phase === "delay") {
+          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
+        } else if(p.phase === "completed") {
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
+          stopProgress();
+          log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
+        } else if(p.phase === "failed") {
+          meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
+          stopProgress();
+          log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
+        } else if(p.phase === "target_done") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • WS ${p.acknowledged || 0}/${p.total || wsCount} • Job ${completedJobs}/${totalJobs}`;
+        } else if(p.phase === "job_done") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} selesai`;
+        } else if(p.phase === "job_failed") {
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} • ${p.error || "gagal"}`;
+        }
+
+        if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
+      }catch(e){
+        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
+        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
+        if(!progressStopped) meta.textContent = "Memuat progress backend…";
+      }
+    };
+
+    const stopProgress = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+      if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
+    };
+
+    const pollProgress = async () => {
+      await readProgress();
+      if(progressStopped) return;
+      progressTimer = setTimeout(pollProgress, 350);
+    };
+    pollProgress();
+
   }catch(e){
+    txt.textContent = "Gagal";
+    meta.textContent = e.message;
     log(`KICK ALL gagal - ${e.message}`);
   }
 }
