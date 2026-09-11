@@ -454,7 +454,9 @@ app.get("/api/kick-progress", (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
   execution.clients.add(res);
-  res.write(`data: ${JSON.stringify({ type: "kick.progress", phase: "connected", ...execution.meta })}\n\n`);
+  // Kirim snapshot progress terbaru segera setelah browser tersambung,
+  // supaya progress per-WS tetap terlihat walau KICK berjalan sangat cepat.
+  res.write(`data: ${JSON.stringify({ type: "kick.progress", phase: "connected", ...execution.meta, ...(execution.latest || {}) })}\n\n`);
   if (execution.done) {
     res.write(`data: ${JSON.stringify(execution.result)}\n\n`);
     res.end();
