@@ -212,11 +212,7 @@
           <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-8 bg-rose-600 hover:bg-rose-500 text-white font-bold px-1 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/40 border border-rose-400 active:scale-95">KICK ALL</button>
           <div id="timerValue" class="mt-1 w-full h-5 flex items-center justify-center rounded-lg bg-slate-950 border border-slate-600 text-[10px] font-extrabold text-amber-300">60000</div>
           <div class="mt-1 w-full">
-            <div class="h-2.5 w-full overflow-hidden rounded-full bg-slate-800 border border-slate-700">
-              <div id="kickProgressBar" class="h-full w-0 rounded-full bg-rose-500 transition-all duration-150" style="width:0%"></div>
-            </div>
-            <div id="kickProgressText" class="mt-0.5 text-center text-[8px] font-bold text-slate-300">KICK ALL: 0%</div>
-            <div id="kickWsProgress" class="mt-1.5 space-y-1.5"></div>
+            <div id="kickWsProgress" class="space-y-0.5"></div>
           </div>
         </div>
         <label class="col-span-1 min-w-0 text-center">
@@ -247,8 +243,7 @@
 </div>
 
 <script>
-const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null,status:"OFFLINE"}));
-let kickProgressSource = null;
+const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
 const targets = [];
 const participantNames = [];
 const el = id => document.getElementById(id);
@@ -294,15 +289,12 @@ function renderAccounts(){
 
 function setStatus(i, text, kind=""){
   const s = el(`status${i}`);
-  accounts[i].status = text;
   if(!s) return;
   s.textContent = text;
-  if(kind === "online" || text === "ONLINE") {
+  if(kind === "online") {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500";
-  } else if(kind === "error" || text === "ERROR") {
+  } else if(kind === "error") {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-500";
-  } else if(text === "LOGIN…" || text === "AUTH…") {
-    s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500";
   } else {
     s.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-950 text-slate-300 border border-slate-600";
   }
@@ -384,12 +376,7 @@ function openEvents(i){
       handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
     }
   };
-  es.onerror = () => {
-    if(accounts[i].sessionId){
-      setStatus(i, "ERROR", "error");
-      log(`Troop ${i+1}: koneksi status/event terputus.`);
-    }
-  };
+  es.onerror = () => {};
 }
 
 const TIMER_START_MS = 60000;
@@ -823,59 +810,79 @@ el("generatePassword").onclick = generatePassword;
 el("clearFields").onclick = clearFields;
 
 el("saveAccounts").onclick = function(){
-  sync();
-  let name = el("saveName").value.trim() || "troop1";
-  name = name.replace(/\.json$/i, "") || "troop1";
-  const data = {
-    app: "MIGMASTER PROTOTIPE 1.0",
-    version: 5,
-    savedAt: new Date().toISOString(),
-    mainTroop: el("mainTroop").value.trim(),
-    mainPassword: el("mainPassword").value,
-    rangeStart: el("rangeStart").value,
-    rangeEnd: el("rangeEnd").value,
-    accounts: accounts.map(a => ({username:a.username, password:a.password}))
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name + ".json";
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  log(`Save berhasil: ${name}`);
+  try{
+    sync();
+    let name = (el("saveName")?.value || "troop1").trim().replace(/\\/g,"-").replace(/[\\/:*?"<>|]/g,"-").replace(/\.json$/i,"").trim() || "troop1";
+    const data = {
+      app: "MIGMASTER PROTOTIPE 1.0",
+      version: 5,
+      savedAt: new Date().toISOString(),
+      mainTroop: el("mainTroop")?.value?.trim() || "",
+      mainPassword: el("mainPassword")?.value || "",
+      rangeStart: el("rangeStart")?.value || "1",
+      rangeEnd: el("rangeEnd")?.value || "10",
+      accounts: accounts.map(a => ({username:String(a.username || ""), password:String(a.password || "")}))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.style.display = "none";
+    link.href = url;
+    link.download = name + ".json";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 1500);
+    log(`Save berhasil: ${name}.json`);
+  }catch(err){
+    log(`Save gagal: ${err.message}`);
+  }
 };
 
-el("loadAccounts").onclick = ()=> el("loadFile").click();
-el("loadFile").onchange = e => {
-  const file = e.target.files[0];
-  if(file){
-    const reader = new FileReader();
-    reader.onload = () => {
-      try{
-        const data = JSON.parse(reader.result);
-        if(!Array.isArray(data.accounts)) throw new Error("Format save tidak valid.");
-        el("mainTroop").value = String(data.mainTroop || "");
-        el("mainPassword").value = String(data.mainPassword || "");
-        el("rangeStart").value = String(data.rangeStart ?? "1");
-        el("rangeEnd").value = String(data.rangeEnd ?? "10");
-        for(let i=0; i<10; i++){
-          const a = data.accounts[i] || {};
-          accounts[i].username = String(a.username || "");
-          accounts[i].password = String(a.password || "");
-          accounts[i].balance = "-";
-        }
-        const base = file.name.replace(/\.json$/i, "");
-        el("saveName").value = base || "troop1";
-        renderAccounts();
-        log(`Load berhasil: ${file.name}`);
-      }catch(err){
-        log(`Load gagal: ${err.message}`);
+el("loadAccounts").onclick = function(){
+  const input = el("loadFile");
+  if(!input){ log("Load gagal: input file tidak ditemukan."); return; }
+  input.value = "";
+  input.click();
+};
+
+el("loadFile").onchange = function(e){
+  const input = e.target;
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      const data = JSON.parse(String(reader.result || ""));
+      if(!data || !Array.isArray(data.accounts)) throw new Error("Format file save tidak valid.");
+
+      el("mainTroop").value = String(data.mainTroop ?? "");
+      el("mainPassword").value = String(data.mainPassword ?? "");
+      el("rangeStart").value = String(data.rangeStart ?? "1");
+      el("rangeEnd").value = String(data.rangeEnd ?? "10");
+
+      for(let i=0; i<10; i++){
+        const a = data.accounts[i] || {};
+        accounts[i].username = String(a.username ?? "");
+        accounts[i].password = String(a.password ?? "");
+        accounts[i].sessionId = null;
+        accounts[i].balance = "-";
       }
-    };
-    reader.readAsText(file);
-  }
-  e.target.value = "";
+
+      const base = String(file.name || "troop1").replace(/\.json$/i, "");
+      el("saveName").value = base || "troop1";
+      renderAccounts();
+      log(`Load berhasil: ${file.name}`);
+    }catch(err){
+      log(`Load gagal: ${err.message}`);
+    }finally{
+      input.value = "";
+    }
+  };
+  reader.onerror = function(){
+    log("Load gagal: file tidak dapat dibaca.");
+    input.value = "";
+  };
+  reader.readAsText(file);
 };
 
 el("loginAll").onclick = loginAll;
@@ -942,68 +949,34 @@ async function balanceAll(){
 }
 
 
-async async function kickSelectedTargets(){
+async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
 
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "50", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const sessionIds = accounts.map(a=>a.sessionId).filter(Boolean);
-  const onlineWs = sessionIds.length;
-  if(kickProgressSource) { try{ kickProgressSource.close(); }catch{}; kickProgressSource=null; }
-
-  const reset = el("kickProgressBar");
-  const resetText = el("kickProgressText");
-  if(reset) reset.style.width = "0%";
-  if(resetText) resetText.textContent = "KICK ALL: 0%";
-  renderKickWsProgress(Array.from({length:10},(_,i)=>({websocket:i+1,completed:0,total:targets.length*textloop,percent:0,status:i<onlineWs?"waiting":"offline",phase:i<onlineWs?"waiting":"offline"})));
+  const onlineWs = accounts.map(a=>a.sessionId).filter(Boolean).length;
 
   try{
     const r = await fetch("/api/kick-loop", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({sessionIds, room, targets:[...targets], textdelay, textloop})
+      body:JSON.stringify({
+        sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
+        room, targets:[...targets], textdelay, textloop
+      })
     });
     const j = await r.json();
     if(!j.ok || !j.executionId){
       log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • 1-2 → delay → 3-4 → delay → 5-6 → delay → 7-8 → delay → 9-10.`);
-
-    kickProgressSource = new EventSource(`/api/kick-progress?id=${encodeURIComponent(j.executionId)}`);
-    kickProgressSource.onmessage = ev => {
-      try{
-        const p = JSON.parse(ev.data);
-        if(p.wsProgress) renderKickWsProgress(p.wsProgress);
-        const pct = Math.max(0, Math.min(100, Number(p.percent)||0));
-        if(el("kickProgressBar")) el("kickProgressBar").style.width = pct + "%";
-        if(el("kickProgressText")) el("kickProgressText").textContent = `KICK ALL: ${pct}% • ${p.completedJobs||0}/${p.totalJobs||0}`;
-        if(p.phase === "done") log(`KICK ALL selesai: ${p.completedJobs||0}/${p.totalJobs||0} perintah terkirim.`);
-      }catch{}
-    };
-    kickProgressSource.onerror = () => {};
+    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • pair delay ${textdelay} ms.`);
   }catch(e){
     log(`KICK ALL gagal - ${e.message}`);
   }
 }
 
-function renderKickWsProgress(list){
-  const box = el("kickWsProgress");
-  if(!box) return;
-  const rows = Array.isArray(list) ? list : [];
-  box.innerHTML = rows.map(x=>{
-    const pct = Math.max(0, Math.min(100, Number(x.percent)||0));
-    const done = Number(x.completed)||0;
-    const total = Number(x.total)||0;
-    const label = x.status === "offline" ? "OFFLINE" : x.status === "done" ? "DONE" : x.status === "error" ? "ERROR" : (x.phase === "delay" ? "DELAY" : "RUN");
-    return `<div class="grid grid-cols-[38px_1fr_58px] items-center gap-1.5">
-      <span class="text-[8px] font-extrabold text-slate-200">WS ${x.websocket}</span>
-      <div class="h-2.5 overflow-hidden rounded-full bg-slate-800 border border-slate-700"><div class="h-full rounded-full bg-rose-500 transition-all duration-150" style="width:${pct}%"></div></div>
-      <span class="text-[8px] text-right font-bold ${label==='ERROR'?'text-rose-300':label==='DONE'?'text-emerald-300':'text-slate-300'}">${pct}% ${done}/${total}</span>
-    </div>`;
-  }).join("");
-}
 renderAccounts();
 renderTargets();
 renderTimer();
