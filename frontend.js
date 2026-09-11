@@ -90,7 +90,6 @@ function generateTroop(){
     accounts[i].username = main + String(range.start + i * range.step);
   }
   resetKickProgress();
-ensureKickProgressBars(false);
 renderAccounts();
   log(`Generate Troop berhasil: ${accounts[0].username} sampai ${accounts[9].username}.`);
 }
@@ -734,28 +733,16 @@ function resetKickProgress(){
   if(kickProgressSource){ try{ kickProgressSource.close(); }catch{} }
   kickProgressSource = null;
   activeKickExecutionId = null;
-  ensureKickProgressBars(true);
-}
-
-function ensureKickProgressBars(reset=false){
   const wrap = el("kickWsProgress");
-  if(!wrap) return;
-  if(!wrap.children.length){
+  if(wrap){
     wrap.innerHTML = Array.from({length:10},(_,i)=>`
-      <div class="flex items-center gap-1.5 py-0.5">
-        <span class="w-7 text-[8px] font-bold text-slate-300">WS${i+1}</span>
-        <div class="flex-1 h-2 overflow-hidden rounded-full bg-slate-900 border border-slate-600">
+      <div class="flex items-center gap-1">
+        <span class="w-6 text-[7px] font-bold text-slate-400">WS${i+1}</span>
+        <div class="flex-1 h-1.5 overflow-hidden rounded-full bg-slate-800 border border-slate-700">
           <div id="kickWsBar${i+1}" class="h-full w-0 rounded-full bg-rose-500 transition-all duration-150" style="width:0%"></div>
         </div>
-        <span id="kickWsText${i+1}" class="w-8 text-right text-[8px] font-bold text-slate-300">0%</span>
+        <span id="kickWsText${i+1}" class="w-7 text-right text-[7px] font-bold text-slate-400">0%</span>
       </div>`).join("");
-  }
-  if(reset){
-    for(let i=1;i<=10;i++){
-      const bar=el(`kickWsBar${i}`), text=el(`kickWsText${i}`);
-      if(bar) bar.style.width="0%";
-      if(text){ text.textContent="0%"; text.title="WAITING"; }
-    }
   }
 }
 
@@ -780,7 +767,6 @@ function updateKickProgress(p){
 }
 function watchKickProgress(executionId){
   resetKickProgress();
-  ensureKickProgressBars(false);
   if(!executionId) return;
   activeKickExecutionId = executionId;
   const es = new EventSource(`/api/kick-progress?id=${encodeURIComponent(executionId)}`);
@@ -840,3 +826,4 @@ async function kickSelectedTargets(){
 renderAccounts();
 renderTargets();
 renderTimer();
+resetKickProgress();
