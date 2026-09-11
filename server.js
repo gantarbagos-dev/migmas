@@ -594,6 +594,7 @@ app.post("/api/kick-loop", async (req, res) => {
     let failedJobs = 0;
     const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
+    const perWsResults = new Map(ids.map((id, i) => [id, []]));
     const stateLock = { chain: Promise.resolve() };
 
     function addProgress(fn) {
@@ -601,112 +602,62 @@ app.post("/api/kick-loop", async (req, res) => {
       return stateLock.chain;
     }
 
+    // Synchronized pair execution:
+    // WS 1-5:  1-2 -> delay -> 3-4 -> delay -> 5-6 -> delay -> 7-8 -> delay -> 9-10 -> delay
+    // WS 6-10: 10-9 -> delay -> 8-7 -> delay -> 6-5 -> delay -> 4-3 -> delay -> 2-1 -> delay
+    // Every pair is a barrier: all 10 WebSockets finish that pair before the next pair starts.
+    const wsEntries = ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
+    const pairCount = Math.ceil(targetList.length / 2);
+
+    async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition, direction) {
+      const targetUsername = targetList[targetIndex];
+      const startedAt = nowMs();
+      let ok = false;
+      let error = null;
+      try {
+        const account = sessions.get(sessionId);
+        if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
+        if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
+          throw new Error("Permission rooms.kick tidak tersedia.");
+        }
+        send(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        sent++;
+        completedJobs++;
+        targetProgress[targetIndex].completed++;
+        ok = true;
+      } catch (e) {
+        failedJobs++;
+        error = safeError(e);
+      }
+
+      const result = {
+        sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
+        targetIndex: targetIndex + 1, sequencePosition, direction,
+        ok, jobStatus: ok ? "sent" : "send_failed", unconfirmed: ok, error,
+        totalMs: Math.max(0, nowMs() - startedAt)
+      };
+
+      await addProgress(async () => {
+        completedSteps = Math.min(totalSteps, completedSteps + 1);
+        publishKickProgress(execution, {
+          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps,
+          completedJobs, totalJobs,
+          percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
+          loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+          sessionId, websocket: wsOrdinal, direction,
+          acknowledged: 0, total: ids.length, sent, failedJobs, noAck: true,
+          targetProgress: targetProgress.map(x => ({ ...x }))
+        });
+      });
+      return result;
+    }
+
     async function runTroop(sessionId, wsOrdinal) {
       const troopResults = [];
-      let localSteps = 0;
-      // WS 1-5: 1,2 -> delay -> 3,4 -> delay -> 5,6 -> delay -> 7,8 -> delay -> 9,10 -> delay
-      // WS 6-10: 10,9 -> delay -> 8,7 -> delay -> 6,5 -> delay -> 4,3 -> delay -> 2,1 -> delay
       const indices = Array.from({ length: targetList.length }, (_, i) => i);
-      const orderedIndices = wsOrdinal <= 5 ? indices : indices.reverse();
-
-      for (let round = 0; round < loopCount; round++) {
-        for (let pos = 0; pos < orderedIndices.length; pos++) {
-          const targetIndex = orderedIndices[pos];
-          const targetUsername = targetList[targetIndex];
-          const startedAt = nowMs();
-          let ok = false;
-          let error = null;
-
-          try {
-            const account = sessions.get(sessionId);
-            if (!account || account.socket.readyState !== WebSocket.OPEN) {
-              throw new Error("WebSocket tidak terhubung.");
-            }
-            if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
-              throw new Error("Permission rooms.kick tidak tersedia.");
-            }
-            send(sessionId, { type: "room.kick", room, target_username: targetUsername });
-            sent++;
-            completedJobs++;
-            targetProgress[targetIndex].completed++;
-            ok = true;
-          } catch (e) {
-            failedJobs++;
-            error = safeError(e);
-          }
-
-          localSteps++;
-          const stepNumber = round * targetList.length + pos + 1;
-          troopResults.push({
-            sessionId,
-            websocket: wsOrdinal,
-            loop: round + 1,
-            target: targetUsername,
-            targetIndex: targetIndex + 1,
-            sequencePosition: pos + 1,
-            direction: wsOrdinal <= 5 ? "forward" : "reverse",
-            ok,
-            jobStatus: ok ? "sent" : "send_failed",
-            unconfirmed: ok,
-            error,
-            totalMs: Math.max(0, nowMs() - startedAt)
-          });
-
-          await addProgress(async () => {
-            completedSteps = Math.max(completedSteps, Math.min(totalSteps, stepNumber));
-            publishKickProgress(execution, {
-              phase: ok ? "sent" : "send_failed",
-              completedSteps,
-              totalSteps,
-              completedJobs,
-              totalJobs,
-              percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
-              loop: round + 1,
-              targetIndex: targetIndex + 1,
-              target: targetUsername,
-              sessionId,
-              websocket: wsOrdinal,
-              direction: wsOrdinal <= 5 ? "forward" : "reverse",
-              acknowledged: 0,
-              total: ids.length,
-              sent,
-              failedJobs,
-              noAck: true,
-              targetProgress: targetProgress.map(x => ({ ...x }))
-            });
-          });
-
-          // Delay after every pair, including the final pair of each loop.
-          if (delayMs > 0 && (pos + 1) % 2 === 0) {
-            const nextPos = pos + 1;
-            const nextTargetIndex = nextPos < orderedIndices.length ? orderedIndices[nextPos] : null;
-            const nextLoop = nextPos >= orderedIndices.length && round < loopCount - 1 ? round + 2 : null;
-            await addProgress(async () => {
-              publishKickProgress(execution, {
-                phase: "delay",
-                completedSteps,
-                totalSteps,
-                completedJobs,
-                totalJobs,
-                percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
-                loop: round + 1,
-                targetIndex: targetIndex + 1,
-                target: targetUsername,
-                sessionId,
-                websocket: wsOrdinal,
-                direction: wsOrdinal <= 5 ? "forward" : "reverse",
-                delayMs,
-                nextTarget: nextTargetIndex === null ? (nextLoop ? targetList[orderedIndices[0]] : null) : targetList[nextTargetIndex],
-                nextLoop,
-                noAck: true,
-                targetProgress: targetProgress.map(x => ({ ...x }))
-              });
-            });
-            await sleep(delayMs);
-          }
-        }
-      }
-      return { sessionId, websocket: wsOrdinal, results: troopResults, steps: localSteps };
+      const orderedIndices = wsOrdinal <= 5 ? indices : indices.slice().reverse();
+      // This function is retained for result compatibility; actual scheduling is coordinated below.
+      return { sessionId, websocket: wsOrdinal, results: troopResults, steps: 0, orderedIndices };
     }
 
     try {
@@ -720,47 +671,90 @@ app.post("/api/kick-loop", async (req, res) => {
         loop: 1,
         targetIndex: 1,
         target: targetList[0],
-        acknowledged: 0,
         total: ids.length,
         sent: 0,
-        failedJobs,
+        failedJobs: 0,
         noAck: true,
-        mode: "paired_targets_per_websocket",
         targetProgress: targetProgress.map(x => ({ ...x }))
       });
 
-      const results = await Promise.all(ids.map((sessionId, index) => runTroop(sessionId, index + 1)));
-      sequenceResults.push(...results);
+      for (let round = 0; round < loopCount; round++) {
+        for (let pair = 0; pair < pairCount; pair++) {
+          // Send the two targets of this pair for every WebSocket concurrently.
+          const pairResults = [];
+          await Promise.all(wsEntries.map(async ({ sessionId, websocket }) => {
+            const forward = websocket <= 5;
+            const ordered = forward
+              ? Array.from({ length: targetList.length }, (_, i) => i)
+              : Array.from({ length: targetList.length }, (_, i) => targetList.length - 1 - i);
+            const firstPos = pair * 2;
+            for (let offset = 0; offset < 2; offset++) {
+              const pos = firstPos + offset;
+              if (pos >= ordered.length) break;
+              const targetIndex = ordered[pos];
+              const result = await sendTarget(
+                sessionId, websocket, round, targetIndex, pos + 1,
+                forward ? "forward" : "reverse"
+              );
+              pairResults.push(result);
+              perWsResults.get(sessionId).push(result);
+            }
+          }));
 
-      const hasFailures = failedJobs > 0;
-      finishKickExecution(execution, {
-        ok: !hasFailures,
-        action: "kick-loop",
-        room,
-        loops: loopCount,
-        targets: targetList.length,
-        websockets: ids.length,
-        textdelay: delayMs,
-        textloop: loopCount,
-        sent,
+          // Barrier: no WebSocket starts the next pair until this delay completes.
+          if (delayMs > 0) {
+            const lastPos = Math.min((pair + 1) * 2, targetList.length) - 1;
+            const nextPair = pair + 1;
+            const hasNextPair = nextPair < pairCount || round < loopCount - 1;
+            await addProgress(async () => {
+              publishKickProgress(execution, {
+                phase: "delay", completedSteps, totalSteps,
+                completedJobs, totalJobs,
+                percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
+                loop: round + 1,
+                targetIndex: (wsEntries[0].websocket <= 5 ? lastPos : targetList.length - 1 - lastPos) + 1,
+                target: targetList[(wsEntries[0].websocket <= 5 ? lastPos : targetList.length - 1 - lastPos)],
+                delayMs, nextPair: hasNextPair ? nextPair + 1 : null,
+                sent, failedJobs, noAck: true,
+                targetProgress: targetProgress.map(x => ({ ...x }))
+              });
+            });
+            await sleep(delayMs);
+          }
+        }
+      }
+
+      const results = ids.map((sessionId, index) => ({
+        sessionId, websocket: index + 1, results: perWsResults.get(sessionId) || [],
+        steps: (perWsResults.get(sessionId) || []).length
+      }));
+      const flatResults = results.map(x => x.results).flat();
+      sequenceResults.push(...results);
+      publishKickProgress(execution, {
+        phase: "completed",
+        completedSteps: totalSteps,
+        totalSteps,
         completedJobs,
+        totalJobs,
+        percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 100,
+        loop: loopCount,
+        targetIndex: targetList.length,
+        target: targetList[targetList.length - 1],
+        total: ids.length,
+        sent,
         failedJobs,
-        acknowledged: 0,
-        jobStatus: "sent_no_ack",
         noAck: true,
-        sequence: sequenceResults
+        targetProgress: targetProgress.map(x => ({ ...x }))
       });
-    } catch (error) {
-      finishKickExecution(execution, {
-        ok: false,
-        action: "kick-loop",
-        error: safeError(error),
-        sent,
-        completedJobs,
-        failedJobs,
-        noAck: true
-      });
+      execution.done = true;
+      execution.completedAt = Date.now();
+      execution.results = flatResults;
+    } catch (e) {
+      execution.done = true;
+      execution.error = safeError(e);
+      publishKickProgress(execution, { phase: "error", error: execution.error, completedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })) });
     }
+
   })();
 
   res.json({
