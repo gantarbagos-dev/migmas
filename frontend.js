@@ -449,7 +449,7 @@ function renderParticipants(list, merge=true){
   }
   el("participantsList").innerHTML = unique.map(n => `
     <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
-      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
+      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}" onchange="toggleParticipantTarget(this)">
       <span class="text-xs sm:text-sm text-slate-200 truncate">${esc(n)}</span>
     </label>
   `).join("");
@@ -460,11 +460,15 @@ function clearParticipants(){
   el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>';
 }
 
-function moveCheckedToTargets(){
-  document.querySelectorAll(".participant-check:checked").forEach(c => {
-    const n = c.dataset.name;
-    if(n && !targets.includes(n)) targets.push(n);
-  });
+function toggleParticipantTarget(checkbox){
+  const n = String(checkbox?.dataset?.name || "").trim();
+  if(!n) return;
+  if(checkbox.checked){
+    if(!targets.includes(n)) targets.push(n);
+  }else{
+    const idx = targets.indexOf(n);
+    if(idx >= 0) targets.splice(idx, 1);
+  }
   renderTargets();
 }
 
@@ -567,7 +571,6 @@ async function loginAll(){
     for(const a of list) setStatus(a.index, "OFFLINE", "error");
     log(`LOGIN ALL gagal - ${e.message}`);
   }
-  resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
 }
 
 async function logoutAll(){
@@ -580,7 +583,6 @@ async function logoutAll(){
     setBalance(i, "-");
   }
   log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
-  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
 el("resetTimerButton")?.addEventListener("click", resetTimer);
@@ -658,7 +660,6 @@ async function leaveAll(){
   const room = el("room").value.trim();
   if(!room){ log("LEAVE ALL: nama room belum diisi."); return; }
   await batchAction("leave", {room});
-  resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
 async function participants(){
@@ -711,58 +712,15 @@ async function balanceAll(){
   }
 }
 
-function resetKickAllProgress(reason = "Menunggu perintah kick...") {
-  // Hentikan polling progress yang sedang berjalan.
-  if (typeof window.stopKickProgressPolling === "function") {
-    window.stopKickProgressPolling();
-  }
-  const bar = el("kickProgressBar");
-  const txt = el("kickProgressText");
-  const meta = el("kickProgressMeta");
-  const step = el("kickProgressStep");
-  const ws = el("kickProgressWs");
-  const jobs = el("kickProgressJobs");
-  const structure = el("kickProgressStructure");
-  const latency = el("kickProgressLatency");
-  const network = el("kickProgressNetwork");
-  if (bar) bar.style.width = "0%";
-  if (txt) txt.textContent = "Siap";
-  if (step) step.textContent = "Target 0/0";
-  if (ws) ws.textContent = "WS 0/0";
-  if (jobs) jobs.textContent = "Job 0/0";
-  if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
-  if (latency) latency.textContent = "Latency: -";
-  if (network) network.textContent = "Queue - • Job -";
-  const targetProgress = el("kickTargetProgress");
-  if (targetProgress) targetProgress.innerHTML = "";
-  if (meta) meta.textContent = reason;
-}
 
 async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
 
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
+  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "50", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
-  const total = textloop * targets.length;
-  const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
-  const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
-  const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
-  const targetProgressBox = el("kickTargetProgress");
-  if (targetProgressBox) {
-    targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
-  }
-  bar.style.width = "0%";
-  txt.textContent = "Memulai";
-  step.textContent = `Target 0/${targets.length * textloop}`;
-  ws.textContent = `WS 0/${wsCount}`;
-  jobs.textContent = `Job 0/${total * wsCount}`;
-  structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
-  latency.textContent = "Latency: -";
-  network.textContent = "Queue - • Job -";
-  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
+  const onlineWs = accounts.map(a=>a.sessionId).filter(Boolean).length;
 
   try{
     const r = await fetch("/api/kick-loop", {
@@ -774,124 +732,11 @@ async function kickSelectedTargets(){
     });
     const j = await r.json();
     if(!j.ok || !j.executionId){
-      txt.textContent = "Gagal";
-      meta.textContent = j.error || "Gagal memulai KICK ALL.";
       log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
-
-    // Gunakan polling ringan untuk progress KICK ALL.
-    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
-    let progressStopped = false;
-    let progressTimer = null;
-    window.stopKickProgressPolling = () => {
-      progressStopped = true;
-      if(progressTimer) clearTimeout(progressTimer);
-      progressTimer = null;
-    };
-
-    const readProgress = async () => {
-      if(progressStopped) return;
-      try{
-        const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
-        if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
-        const state = await pr.json();
-        const p = state.progress || {};
-        if(p.type !== "kick.progress") return;
-
-        if (targetProgressBox && Array.isArray(p.targetProgress)) {
-          p.targetProgress.forEach(tp => {
-            const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
-            if (!cell) return;
-            const span = cell.querySelector("span");
-            const done = Number(tp.completed) || 0;
-            const total = Number(tp.total) || (textloop * wsCount);
-            if (span) span.textContent = `${done}/${total}`;
-            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
-          });
-        }
-
-        // Timing aplikasi per WebSocket: request → queued → job selesai.
-        if(p.latency){
-          if(Number.isFinite(Number(p.latency.totalMs))){
-            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
-          }
-          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
-            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
-            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
-            network.textContent = `Queue ${q} ms • Job ${j} ms`;
-          } else if(Number.isFinite(Number(p.latency.avgMs))){
-            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
-          }
-        }
-
-        const fallbackPercent = Number(p.totalJobs) > 0 ? (Number(p.completedJobs) / Number(p.totalJobs)) * 100 : 0;
-        const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
-        bar.style.width = `${percent}%`;
-
-        if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu ACK";
-        else if(p.phase === "job_done") txt.textContent = "KICK OK";
-        else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
-        else if(p.phase === "delay") txt.textContent = "Delay";
-        else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
-        else if(p.phase === "completed") txt.textContent = "Selesai";
-        else if(p.phase === "failed") txt.textContent = "Gagal";
-
-        const done = Number(p.completedSteps) || 0;
-        const totalSteps = Number(p.totalSteps) || total;
-        const completedJobs = Number(p.completedJobs) || 0;
-        const totalJobs = Number(p.totalJobs) || (totalSteps * wsCount);
-        step.textContent = `Target ${done}/${totalSteps}`;
-        jobs.textContent = `Job ${completedJobs}/${totalJobs}`;
-        structure.textContent = `Loop ${Number(p.loop)||0}/${textloop} • Target ${Number(p.targetIndex)||0}/${targets.length}`;
-        if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
-
-        if(p.phase === "waiting_ack") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
-        } else if(p.phase === "delay") {
-          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
-        } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
-          stopProgress();
-          log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
-        } else if(p.phase === "failed") {
-          meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
-          stopProgress();
-          log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
-        } else if(p.phase === "target_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • WS ${p.acknowledged || 0}/${p.total || wsCount} • Job ${completedJobs}/${totalJobs}`;
-        } else if(p.phase === "job_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} selesai`;
-        } else if(p.phase === "job_failed") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} • ${p.error || "gagal"}`;
-        }
-
-        if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
-      }catch(e){
-        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
-        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
-        if(!progressStopped) meta.textContent = "Memuat progress backend…";
-      }
-    };
-
-    const stopProgress = () => {
-      progressStopped = true;
-      if(progressTimer) clearTimeout(progressTimer);
-      progressTimer = null;
-      if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
-    };
-
-    const pollProgress = async () => {
-      await readProgress();
-      if(progressStopped) return;
-      progressTimer = setTimeout(pollProgress, 350);
-    };
-    pollProgress();
-
+    log(`KICK ALL dimulai: ${targets.length} target × ${textloop} loop × ${onlineWs} WS • pair delay ${textdelay} ms.`);
   }catch(e){
-    txt.textContent = "Gagal";
-    meta.textContent = e.message;
     log(`KICK ALL gagal - ${e.message}`);
   }
 }
