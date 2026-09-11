@@ -26,6 +26,3 @@ Docs: https://mig33.id/api.html
 - Satu-satunya pemicu countdown adalah event API `room.kick.state` dengan `action=vote_started`, `command=kick`, `success != false`, dan format status awal vote-kick yang valid.
 - Saat countdown sedang berjalan, `vote_started` lain tidak dapat me-reset timer.
 - Setelah countdown selesai di 0, timer menunggu event vote baru.
-
-
-UI update: checkbox peserta sekarang otomatis menambah/menghapus peserta dari Target Kick. Tombol Pindahkan ke Target dihapus. Panel progress KICK ALL yang tidak berfungsi dihapus dari UI; log tetap dipakai untuk status start/error.
