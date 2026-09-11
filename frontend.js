@@ -89,7 +89,8 @@ function generateTroop(){
   for(let i=0; i<10; i++){
     accounts[i].username = main + String(range.start + i * range.step);
   }
-  renderAccounts();
+  resetKickProgress();
+renderAccounts();
   log(`Generate Troop berhasil: ${accounts[0].username} sampai ${accounts[9].username}.`);
 }
 
@@ -732,33 +733,38 @@ function resetKickProgress(){
   if(kickProgressSource){ try{ kickProgressSource.close(); }catch{} }
   kickProgressSource = null;
   activeKickExecutionId = null;
-  const bar = el("kickProgressBar");
-  const text = el("kickProgressText");
-  if(bar) bar.style.width = "0%";
-  if(text) text.textContent = "KICK: 0%";
+  const wrap = el("kickWsProgress");
+  if(wrap){
+    wrap.innerHTML = Array.from({length:10},(_,i)=>`
+      <div class="flex items-center gap-1">
+        <span class="w-6 text-[7px] font-bold text-slate-400">WS${i+1}</span>
+        <div class="flex-1 h-1.5 overflow-hidden rounded-full bg-slate-800 border border-slate-700">
+          <div id="kickWsBar${i+1}" class="h-full w-0 rounded-full bg-rose-500 transition-all duration-150" style="width:0%"></div>
+        </div>
+        <span id="kickWsText${i+1}" class="w-7 text-right text-[7px] font-bold text-slate-400">0%</span>
+      </div>`).join("");
+  }
 }
 
 function updateKickProgress(p){
   if(!p) return;
-  const total = Number(p.totalJobs ?? 0);
-  const done = Math.max(0, Math.min(total || Number.MAX_SAFE_INTEGER, Number(p.completedJobs ?? 0)));
-  const percent = total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : Number(p.percent || 0);
-  const bar = el("kickProgressBar");
-  const text = el("kickProgressText");
-  if(bar) bar.style.width = `${percent}%`;
-  if(text){
-    const ws = Number(p.websockets ?? 0);
-    const targetsCount = Number(p.targets ?? 0);
-    const loops = Number(p.loops ?? p.textloop ?? 0);
-    const suffix = total > 0 ? ` • ${done}/${total}` : "";
-    text.textContent = `KICK: ${percent}%${suffix}${ws ? ` • WS ${ws}` : ""}${targetsCount ? ` • T ${targetsCount}` : ""}${loops ? ` • L ${loops}` : ""}`;
-  }
-  if(p.phase === "delay" && p.delayMs != null){
-    // Tidak mengubah persen saat jeda; persen tetap merepresentasikan target
-    // yang sudah benar-benar dikirim oleh seluruh WS.
+  const list = Array.isArray(p.wsProgress) ? p.wsProgress : [];
+  if(list.length){
+    for(const item of list){
+      const ws = Number(item.websocket);
+      if(ws < 1 || ws > 10) continue;
+      const percent = Math.max(0, Math.min(100, Number(item.percent) || 0));
+      const bar = el(`kickWsBar${ws}`);
+      const text = el(`kickWsText${ws}`);
+      if(bar) bar.style.width = `${percent}%`;
+      if(text) text.textContent = `${percent}%`;
+      if(text){
+        const phase = String(item.phase || "").toUpperCase();
+        text.title = phase;
+      }
+    }
   }
 }
-
 function watchKickProgress(executionId){
   resetKickProgress();
   if(!executionId) return;
