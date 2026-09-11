@@ -413,7 +413,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalJobs || meta.totalSteps) || 0, percent: 0 } };
+  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -584,8 +584,7 @@ app.post("/api/kick-loop", async (req, res) => {
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
     textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
-    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount })),
-    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, percent: 0, loop: 1, targetIndex: 0, phase: "waiting", status: "waiting" }))
+    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }))
   });
 
   (async () => {
@@ -594,7 +593,6 @@ app.post("/api/kick-loop", async (req, res) => {
     let completedJobs = 0;
     let failedJobs = 0;
     const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
-    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, percent: 0, loop: 1, targetIndex: 0, phase: "waiting", status: "waiting" }));
     const sequenceResults = [];
     const stateLock = { chain: Promise.resolve() };
 
@@ -638,25 +636,15 @@ app.post("/api/kick-loop", async (req, res) => {
       };
 
       await addProgress(async () => {
-        completedSteps = Math.min(totalJobs, completedSteps + 1);
-        const wp = wsProgress[wsOrdinal - 1];
-        if (wp) {
-          wp.completed = Math.min(wp.total, wp.completed + 1);
-          wp.percent = wp.total > 0 ? Math.round((wp.completed / wp.total) * 100) : 100;
-          wp.loop = round + 1;
-          wp.targetIndex = targetIndex + 1;
-          wp.phase = ok ? "sent" : "send_failed";
-          wp.status = ok ? "running" : "error";
-        }
+        completedSteps = Math.min(totalSteps, completedSteps + 1);
         publishKickProgress(execution, {
-          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps: totalJobs,
+          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps,
           completedJobs, totalJobs,
           percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket: wsOrdinal, direction: "forward",
           acknowledged: 0, total: ids.length, sent, failedJobs, noAck: true,
-          targetProgress: targetProgress.map(x => ({ ...x })),
-          wsProgress: wsProgress.map(x => ({ ...x }))
+          targetProgress: targetProgress.map(x => ({ ...x }))
         });
       });
       return result;
@@ -684,10 +672,8 @@ app.post("/api/kick-loop", async (req, res) => {
           if (delayMs > 0 && hasNextPair) {
             await addProgress(async () => {
               const lastTargetIndex = orderedIndices[Math.min((pair + 1) * 2, orderedIndices.length) - 1];
-              const wp = wsProgress[wsOrdinal - 1];
-              if (wp) { wp.phase = "delay"; wp.status = "running"; wp.loop = round + 1; }
               publishKickProgress(execution, {
-                phase: "delay", completedSteps, totalSteps: totalJobs,
+                phase: "delay", completedSteps, totalSteps,
                 completedJobs, totalJobs,
                 percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
                 loop: round + 1,
@@ -697,26 +683,13 @@ app.post("/api/kick-loop", async (req, res) => {
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
                 sent, failedJobs, noAck: true,
-                targetProgress: targetProgress.map(x => ({ ...x })),
-                wsProgress: wsProgress.map(x => ({ ...x }))
+                targetProgress: targetProgress.map(x => ({ ...x }))
               });
             });
             await sleep(delayMs);
           }
         }
       }
-      const wp = wsProgress[wsOrdinal - 1];
-      if (wp) { wp.completed = wp.total; wp.percent = 100; wp.phase = "done"; wp.status = "done"; wp.targetIndex = targetList.length; wp.loop = loopCount; }
-      await addProgress(async () => {
-        publishKickProgress(execution, {
-          phase: "ws.done", completedSteps, totalSteps: totalJobs,
-          completedJobs, totalJobs, percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 100,
-          sessionId, websocket: wsOrdinal, loop: loopCount, targetIndex: targetList.length,
-          target: targetList[targetList.length - 1], sent, failedJobs, noAck: true,
-          targetProgress: targetProgress.map(x => ({ ...x })),
-          wsProgress: wsProgress.map(x => ({ ...x }))
-        });
-      });
       return { sessionId, websocket: wsOrdinal, results: troopResults, steps: troopResults.length, orderedIndices };
     }
 
@@ -724,7 +697,7 @@ app.post("/api/kick-loop", async (req, res) => {
       publishKickProgress(execution, {
         phase: "started",
         completedSteps: 0,
-        totalSteps: totalJobs,
+        totalSteps,
         completedJobs: 0,
         totalJobs,
         percent: 0,
@@ -735,8 +708,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sent: 0,
         failedJobs: 0,
         noAck: true,
-        targetProgress: targetProgress.map(x => ({ ...x })),
-        wsProgress: wsProgress.map(x => ({ ...x }))
+        targetProgress: targetProgress.map(x => ({ ...x }))
       });
 
       // All WebSockets start their own independent 1->10 sequence concurrently.
@@ -748,8 +720,8 @@ app.post("/api/kick-loop", async (req, res) => {
 
       publishKickProgress(execution, {
         phase: "completed",
-        completedSteps: totalJobs,
-        totalSteps: totalJobs,
+        completedSteps: totalSteps,
+        totalSteps,
         completedJobs,
         totalJobs,
         percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 100,
