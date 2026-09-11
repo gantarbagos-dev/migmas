@@ -413,7 +413,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
+  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalJobs || meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -636,9 +636,9 @@ app.post("/api/kick-loop", async (req, res) => {
       };
 
       await addProgress(async () => {
-        completedSteps = Math.min(totalSteps, completedSteps + 1);
+        completedSteps = Math.min(totalJobs, completedSteps + 1);
         publishKickProgress(execution, {
-          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps,
+          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps: totalJobs,
           completedJobs, totalJobs,
           percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
@@ -673,7 +673,7 @@ app.post("/api/kick-loop", async (req, res) => {
             await addProgress(async () => {
               const lastTargetIndex = orderedIndices[Math.min((pair + 1) * 2, orderedIndices.length) - 1];
               publishKickProgress(execution, {
-                phase: "delay", completedSteps, totalSteps,
+                phase: "delay", completedSteps, totalSteps: totalJobs,
                 completedJobs, totalJobs,
                 percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
                 loop: round + 1,
@@ -697,7 +697,7 @@ app.post("/api/kick-loop", async (req, res) => {
       publishKickProgress(execution, {
         phase: "started",
         completedSteps: 0,
-        totalSteps,
+        totalSteps: totalJobs,
         completedJobs: 0,
         totalJobs,
         percent: 0,
@@ -720,8 +720,8 @@ app.post("/api/kick-loop", async (req, res) => {
 
       publishKickProgress(execution, {
         phase: "completed",
-        completedSteps: totalSteps,
-        totalSteps,
+        completedSteps: totalJobs,
+        totalSteps: totalJobs,
         completedJobs,
         totalJobs,
         percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 100,
