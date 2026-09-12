@@ -1035,8 +1035,8 @@ async function kickSelectedTargets(){
         const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
         if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
         const state = await pr.json();
-        const p = state.progress || {};
-        if(p.type !== "kick.progress") return;
+        const p = state.progress || state.latest || {};
+        if(!p || (p.type && p.type !== "kick.progress")) return;
 
         if (targetProgressBox && Array.isArray(p.targetProgress)) {
           p.targetProgress.forEach(tp => {
