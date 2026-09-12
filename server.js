@@ -187,32 +187,20 @@ function send(sessionId, payload) {
   account.socket.send(JSON.stringify(payload));
 }
 
-/*
- * Mengirim payload dan baru menganggap "sent" jika ws benar-benar menerima
- * pengiriman tanpa error. Ini TIDAK berarti target sudah di-kick; konfirmasi
- * hasil dari API (ACK) adalah level yang berbeda.
- */
-function sendConfirmedToSocket(sessionId, payload) {
+// Await the ws library's send callback so kick progress represents a command
+// that was actually accepted by the WebSocket transport, not merely an
+// attempted call to socket.send(). This still is NOT an API kick ACK.
+function sendAsync(sessionId, payload) {
   return new Promise((resolve, reject) => {
     const account = sessions.get(sessionId);
     if (!account) return reject(new Error("Session tidak ditemukan / sudah terputus."));
     const socket = account.socket;
-    if (socket.readyState !== WebSocket.OPEN) {
-      return reject(new Error("WebSocket tidak terhubung."));
-    }
-
-    let settled = false;
-    const done = (err) => {
-      if (settled) return;
-      settled = true;
-      if (err) reject(err instanceof Error ? err : new Error(String(err)));
-      else resolve();
-    };
-
+    if (socket.readyState !== WebSocket.OPEN) return reject(new Error("WebSocket tidak terhubung."));
+    const body = JSON.stringify(payload);
     try {
-      socket.send(JSON.stringify(payload), done);
-    } catch (err) {
-      done(err);
+      socket.send(body, err => err ? reject(err) : resolve());
+    } catch (e) {
+      reject(e);
     }
   });
 }
@@ -674,8 +662,8 @@ app.post("/api/kick-loop", async (req, res) => {
     async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
       const startedAt = nowMs();
-      // Progress SUKSES hanya bertambah setelah WebSocket menerima pengiriman.
-      // Jika WS error/closed, completedJobs dan progress TIDAK bertambah.
+      // Progress sukses hanya bertambah setelah WebSocket menerima operasi send.
+      // Jangan increment counter sebelum send: WS error/closed harus tetap 0 progress.
       let ok = false;
       let error = null;
       try {
@@ -684,11 +672,7 @@ app.post("/api/kick-loop", async (req, res) => {
         if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
           throw new Error("Permission rooms.kick tidak tersedia.");
         }
-        await sendConfirmedToSocket(sessionId, {
-          type: "room.kick",
-          room,
-          target_username: targetUsername
-        });
+        await sendAsync(sessionId, { type: "room.kick", room, target_username: targetUsername });
         sent++;
         completedJobs++;
         targetProgress[targetIndex].completed++;
@@ -715,7 +699,8 @@ app.post("/api/kick-loop", async (req, res) => {
           percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket: wsOrdinal, direction: "forward",
-          acknowledged: 0, total: ids.length, sent, failedJobs, noAck: true,
+          acknowledged: 0, total: ids.length, sent, failedJobs, sendConfirmed: true,
+        noAck: true,
           targetProgress: targetProgress.map(x => ({ ...x })),
           wsProgress: wsProgress.map(x => ({ ...x }))
         });
@@ -755,7 +740,8 @@ app.post("/api/kick-loop", async (req, res) => {
                 delayMs, nextPair: pair + 2 <= pairCount ? pair + 2 : null,
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
-                sent, failedJobs, noAck: true,
+                sent, failedJobs, sendConfirmed: true,
+        noAck: true,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -781,6 +767,7 @@ app.post("/api/kick-loop", async (req, res) => {
         total: ids.length,
         sent: 0,
         failedJobs: 0,
+        sendConfirmed: true,
         noAck: true,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
@@ -793,20 +780,21 @@ app.post("/api/kick-loop", async (req, res) => {
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
 
-      const finalPercent = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 100;
+      const allJobsSucceeded = completedJobs === totalJobs && failedJobs === 0;
       publishKickProgress(execution, {
-        phase: failedJobs > 0 ? "completed_with_errors" : "completed",
+        phase: allJobsSucceeded ? "completed" : "completed_with_errors",
         completedSteps: Math.min(totalSteps, Math.floor(completedJobs / Math.max(1, ids.length))),
         totalSteps,
         completedJobs,
         totalJobs,
-        percent: finalPercent,
+        percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
         loop: loopCount,
         targetIndex: targetList.length,
         target: targetList[targetList.length - 1],
         total: ids.length,
         sent,
         failedJobs,
+        sendConfirmed: true,
         noAck: true,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
@@ -826,15 +814,14 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "paired_targets_per_websocket_socket_send_progress",
+    mode: "paired_targets_per_websocket_send_confirmed",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
     textdelay: delayMs,
     totalSteps,
     totalJobs,
-    noAck: true,
-    progressMeaning: "socket_send_success_not_kick_ack"
+    noAck: true
   });
 });
 
