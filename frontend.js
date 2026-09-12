@@ -449,7 +449,7 @@ function renderParticipants(list, merge=true){
   }
   el("participantsList").innerHTML = unique.map(n => `
     <label class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-colors">
-      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}">
+      <input type="checkbox" class="participant-check w-4 h-4 rounded border-slate-700 bg-slate-950 text-blue-600 accent-blue-600" data-name="${esc(n)}" onchange="syncCheckedTargets()">
       <span class="text-xs sm:text-sm text-slate-200 truncate">${esc(n)}</span>
     </label>
   `).join("");
@@ -457,16 +457,20 @@ function renderParticipants(list, merge=true){
 
 function clearParticipants(){
   participantNames.length = 0;
+  targets.length = 0;
+  renderTargets();
   el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada data participants.</div>';
 }
 
-function moveCheckedToTargets(){
-  document.querySelectorAll(".participant-check:checked").forEach(c => {
-    const n = c.dataset.name;
-    if(n && !targets.includes(n)) targets.push(n);
-  });
+function syncCheckedTargets(){
+  const checked = [...document.querySelectorAll(".participant-check:checked")].map(c => c.dataset.name).filter(Boolean);
+  targets.length = 0;
+  checked.forEach(n => { if(!targets.includes(n)) targets.push(n); });
   renderTargets();
 }
+
+// Kompatibilitas tombol lama: sekarang target selalu sinkron otomatis.
+function moveCheckedToTargets(){ syncCheckedTargets(); }
 
 function renderTargets(){
   el("targetList").innerHTML = targets.length ? targets.map((n, i) => `
@@ -734,7 +738,9 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   if (latency) latency.textContent = "Latency: -";
   if (network) network.textContent = "Queue - • Job -";
   const targetProgress = el("kickTargetProgress");
+  const wsProgressBox = el("kickWsProgress");
   if (targetProgress) targetProgress.innerHTML = "";
+  if (wsProgressBox) wsProgressBox.innerHTML = "";
   if (meta) meta.textContent = reason;
 }
 
@@ -751,6 +757,10 @@ async function kickSelectedTargets(){
   const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
   const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
   const targetProgressBox = el("kickTargetProgress");
+  const wsProgressBox = el("kickWsProgress");
+  if (wsProgressBox) {
+    wsProgressBox.innerHTML = Array.from({length: wsCount}, (_, i) => `<div data-kick-ws="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-2 py-1.5 text-[9px] text-slate-400"><div class="flex justify-between"><span>WS ${i+1}</span><span class="ws-count">0/${total}</span></div><div class="mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div class="ws-bar h-full w-0 bg-blue-500 transition-all duration-200"></div></div></div>`).join("");
+  }
   if (targetProgressBox) {
     targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
   }
@@ -808,6 +818,21 @@ async function kickSelectedTargets(){
             const total = Number(tp.total) || (textloop * wsCount);
             if (span) span.textContent = `${done}/${total}`;
             cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+          });
+        }
+
+        if (wsProgressBox && Array.isArray(p.wsProgress)) {
+          p.wsProgress.forEach(wp => {
+            const cell = wsProgressBox.querySelector(`[data-kick-ws="${wp.websocket}"]`);
+            if (!cell) return;
+            const done = Number(wp.completed) || 0;
+            const totalWs = Number(wp.total) || total;
+            const pct = totalWs > 0 ? Math.min(100, (done / totalWs) * 100) : 0;
+            const count = cell.querySelector(".ws-count");
+            const wsBar = cell.querySelector(".ws-bar");
+            if (count) count.textContent = `${done}/${totalWs}${Number(wp.failed) ? ` • Gagal ${wp.failed}` : ""}`;
+            if (wsBar) wsBar.style.width = `${pct}%`;
+            cell.className = `rounded-md border px-2 py-1.5 text-[9px] ${done >= totalWs ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
           });
         }
 

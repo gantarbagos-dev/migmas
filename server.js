@@ -584,7 +584,8 @@ app.post("/api/kick-loop", async (req, res) => {
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
     textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
-    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }))
+    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount })),
+    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }))
   });
 
   (async () => {
@@ -594,6 +595,7 @@ app.post("/api/kick-loop", async (req, res) => {
     let failedJobs = 0;
     const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
+    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }));
     const stateLock = { chain: Promise.resolve() };
 
     function addProgress(fn) {
@@ -610,6 +612,10 @@ app.post("/api/kick-loop", async (req, res) => {
     async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
       const startedAt = nowMs();
+      // Setiap percobaan job dihitung, baik sukses maupun gagal, agar progress tidak macet.
+      completedJobs++;
+      targetProgress[targetIndex].completed++;
+      wsProgress[wsOrdinal - 1].completed++;
       let ok = false;
       let error = null;
       try {
@@ -620,11 +626,10 @@ app.post("/api/kick-loop", async (req, res) => {
         }
         send(sessionId, { type: "room.kick", room, target_username: targetUsername });
         sent++;
-        completedJobs++;
-        targetProgress[targetIndex].completed++;
         ok = true;
       } catch (e) {
         failedJobs++;
+        wsProgress[wsOrdinal - 1].failed++;
         error = safeError(e);
       }
 
@@ -636,7 +641,7 @@ app.post("/api/kick-loop", async (req, res) => {
       };
 
       await addProgress(async () => {
-        completedSteps = Math.min(totalSteps, completedSteps + 1);
+        completedSteps = Math.min(totalSteps, Math.floor(completedJobs / Math.max(1, ids.length)));
         publishKickProgress(execution, {
           phase: ok ? "sent" : "send_failed", completedSteps, totalSteps,
           completedJobs, totalJobs,
@@ -644,7 +649,8 @@ app.post("/api/kick-loop", async (req, res) => {
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket: wsOrdinal, direction: "forward",
           acknowledged: 0, total: ids.length, sent, failedJobs, noAck: true,
-          targetProgress: targetProgress.map(x => ({ ...x }))
+          targetProgress: targetProgress.map(x => ({ ...x })),
+          wsProgress: wsProgress.map(x => ({ ...x }))
         });
       });
       return result;
@@ -683,7 +689,8 @@ app.post("/api/kick-loop", async (req, res) => {
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
                 sent, failedJobs, noAck: true,
-                targetProgress: targetProgress.map(x => ({ ...x }))
+                targetProgress: targetProgress.map(x => ({ ...x })),
+                wsProgress: wsProgress.map(x => ({ ...x }))
               });
             });
             await sleep(delayMs);
@@ -708,7 +715,8 @@ app.post("/api/kick-loop", async (req, res) => {
         sent: 0,
         failedJobs: 0,
         noAck: true,
-        targetProgress: targetProgress.map(x => ({ ...x }))
+        targetProgress: targetProgress.map(x => ({ ...x })),
+        wsProgress: wsProgress.map(x => ({ ...x }))
       });
 
       // All WebSockets start their own independent 1->10 sequence concurrently.
@@ -732,7 +740,8 @@ app.post("/api/kick-loop", async (req, res) => {
         sent,
         failedJobs,
         noAck: true,
-        targetProgress: targetProgress.map(x => ({ ...x }))
+        targetProgress: targetProgress.map(x => ({ ...x })),
+        wsProgress: wsProgress.map(x => ({ ...x }))
       });
       execution.done = true;
       execution.completedAt = Date.now();
@@ -740,7 +749,7 @@ app.post("/api/kick-loop", async (req, res) => {
     } catch (e) {
       execution.done = true;
       execution.error = safeError(e);
-      publishKickProgress(execution, { phase: "error", error: execution.error, completedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })) });
+      publishKickProgress(execution, { phase: "error", error: execution.error, completedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })), wsProgress: wsProgress.map(x => ({ ...x })) });
     }
 
   })();
