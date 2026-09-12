@@ -238,6 +238,7 @@
 </div>
 
 <script>
+
 const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
 const targets = [];
 const participantNames = [];
@@ -1035,8 +1036,8 @@ async function kickSelectedTargets(){
         const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
         if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
         const state = await pr.json();
-        const p = state.progress || state.latest || {};
-        if(!p || (p.type && p.type !== "kick.progress")) return;
+        const p = state.progress || {};
+        if(p.type !== "kick.progress") return;
 
         if (targetProgressBox && Array.isArray(p.targetProgress)) {
           p.targetProgress.forEach(tp => {
@@ -1065,21 +1066,8 @@ async function kickSelectedTargets(){
           });
         }
 
-        // Timing aplikasi per WebSocket: request → queued → job selesai.
-        if(p.latency){
-          if(Number.isFinite(Number(p.latency.totalMs))){
-            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
-          }
-          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
-            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
-            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
-            network.textContent = `Queue ${q} ms • Job ${j} ms`;
-          } else if(Number.isFinite(Number(p.latency.avgMs))){
-            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
-          }
-        }
-
-        const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
+        const fallbackPercent = Number(p.totalJobs) > 0 ? (Number(p.completedJobs) / Number(p.totalJobs)) * 100 : 0;
+        const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
         bar.style.width = `${percent}%`;
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
@@ -1106,7 +1094,7 @@ async function kickSelectedTargets(){
 
         if(p.phase === "delay") {
           meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
-        } else if(p.phase === "completed") {
+        } else if(p.phase === "completed") { bar.style.width = "100%";
           meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
           stopProgress();
           log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
@@ -1150,6 +1138,7 @@ async function kickSelectedTargets(){
 renderAccounts();
 renderTargets();
 renderTimer();
+
 </script>
 </body>
 </html>
