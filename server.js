@@ -442,7 +442,10 @@ app.get("/api/kick-progress-state", (req, res) => {
   const id = String(req.query.id || "");
   const execution = kickExecutions.get(id);
   if (!execution) return res.status(404).json({ ok: false, error: "Execution tidak ditemukan." });
-  return res.json({ ok: true, executionId: id, done: execution.done, progress: execution.latest, result: execution.done ? execution.result : null });
+  return res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.json({ ok: true, executionId: id, done: execution.done, progress: execution.latest, result: execution.done ? execution.result : null });
 });
 
 app.get("/api/kick-progress", (req, res) => {
