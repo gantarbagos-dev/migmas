@@ -186,7 +186,7 @@
       </div>
       <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
         <div class="min-w-0">
-          <button id="kickAllButton" type="button" onclick="window.kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
+          <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
           <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
         </div>
         <label class="min-w-0">
@@ -238,7 +238,6 @@
 </div>
 
 <script>
-
 const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
 const targets = [];
 const participantNames = [];
@@ -979,7 +978,6 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
 }
 
 async function kickSelectedTargets(){
-  log("KICK ALL: tombol terdeteksi.");
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
@@ -1006,17 +1004,13 @@ async function kickSelectedTargets(){
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
-    const controller = new AbortController();
-    const requestTimeout = setTimeout(() => controller.abort(), 15000);
-    meta.textContent = "Mengirim perintah ke backend…";
     const r = await fetch("/api/kick-loop", {
-      method:"POST", headers:{"Content-Type":"application/json"}, signal: controller.signal,
+      method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
         room, targets:[...targets], textdelay, textloop
       })
     });
-    clearTimeout(requestTimeout);
     const j = await r.json();
     if(!j.ok || !j.executionId){
       txt.textContent = "Gagal";
@@ -1071,8 +1065,21 @@ async function kickSelectedTargets(){
           });
         }
 
-        const fallbackPercent = Number(p.totalJobs) > 0 ? (Number(p.completedJobs) / Number(p.totalJobs)) * 100 : 0;
-        const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
+        // Timing aplikasi per WebSocket: request → queued → job selesai.
+        if(p.latency){
+          if(Number.isFinite(Number(p.latency.totalMs))){
+            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
+          }
+          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
+            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
+            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
+            network.textContent = `Queue ${q} ms • Job ${j} ms`;
+          } else if(Number.isFinite(Number(p.latency.avgMs))){
+            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
+          }
+        }
+
+        const percent = Math.max(0, Math.min(100, Number(p.percent) || 0));
         bar.style.width = `${percent}%`;
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
@@ -1082,7 +1089,7 @@ async function kickSelectedTargets(){
         else if(p.phase === "delay") txt.textContent = "Delay";
         else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
         else if(p.phase === "completed") txt.textContent = "Selesai";
-        else if(p.phase === "failed" || p.phase === "error") txt.textContent = "Gagal";
+        else if(p.phase === "failed") txt.textContent = "Gagal";
 
         const done = Number(p.completedSteps) || 0;
         const totalSteps = Number(p.totalSteps) || total;
@@ -1099,11 +1106,11 @@ async function kickSelectedTargets(){
 
         if(p.phase === "delay") {
           meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
-        } else if(p.phase === "completed") { bar.style.width = "100%";
+        } else if(p.phase === "completed") {
           meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
           stopProgress();
           log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
-        } else if(p.phase === "failed" || p.phase === "error") {
+        } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
           stopProgress();
           log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
@@ -1143,7 +1150,6 @@ async function kickSelectedTargets(){
 renderAccounts();
 renderTargets();
 renderTimer();
-
 </script>
 </body>
 </html>
