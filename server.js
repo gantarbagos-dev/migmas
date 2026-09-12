@@ -577,6 +577,9 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
+  const missingIds = ids.filter(id => !sessions.has(id));
+  if (missingIds.length) return res.status(400).json({ ok: false, error: `Session tidak ditemukan/ sudah logout: ${missingIds.length}` });
+  console.log(`[KICK ALL] room=${room} targets=${JSON.stringify(targetList)} sessions=${ids.length}`);
 
   // One independent sequence per WebSocket:
   // Troop-1: target 1 -> delay -> target 2 -> ... -> target 10 -> delay -> loop 2

@@ -739,6 +739,7 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
 }
 
 async function kickSelectedTargets(){
+  log("KICK ALL: tombol terdeteksi.");
   const room = el("room").value.trim();
   if(!room){ log("KICK ALL: nama room belum diisi."); return; }
   if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
@@ -765,6 +766,7 @@ async function kickSelectedTargets(){
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   const onlineSessionIds = accounts.map(a=>a.sessionId).filter(Boolean);
+  log(`KICK ALL DEBUG: room="${room}", target=${JSON.stringify(targets)}, online=${onlineSessionIds.length}`);
   if (!onlineSessionIds.length) {
     txt.textContent = "Gagal";
     meta.textContent = "Tidak ada Troop ONLINE.";
@@ -775,13 +777,17 @@ async function kickSelectedTargets(){
   const kickButton = el("kickAllButton");
   if (kickButton) kickButton.disabled = true;
   try{
+    const controller = new AbortController();
+    const requestTimeout = setTimeout(() => controller.abort(), 15000);
+    meta.textContent = "Mengirim perintah ke backend…";
     const r = await fetch("/api/kick-loop", {
-      method:"POST", headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json"}, signal: controller.signal,
       body:JSON.stringify({
         sessionIds: onlineSessionIds,
         room, targets:[...targets], textdelay, textloop
       })
     });
+    clearTimeout(requestTimeout);
     const j = await r.json();
     if(!j.ok || !j.executionId){
       txt.textContent = "Gagal";
@@ -848,7 +854,7 @@ async function kickSelectedTargets(){
         else if(p.phase === "delay") txt.textContent = "Delay";
         else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
         else if(p.phase === "completed") txt.textContent = "Selesai";
-        else if(p.phase === "failed") txt.textContent = "Gagal";
+        else if(p.phase === "failed" || p.phase === "error") txt.textContent = "Gagal";
 
         const done = Number(p.completedSteps) || 0;
         const totalSteps = Number(p.totalSteps) || total;
@@ -870,7 +876,7 @@ async function kickSelectedTargets(){
           stopProgress();
           if (kickButton) kickButton.disabled = false;
           log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
-        } else if(p.phase === "failed") {
+        } else if(p.phase === "failed" || p.phase === "error") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
           stopProgress();
           if (kickButton) kickButton.disabled = false;
