@@ -1,5 +1,5 @@
 
-const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null}));
+const accounts = Array.from({length:10},()=>({sessionId:null,username:"",password:"",balance:"-",eventSource:null,status:"OFFLINE"}));
 const targets = [];
 const participantNames = [];
 const el = id => document.getElementById(id);
@@ -28,7 +28,7 @@ function renderAccounts(){
         <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
         <div class="flex items-center gap-2">
           <span id="b${i}" class="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md">${esc(a.balance)}</span>
-          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.sessionId ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${a.sessionId ? "ONLINE" : "OFFLINE"}</span>
+          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -46,11 +46,19 @@ function renderAccounts(){
 function setStatus(i, text, kind=""){
   const s = el(`status${i}`);
   if(!s) return;
-  s.textContent = text;
-  if(kind === "online") {
+  const normalized = String(text || "OFFLINE").toUpperCase();
+  const temporary = normalized === "LOGIN…" || normalized === "LOGIN...";
+  const status = ["ONLINE","OFFLINE","ERROR","SUSPEND"].includes(normalized) ? normalized : (temporary ? normalized : "ERROR");
+  accounts[i].status = status;
+  s.textContent = status;
+  if(status === "ONLINE") {
     s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
-  } else if(kind === "error") {
+  } else if(status === "SUSPEND") {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50";
+  } else if(status === "ERROR") {
     s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
+  } else if(temporary) {
+    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-950/80 text-sky-300 border border-sky-800/50";
   } else {
     s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
   }
@@ -133,7 +141,10 @@ function openEvents(i){
       handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
     }
   };
-  es.onerror = () => {};
+  es.onerror = () => {
+    // SSE can close independently from the authenticated WebSocket. Do not
+    // mark the account offline merely because the browser event stream failed.
+  };
 }
 
 const TIMER_START_MS = 60000;
@@ -393,9 +404,24 @@ function handleApiEvent(i, msg){
     else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
   }
   if(msg.type === "session.replaced"){
-    setStatus(i, "OFFLINE");
+    setStatus(i, "ERROR");
     accounts[i].sessionId = null;
     setBalance(i, "-");
+    log(`Troop ${i+1}: ERROR - session digantikan oleh login lain.`);
+  }
+  if(msg.type === "session.closed"){
+    accounts[i].sessionId = null;
+    setStatus(i, "OFFLINE");
+    setBalance(i, "-");
+    log(`Troop ${i+1}: OFFLINE - koneksi WebSocket terputus.`);
+  }
+  if(msg.type === "session.error"){
+    setStatus(i, "ERROR");
+    log(`Troop ${i+1}: ERROR - ${msg.error || "WebSocket error"}`);
+  }
+  if(msg.type === "login.status" && String(msg.status).toUpperCase() === "SUSPEND"){
+    setStatus(i, "SUSPEND");
+    log(`Troop ${i+1}: SUSPEND - ${msg.message || "Akun ditangguhkan."}`);
   }
   if(String(msg.type||"").includes("participants") || hasParticipantContainer(msg.data)){
     const list = extractParticipantNames(msg);
@@ -495,18 +521,23 @@ async function loginOne(i){
   try{
     const r = await fetch("/api/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:a.username, password:a.password})});
     const j = await r.json();
-    if(!j.ok) throw new Error(j.error || "Login gagal");
+    if(!j.ok){
+      const err = new Error(j.error || "Login gagal");
+      err.loginStatus = String(j.status || "error").toUpperCase();
+      throw err;
+    }
     a.sessionId = j.account.sessionId;
     const w = j.account.wallet;
     if(w?.label) setBalance(i, w.label);
     else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
     else setBalance(i, "-");
-    setStatus(i, "ONLINE", "online");
+    setStatus(i, "ONLINE");
     openEvents(i);
     log(`Troop ${i+1} ${a.username}: ONLINE`);
   }catch(e){
-    setStatus(i, "OFFLINE", "error");
-    log(`Troop ${i+1}: LOGIN GAGAL - ${e.message}`);
+    const status = e.loginStatus === "SUSPEND" ? "SUSPEND" : "ERROR";
+    setStatus(i, status);
+    log(`Troop ${i+1}: LOGIN ${status} - ${e.message}`);
   }
 }
 
@@ -555,20 +586,21 @@ async function loginAll(){
         if(w?.label) setBalance(i, w.label);
         else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
         else setBalance(i, "-");
-        setStatus(i, "ONLINE", "online");
+        setStatus(i, "ONLINE");
         openEvents(i);
       } else {
         accounts[i].sessionId = null;
-        setStatus(i, "OFFLINE", "error");
+        const status = String(item.status || "error").toUpperCase() === "SUSPEND" ? "SUSPEND" : "ERROR";
+        setStatus(i, status);
         setBalance(i, "-");
       }
     }
     const ok = (j.results || []).filter(x => x.ok).length;
     const total = (j.results || []).length;
     log(`LOGIN ALL: ${ok}/${total} Troop login bersamaan.`);
-    for(const item of (j.results || [])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN GAGAL - ${item.error}`);
+    for(const item of (j.results || [])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN ${String(item.status || "ERROR").toUpperCase()} - ${item.error}`);
   }catch(e){
-    for(const a of list) setStatus(a.index, "OFFLINE", "error");
+    for(const a of list) setStatus(a.index, "ERROR");
     log(`LOGIN ALL gagal - ${e.message}`);
   }
   resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);

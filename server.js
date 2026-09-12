@@ -24,6 +24,28 @@ const balanceWaiters = new Map();
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
 
+function extractApiError(msg) {
+  const data = msg?.data || {};
+  const code = String(data.code ?? data.error_code ?? data.error ?? msg?.code ?? msg?.error_code ?? "").trim();
+  const message = String(data.message ?? data.detail ?? data.error_message ?? msg?.message ?? msg?.error ?? "Login failed").trim();
+  return { code, message };
+}
+
+// The public MigReborn Developer API documents developer_login_failed for bad
+// credentials. It does not publish a dedicated suspend error code in the docs,
+// so SUSPEND is only inferred when the API itself explicitly reports a
+// suspension/blocked-account code or message; otherwise the result is ERROR.
+function classifyLoginFailure(err) {
+  const code = String(err?.code || "").toLowerCase();
+  const message = String(err?.message || err || "").toLowerCase();
+  const combined = `${code} ${message}`;
+  const suspended = /(?:account[_ .-]?suspended|user[_ .-]?suspended|developer[_ .-]?suspended|suspend(?:ed|ion)|account[_ .-]?(?:blocked|disabled|banned)|login[_ .-]?(?:blocked|disabled))/.test(combined);
+  if (suspended) return "suspend";
+  if (/developer[_ .-]?login[_ .-]?failed/.test(code)) return "error";
+  if (/invalid|credential|password|username|unauthori[sz]ed|authentication|auth|timeout|connection|websocket|network|socket|server/.test(combined)) return "error";
+  return "error";
+}
+
 function resultPermissions(msg) {
   return Array.isArray(msg?.data?.developer?.permissions) ? msg.data.developer.permissions : [];
 }
@@ -137,8 +159,17 @@ function connectAccount(username, password) {
         if (account) account.joinedRoom = msg.data.room;
       }
 
+      if (msg.type === "session.replaced") {
+        publish(sessionId, { type: "login.status", status: "error", code: "session.replaced", message: "Session digantikan oleh login lain." });
+        return;
+      }
+
       if (msg.type === "error" && !settled) {
-        finishReject(new Error(msg.data?.message || msg.data?.error || "Login failed"));
+        const apiErr = extractApiError(msg);
+        const err = new Error(apiErr.message || "Login failed");
+        err.code = apiErr.code;
+        err.status = classifyLoginFailure(err);
+        finishReject(err);
       }
     });
 
@@ -380,7 +411,8 @@ app.post("/api/login", async (req, res) => {
     const result = await connectAccount(String(username).trim(), String(password));
     res.json({ ok: true, account: result });
   } catch (e) {
-    res.status(401).json({ ok: false, error: safeError(e) });
+    const status = classifyLoginFailure(e);
+    res.status(401).json({ ok: false, status, code: String(e?.code || ""), error: safeError(e) });
   }
 });
 
@@ -403,7 +435,7 @@ app.post("/api/login-batch", async (req, res) => {
       const account = await connectAccount(username, password);
       return { index, ok: true, account };
     } catch (e) {
-      return { index, ok: false, username, error: safeError(e) };
+      return { index, ok: false, username, status: classifyLoginFailure(e), code: String(e?.code || ""), error: safeError(e) };
     }
   });
 
