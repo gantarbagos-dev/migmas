@@ -23,26 +23,25 @@ function sync(){
 
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
-    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-3 space-y-2.5 transition-all hover:border-slate-700">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
-        <div class="flex items-center gap-2">
-          <span id="b${i}" class="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-md">${esc(a.balance)}</span>
-          <span id="status${i}" class="text-[10px] font-bold px-2 py-0.5 rounded-full ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
-      </div>
-      <div class="flex gap-2 pt-0.5">
-        <button onclick="loginOne(${i})" class="flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGIN</button>
-        <button onclick="logoutOne(${i})" class="flex-1 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-3 rounded-lg text-xs transition-all active:scale-95">LOGOUT</button>
-      </div>
+    <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800/70 rounded-lg px-1.5 py-1 transition-all hover:border-slate-700">
+      <span class="w-5 shrink-0 text-[10px] font-bold text-slate-500 text-center">${i+1}</span>
+      <input id="u${i}" value="${esc(a.username)}"
+        class="min-w-0 flex-1 bg-slate-900/90 border border-slate-800 rounded-md px-2 py-1.5 text-[11px] text-slate-200 focus:border-blue-500"
+        placeholder="Troop" autocomplete="off">
+      <input id="p${i}" value="${esc(a.password)}" type="password"
+        class="min-w-0 flex-1 bg-slate-900/90 border border-slate-800 rounded-md px-2 py-1.5 text-[11px] text-slate-200 focus:border-blue-500"
+        placeholder="Password" autocomplete="off">
+      <span id="b${i}" class="hidden sm:inline-block text-[9px] bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-1 rounded-md">${esc(a.balance)}</span>
+      <span id="status${i}" class="shrink-0 w-2 h-2 rounded-full ${
+        a.status === 'ONLINE' ? 'bg-emerald-400' :
+        a.status === 'SUSPEND' ? 'bg-amber-400' :
+        a.status === 'ERROR' ? 'bg-rose-400' : 'bg-slate-600'
+      }" title="${esc(a.status || "OFFLINE")}"></span>
+      <button onclick="loginOne(${i})" class="shrink-0 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold px-2 py-1.5 rounded-md text-[9px] transition-all active:scale-95">IN</button>
+      <button onclick="logoutOne(${i})" class="shrink-0 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold px-2 py-1.5 rounded-md text-[9px] transition-all active:scale-95">OUT</button>
     </div>
   `).join("");
 }
-
 function setStatus(i, text, kind=""){
   const s = el(`status${i}`);
   if(!s) return;
@@ -50,17 +49,18 @@ function setStatus(i, text, kind=""){
   const temporary = normalized === "LOGIN…" || normalized === "LOGIN...";
   const status = ["ONLINE","OFFLINE","ERROR","SUSPEND"].includes(normalized) ? normalized : (temporary ? normalized : "ERROR");
   accounts[i].status = status;
-  s.textContent = status;
+  s.textContent = "";
+  s.title = status;
   if(status === "ONLINE") {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50";
+    s.className = "shrink-0 w-2 h-2 rounded-full bg-emerald-400";
   } else if(status === "SUSPEND") {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50";
+    s.className = "shrink-0 w-2 h-2 rounded-full bg-amber-400";
   } else if(status === "ERROR") {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/50";
+    s.className = "shrink-0 w-2 h-2 rounded-full bg-rose-400";
   } else if(temporary) {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-950/80 text-sky-300 border border-sky-800/50";
+    s.className = "shrink-0 w-2 h-2 rounded-full bg-sky-400";
   } else {
-    s.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-400 border border-slate-800";
+    s.className = "shrink-0 w-2 h-2 rounded-full bg-slate-600";
   }
 }
 
