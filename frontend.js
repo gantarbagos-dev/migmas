@@ -724,19 +724,11 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const txt = el("kickProgressText");
   const meta = el("kickProgressMeta");
   const step = el("kickProgressStep");
-  const ws = el("kickProgressWs");
-  const jobs = el("kickProgressJobs");
   const structure = el("kickProgressStructure");
-  const latency = el("kickProgressLatency");
-  const network = el("kickProgressNetwork");
   if (bar) bar.style.width = "0%";
   if (txt) txt.textContent = "Siap";
   if (step) step.textContent = "Target 0/0";
-  if (ws) ws.textContent = "WS 0/0";
-  if (jobs) jobs.textContent = "Job 0/0";
   if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
-  if (latency) latency.textContent = "Latency: -";
-  if (network) network.textContent = "Queue - • Job -";
   const targetProgress = el("kickTargetProgress");
   const wsProgressBox = el("kickWsProgress");
   if (targetProgress) targetProgress.innerHTML = "";
@@ -754,8 +746,7 @@ async function kickSelectedTargets(){
   const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
-  const step = el("kickProgressStep"), ws = el("kickProgressWs"), jobs = el("kickProgressJobs"), structure = el("kickProgressStructure");
-  const latency = el("kickProgressLatency"), network = el("kickProgressNetwork");
+  const step = el("kickProgressStep"), structure = el("kickProgressStructure");
   const targetProgressBox = el("kickTargetProgress");
   const wsProgressBox = el("kickWsProgress");
   if (wsProgressBox) {
@@ -767,11 +758,7 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  ws.textContent = `WS 0/${wsCount}`;
-  jobs.textContent = `Job 0/${total * wsCount}`;
   structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
-  latency.textContent = "Latency: -";
-  network.textContent = "Queue - • Job -";
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
@@ -836,21 +823,7 @@ async function kickSelectedTargets(){
           });
         }
 
-        // Timing aplikasi per WebSocket: request → queued → job selesai.
-        if(p.latency){
-          if(Number.isFinite(Number(p.latency.totalMs))){
-            latency.textContent = `Latency: ${Number(p.latency.totalMs)} ms`;
-          }
-          if(Number.isFinite(Number(p.latency.queueMs)) || Number.isFinite(Number(p.latency.jobMs))){
-            const q = Number.isFinite(Number(p.latency.queueMs)) ? Number(p.latency.queueMs) : 0;
-            const j = Number.isFinite(Number(p.latency.jobMs)) ? Number(p.latency.jobMs) : 0;
-            network.textContent = `Queue ${q} ms • Job ${j} ms`;
-          } else if(Number.isFinite(Number(p.latency.avgMs))){
-            network.textContent = `Avg ${Number(p.latency.avgMs)} ms • Min ${Number(p.latency.minMs)||0} • Max ${Number(p.latency.maxMs)||0}`;
-          }
-        }
-
-        const fallbackPercent = Number(p.totalJobs) > 0 ? (Number(p.completedJobs) / Number(p.totalJobs)) * 100 : 0;
+        const fallbackPercent = Number(p.percent) || 0;
         const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
         bar.style.width = `${percent}%`;
 
@@ -865,12 +838,8 @@ async function kickSelectedTargets(){
 
         const done = Number(p.completedSteps) || 0;
         const totalSteps = Number(p.totalSteps) || total;
-        const completedJobs = Number(p.completedJobs) || 0;
-        const totalJobs = Number(p.totalJobs) || (totalSteps * wsCount);
         step.textContent = `Target ${done}/${totalSteps}`;
-        jobs.textContent = `Job ${completedJobs}/${totalJobs}`;
         structure.textContent = `Loop ${Number(p.loop)||0}/${textloop} • Target ${Number(p.targetIndex)||0}/${targets.length}`;
-        if(Number.isFinite(Number(p.acknowledged))) ws.textContent = `WS ${Number(p.acknowledged)}/${Number(p.total) || wsCount}`;
 
         if(p.phase === "waiting_ack") {
           meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
@@ -885,11 +854,11 @@ async function kickSelectedTargets(){
           stopProgress();
           log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
         } else if(p.phase === "target_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • WS ${p.acknowledged || 0}/${p.total || wsCount} • Job ${completedJobs}/${totalJobs}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target}`;
         } else if(p.phase === "job_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} selesai`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} selesai`;
         } else if(p.phase === "job_failed") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • Job ${completedJobs}/${totalJobs} • ${p.error || "gagal"}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ${p.error || "gagal"}`;
         }
 
         if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
