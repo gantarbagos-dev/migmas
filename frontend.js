@@ -724,11 +724,9 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const txt = el("kickProgressText");
   const meta = el("kickProgressMeta");
   const step = el("kickProgressStep");
-  const structure = el("kickProgressStructure");
   if (bar) bar.style.width = "0%";
   if (txt) txt.textContent = "Siap";
   if (step) step.textContent = "Target 0/0";
-  if (structure) structure.textContent = "Loop 0/0 • Target 0/0";
   const targetProgress = el("kickTargetProgress");
   const wsProgressBox = el("kickWsProgress");
   if (targetProgress) targetProgress.innerHTML = "";
@@ -746,7 +744,7 @@ async function kickSelectedTargets(){
   const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
-  const step = el("kickProgressStep"), structure = el("kickProgressStructure");
+  const step = el("kickProgressStep");
   const targetProgressBox = el("kickTargetProgress");
   const wsProgressBox = el("kickWsProgress");
   if (wsProgressBox) {
@@ -758,7 +756,6 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  structure.textContent = `Loop 0/${textloop} • Target 0/${targets.length}`;
   meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
 
   try{
@@ -839,7 +836,6 @@ async function kickSelectedTargets(){
         const done = Number(p.completedSteps) || 0;
         const totalSteps = Number(p.totalSteps) || total;
         step.textContent = `Target ${done}/${totalSteps}`;
-        structure.textContent = `Loop ${Number(p.loop)||0}/${textloop} • Target ${Number(p.targetIndex)||0}/${targets.length}`;
 
         if(p.phase === "waiting_ack") {
           meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
