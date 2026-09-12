@@ -585,7 +585,7 @@ app.post("/api/kick-loop", async (req, res) => {
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
     textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
     targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount })),
-    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }))
+    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0, lastMs: null }))
   });
 
   (async () => {
@@ -595,7 +595,7 @@ app.post("/api/kick-loop", async (req, res) => {
     let failedJobs = 0;
     const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
-    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }));
+    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0, lastMs: null }));
     const stateLock = { chain: Promise.resolve() };
 
     function addProgress(fn) {
@@ -633,6 +633,7 @@ app.post("/api/kick-loop", async (req, res) => {
         error = safeError(e);
       }
 
+      wsProgress[wsOrdinal - 1].lastMs = Math.max(0, nowMs() - startedAt);
       const result = {
         sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
         targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
@@ -648,7 +649,7 @@ app.post("/api/kick-loop", async (req, res) => {
           percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket: wsOrdinal, direction: "forward",
-          acknowledged: 0, total: ids.length, sent, failedJobs, noAck: true,
+          activeWs: wsProgress.filter(x => x.completed > 0).length, total: ids.length, sent, failedJobs, noAck: true,
           targetProgress: targetProgress.map(x => ({ ...x })),
           wsProgress: wsProgress.map(x => ({ ...x }))
         });
