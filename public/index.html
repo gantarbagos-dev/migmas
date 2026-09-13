@@ -566,7 +566,7 @@ box-sizing:border-box!important;border-radius:0!important;
       <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
         <div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Belum ada target.</div>
       </div>
-      <div class="grid grid-cols-[minmax(0,1fr)_58px_58px_58px_42px] items-end gap-1.5">
+      <div class="grid grid-cols-[minmax(0,1fr)_54px_54px_54px_54px_42px] items-end gap-1.5">
         <div class="min-w-0">
           <button id="kickAllButton" onclick="kickSelectedTargets()" class="w-full h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold px-2 rounded-lg text-[10px] transition-all shadow-md shadow-rose-600/20 active:scale-95">KICK ALL</button>
           <div id="timerValue" class="mt-1 w-full h-6 flex items-center justify-center rounded-lg bg-slate-950/80 border border-slate-800 text-[9px] font-semibold text-slate-400">60000</div>
@@ -582,6 +582,21 @@ box-sizing:border-box!important;border-radius:0!important;
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
           <input id="textloop" type="number" min="1" step="1" value="5" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+        </label>
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Burst</span>
+          <select id="burstSize" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
         </label>
         <div class="flex flex-col gap-1">
           <button onclick="resetTimer()" class="bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/50 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-9 h-9 shrink-0" title="Reset Timer" aria-label="Reset Timer">

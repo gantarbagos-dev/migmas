@@ -749,7 +749,7 @@ function updatePerTroopKickProgress(wsProgress){
       bar.style.width=`${pct}%`;
       bar.classList.toggle("has-failure",failed>0);
     }
-    if(txt) txt.textContent=`${completed}/${total}`;
+    if(txt) txt.textContent=`${dispatched}/${total}`;
     if(fail) fail.textContent=failed>0 ? `gagal ${failed}` : "";
   });
 }
@@ -779,6 +779,7 @@ async function kickSelectedTargets(){
 
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
+  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
   const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
@@ -795,14 +796,14 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • delay ${textdelay} ms`;
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay antar-loop ${textdelay} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
-        room, targets:[...targets], textdelay, textloop
+        room, targets:[...targets], textdelay, textloop, burstSize
       })
     });
     const j = await r.json();
@@ -856,7 +857,7 @@ async function kickSelectedTargets(){
         bar.style.transition = "width 100ms linear";
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu queued";
+        else if(p.phase === "waiting_ack") txt.textContent = "Diproses";
         else if(p.phase === "job_done" || p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
         else if(p.phase === "job_failed" || p.phase === "send_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
@@ -871,11 +872,11 @@ async function kickSelectedTargets(){
         step.textContent = `Target ${done}/${totalSteps}`;
 
         if(p.phase === "waiting_ack") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • QUEUED ${p.acknowledged || 0}/${p.total || wsCount}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • dikirim ${p.dispatchedJobs || 0}/${p.totalJobs || 0}`;
         } else if(p.phase === "delay") {
           meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-loop ${textdelay} ms`;
           stopProgress();
         } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
