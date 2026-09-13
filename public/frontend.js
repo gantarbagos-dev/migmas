@@ -23,19 +23,25 @@ function sync(){
 
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
-    <div class="bg-slate-950/80 border border-slate-800/70 rounded-lg p-2 transition-all hover:border-slate-700">
-      <div class="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_76px_72px_72px] sm:grid-cols-[58px_minmax(0,1fr)_minmax(0,1fr)_88px_68px_68px] gap-1.5 items-center">
-        <div class="flex flex-col items-center justify-center min-w-0">
-          <span class="text-[10px] font-bold tracking-wide text-slate-300">T${i+1}</span>
-          <span id="status${i}" class="mt-0.5 w-full text-center text-[7px] font-bold px-1 py-0.5 rounded-full ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
+    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-2.5 sm:p-3 transition-all hover:border-slate-700">
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[11px] sm:text-xs font-bold tracking-wide text-slate-300 whitespace-nowrap">Troop ${i+1}</span>
+          <span id="status${i}" class="text-[8px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
         </div>
-        <input id="u${i}" value="${esc(a.username)}" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
-        <div id="b${i}" class="min-w-0 h-8 flex items-center justify-center rounded-md bg-slate-900/90 border border-slate-800 text-[9px] text-slate-400 whitespace-nowrap overflow-hidden" title="Saldo">
-          <strong class="text-[10px] font-bold text-slate-100 truncate">${esc(a.balance)}</strong>
+        <div class="ml-auto flex items-center gap-1.5 shrink-0">
+          <span id="b${i}" class="min-w-[48px] text-right text-[11px] font-bold text-slate-100 leading-none whitespace-nowrap" title="Saldo">${esc(a.balance)}</span>
+          <button onclick="loginOne(${i})" class="w-8 h-8 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 rounded-lg transition-all active:scale-95 flex items-center justify-center" title="Login" aria-label="Login">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path stroke-linecap="round" stroke-linejoin="round" d="m10 17 5-5-5-5M15 12H3"/></svg>
+          </button>
+          <button onclick="logoutOne(${i})" class="w-8 h-8 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 rounded-lg transition-all active:scale-95 flex items-center justify-center" title="Logout" aria-label="Logout">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg>
+          </button>
         </div>
-        <button onclick="loginOne(${i})" class="h-8 w-8 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold rounded-md transition-all active:scale-95 flex items-center justify-center" title="Login" aria-label="Login"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path stroke-linecap="round" stroke-linejoin="round" d="m10 17 5-5-5-5M15 12H3"/></svg></button>
-        <button onclick="logoutOne(${i})" class="h-8 w-8 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold rounded-md transition-all active:scale-95 flex items-center justify-center" title="Logout" aria-label="Logout"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg></button>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-1.5">
+        <input id="u${i}" value="${esc(a.username)}" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
+        <input id="p${i}" value="${esc(a.password)}" type="password" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
       </div>
     </div>
   `).join("");
@@ -583,8 +589,8 @@ async function loginAll(){
       if(item.ok){
         accounts[i].sessionId = item.account.sessionId;
         const w = item.account.wallet;
-        if(w?.label) setBalance(i, w.label);
-        else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+        if(w?.balance_cr != null) setBalance(i, w.balance_cr);
+        else if(w?.label) setBalance(i, w.label);
         else setBalance(i, "-");
         setStatus(i, "ONLINE");
         openEvents(i);
