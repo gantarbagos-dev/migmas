@@ -780,7 +780,10 @@ async function kickSelectedTargets(){
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
   const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
-  const wsCount = accounts.map(a=>a.sessionId).filter(Boolean).length;
+  const onlineSlots = accounts
+    .map((a, i) => a.sessionId ? { sessionId: a.sessionId, websocket: i + 1 } : null)
+    .filter(Boolean);
+  const wsCount = onlineSlots.length;
   const total = textloop * targets.length;
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
   const step = el("kickProgressStep");
@@ -802,7 +805,8 @@ async function kickSelectedTargets(){
     const r = await fetch("/api/kick-loop", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
-        sessionIds: accounts.map(a=>a.sessionId).filter(Boolean),
+        sessionIds: onlineSlots.map(x=>x.sessionId),
+        websocketSlots: onlineSlots,
         room, targets:[...targets], textdelay, textloop, burstSize
       })
     });
