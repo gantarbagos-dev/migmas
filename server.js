@@ -16,6 +16,7 @@ const sessions = new Map();
 const subscribers = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
+const kickJobWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -93,6 +94,7 @@ function connectAccount(username, password) {
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
       resolveBalance(sessionId, msg);
+      resolveKickJob(sessionId, msg);
 
       // Jangan membuat event countdown sintetis dari teks umum.
       // Countdown hanya boleh dipicu frontend oleh event vote-kick yang
@@ -216,6 +218,49 @@ function resolveBalance(sessionId, msg) {
   }
   entry.resolve(wallet);
   return true;
+}
+
+function extractJobId(msg) {
+  return String(msg?.data?.job?.job_id ?? msg?.data?.job_id ?? msg?.job_id ?? "").trim();
+}
+
+function resolveKickJob(sessionId, msg) {
+  const jobId = extractJobId(msg);
+  if (!jobId) return false;
+  const key = `${sessionId}:${jobId}`;
+  const waiter = kickJobWaiters.get(key);
+  if (!waiter) return false;
+  const type = String(msg?.type || "").toLowerCase();
+  const data = msg?.data || {};
+  const job = data.job || data;
+  const rawStatus = String(job?.status ?? data?.status ?? msg?.status ?? "").toLowerCase();
+  const terminal = /(?:completed|complete|success|succeeded|failed|failure|error|cancelled|canceled|done|rejected)/.test(rawStatus) || /(?:job\.(?:result|failed|completed))/.test(type);
+  if (!terminal) return false;
+  clearTimeout(waiter.timer);
+  kickJobWaiters.delete(key);
+  const ok = /(?:completed|complete|success|succeeded|done)/.test(rawStatus) && !/(?:failed|failure|error|cancelled|canceled|rejected)/.test(rawStatus);
+  waiter.resolve({ ok, status: rawStatus || type, message: msg });
+  return true;
+}
+
+function waitForKickJob(sessionId, jobId, timeoutMs = 15000) {
+  const key = `${sessionId}:${jobId}`;
+  return new Promise((resolve, reject) => {
+    const old = kickJobWaiters.get(key);
+    if (old?.timer) clearTimeout(old.timer);
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
+      if (kickJobWaiters.get(key) === entry) kickJobWaiters.delete(key);
+      reject(new Error("Timeout menunggu status job kick."));
+    }, timeoutMs);
+    kickJobWaiters.set(key, entry);
+  });
+}
+
+function extractKickJobError(result) {
+  const msg = result?.message || {};
+  const data = msg?.data || {};
+  return String(data?.message ?? data?.error ?? msg?.message ?? msg?.error ?? result?.status ?? "Kick job gagal.");
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
@@ -434,17 +479,25 @@ app.post("/api/kick-loop", async (req, res) => {
     async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
       const startedAt = Date.now();
-      // Progress sukses hanya bertambah setelah WebSocket menerima operasi send.
-      // Jangan increment counter sebelum send: WS error/closed harus tetap 0 progress.
       let ok = false;
       let error = null;
+      let jobId = null;
+      let jobStatus = "send_failed";
       try {
         const account = sessions.get(sessionId);
         if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
         if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
           throw new Error("Permission rooms.kick tidak tersedia.");
         }
-        await sendAsync(sessionId, { type: "room.kick", room, target_username: targetUsername });
+
+        // The API queues room.kick and returns a job_id. Progress is only
+        // counted as successful after that job reaches a terminal success state.
+        const queued = await sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        jobId = queued.jobId;
+        const statusResult = await waitKickJobCompletion(sessionId, jobId);
+        jobStatus = statusResult.status || (statusResult.ok ? "completed" : "failed");
+        if (!statusResult.ok) throw new Error(statusResult.error || "Kick job gagal.");
+
         sent++;
         completedJobs++;
         targetProgress[targetIndex].completed++;
@@ -459,25 +512,91 @@ app.post("/api/kick-loop", async (req, res) => {
       const result = {
         sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
         targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
-        ok, jobStatus: ok ? "sent" : "send_failed", unconfirmed: ok, error,
+        ok, jobStatus, jobId, error,
         totalMs: Math.max(0, Date.now() - startedAt)
       };
 
       await addProgress(async () => {
-        completedSteps = Math.min(totalSteps, Math.floor(completedJobs / Math.max(1, ids.length)));
+        const finishedJobs = completedJobs + failedJobs;
+        completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
         publishKickProgress(execution, {
-          phase: ok ? "sent" : "send_failed", completedSteps, totalSteps,
+          phase: ok ? "job_done" : "job_failed", completedSteps, totalSteps,
           completedJobs, totalJobs,
-          percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
+          percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket: wsOrdinal, direction: "forward",
-          acknowledged: 0, total: ids.length, sent, failedJobs, sendConfirmed: true,
-        noAck: true,
+          acknowledged: ok ? 1 : 0, total: 1, sent, failedJobs, sendConfirmed: ok,
+          jobId, jobStatus,
           targetProgress: targetProgress.map(x => ({ ...x })),
           wsProgress: wsProgress.map(x => ({ ...x }))
         });
       });
       return result;
+    }
+
+    async function sendKickAndWaitQueued(sessionId, payload) {
+      return new Promise((resolve, reject) => {
+        const account = sessions.get(sessionId);
+        if (!account || account.socket.readyState !== WebSocket.OPEN) return reject(new Error("WebSocket tidak terhubung."));
+        let timer = null;
+        const handler = raw => {
+          let msg;
+          try { msg = JSON.parse(raw.toString()); } catch { return; }
+          if (msg?.type !== "room.kick.queued") return;
+          const jobId = extractJobId(msg);
+          if (!jobId) return reject(new Error("API mengembalikan room.kick.queued tanpa job_id."));
+          if (timer) clearTimeout(timer);
+          account.socket.off("message", handler);
+          resolve({ jobId, response: msg });
+        };
+        timer = setTimeout(() => {
+          account.socket.off("message", handler);
+          reject(new Error("Timeout menunggu room.kick.queued."));
+        }, 8000);
+        account.socket.on("message", handler);
+        try { account.socket.send(JSON.stringify(payload), err => {
+          if (err) {
+            clearTimeout(timer);
+            account.socket.off("message", handler);
+            reject(err);
+          }
+        }); } catch (e) {
+          clearTimeout(timer);
+          account.socket.off("message", handler);
+          reject(e);
+        }
+      });
+    }
+
+    async function waitKickJobCompletion(sessionId, jobId) {
+      const waiter = waitForKickJob(sessionId, jobId, 15000);
+      // Poll the official job status endpoint over the same WebSocket.
+      const account = sessions.get(sessionId);
+      if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
+      let stopped = false;
+      const poll = async () => {
+        while (!stopped) {
+          try {
+            if (account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket terputus saat menunggu status job.");
+            account.socket.send(JSON.stringify({ type: "job.get", job_id: jobId }));
+          } catch (e) {
+            stopped = true;
+            const pending = kickJobWaiters.get(`${sessionId}:${jobId}`);
+            if (pending?.timer) clearTimeout(pending.timer);
+            kickJobWaiters.delete(`${sessionId}:${jobId}`);
+            throw e;
+          }
+          await sleep(250);
+        }
+      };
+      poll().catch(() => {});
+      try {
+        const result = await waiter;
+        stopped = true;
+        return { ok: result.ok, status: result.status, error: result.ok ? null : extractKickJobError(result) };
+      } finally {
+        stopped = true;
+      }
     }
 
     async function runTroop(sessionId, wsOrdinal) {
@@ -513,7 +632,7 @@ app.post("/api/kick-loop", async (req, res) => {
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
                 sent, failedJobs, sendConfirmed: true,
-        noAck: true,
+        noAck: false,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -540,7 +659,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sent: 0,
         failedJobs: 0,
         sendConfirmed: true,
-        noAck: true,
+        noAck: false,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
       });
@@ -567,7 +686,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sent,
         failedJobs,
         sendConfirmed: true,
-        noAck: true,
+        noAck: false,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
       });
@@ -586,14 +705,14 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "paired_targets_per_websocket_send_confirmed",
+    mode: "paired_targets_per_websocket_job_confirmed",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
     textdelay: delayMs,
     totalSteps,
     totalJobs,
-    noAck: true
+    noAck: false
   });
 });
 
