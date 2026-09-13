@@ -630,6 +630,22 @@ box-sizing:border-box!important;border-radius:0!important;
 
 </div>
 
-<script src="/frontend.js?v=23"></script>
+<script src="/frontend.js?v=24"></script>
 </body>
 </html>
+<style id="mobile-logo-v24">
+  /* v24: supplied migsock TEAM logo, sized for portrait/mobile without distortion */
+  #pageHeader{min-height:108px!important}
+  #pageHeader > div.relative{min-height:108px!important}
+  #pageHeader img{width:auto!important;max-width:min(82vw,300px)!important;height:126px!important;object-fit:contain!important;object-position:center!important}
+  @media(max-width:640px){
+    #pageHeader{min-height:96px!important;border-radius:18px!important}
+    #pageHeader > div.relative{min-height:96px!important}
+    #pageHeader img{max-width:78vw!important;height:108px!important}
+  }
+  @media(max-width:380px){
+    #pageHeader{min-height:90px!important}
+    #pageHeader > div.relative{min-height:90px!important}
+    #pageHeader img{max-width:76vw!important;height:100px!important}
+  }
+</style>
