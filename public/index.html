@@ -106,7 +106,8 @@
     font-size: 12px !important;
   }
   .compact-room {
-    max-width: 260px !important;
+    width: min(100%, 230px) !important;
+    max-width: 230px !important;
     height: 40px !important;
     min-height: 40px !important;
     font-size: 13px !important;
@@ -297,8 +298,119 @@ box-sizing:border-box!important;border-radius:0!important;
 #accountCommandButtons{transition:opacity .2s ease,transform .2s ease,max-height .2s ease}
 #mainControlPanel.commands-collapsed > :not(#toggleAccountCommands){display:none!important}
 #mainControlPanel.commands-collapsed{padding-top:10px!important;padding-bottom:24px!important;gap:0!important}
-#mainControlPanel.commands-collapsed #toggleAccountCommands{display:flex!important}
-#toggleAccountCommands{bottom:-1rem!important}
+/* Floating collapse control: stays above every panel and remains clickable when the main panel is collapsed. */
+#toggleAccountCommands{
+  position:fixed!important;
+  right:16px!important;
+  bottom:18px!important;
+  z-index:99999!important;
+  width:50px!important;
+  height:50px!important;
+  min-width:50px!important;
+  min-height:50px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:linear-gradient(180deg,#3b82f6,#2563eb)!important;
+  border:2px solid #60a5fa!important;
+  color:#ffffff!important;
+  box-shadow:0 10px 28px rgba(37,99,235,.48),0 0 0 4px rgba(37,99,235,.16)!important;
+  border-radius:999px!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important;
+  transition:transform .18s ease, box-shadow .18s ease, background .18s ease!important;
+}
+#toggleAccountCommands svg{width:25px!important;height:25px!important;display:block!important}
+#toggleAccountCommands:hover{background:linear-gradient(180deg,#60a5fa,#2563eb)!important;transform:scale(1.07)!important;box-shadow:0 12px 32px rgba(37,99,235,.58),0 0 0 4px rgba(37,99,235,.2)!important}
+#toggleAccountCommands:active{transform:scale(.94)!important}
+@media (max-width:430px){#toggleAccountCommands{right:12px!important;bottom:14px!important;width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important}}
+</style>
+<style id="modern-dashboard-v16">
+  body{background:radial-gradient(circle at 50% -10%,#102a62 0,#070b16 38%,#05070c 100%)!important}
+  .max-w-4xl{max-width:960px!important}
+  #pageHeader{border-color:rgba(37,99,235,.7)!important;background:linear-gradient(145deg,rgba(8,25,58,.96),rgba(4,10,26,.96))!important;box-shadow:0 12px 34px rgba(0,0,0,.34),0 0 30px rgba(37,99,235,.10)!important}
+  #mainControlPanel,.bg-slate-900\/90{background:linear-gradient(145deg,rgba(10,25,55,.94),rgba(5,11,27,.94))!important;border-color:rgba(14,116,234,.62)!important;box-shadow:0 14px 38px rgba(0,0,0,.28),0 0 28px rgba(37,99,235,.07)!important}
+  .modern-input,.troop-input{border:1px solid #cbd5e1!important;background:#fff!important;color:#0f172a!important}
+  .modern-input{height:44px!important;border-radius:15px!important}
+  .compact-main{height:42px!important;border-radius:13px!important;font-size:13px!important}
+  .compact-save{height:40px!important;border-radius:12px!important}
+  .compact-room{width:min(100%,520px)!important;max-width:520px!important;height:48px!important;border-radius:16px!important;font-size:14px!important}
+  .troop-range-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:12px}
+  .range-control{display:flex;align-items:center;gap:10px;min-width:0}
+  .range-control label{font-size:12px;font-weight:700;color:#cbd5e1;white-space:nowrap}
+  .compact-range{width:82px!important;height:40px!important;font-size:13px!important;font-weight:800!important;border-radius:13px!important;padding:0 8px!important}
+  .clear-troop-button{height:42px;min-width:148px;padding:0 16px;border-radius:14px;border:1px solid rgba(244,63,94,.62);background:linear-gradient(180deg,rgba(136,19,55,.35),rgba(76,5,25,.55));color:#fb7185;display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:800;box-shadow:0 0 18px rgba(244,63,94,.10);transition:transform .15s,box-shadow .2s,background .2s}
+  .clear-troop-button:hover{background:linear-gradient(180deg,rgba(190,24,93,.45),rgba(127,29,29,.55));box-shadow:0 0 24px rgba(244,63,94,.20);transform:translateY(-1px)}
+  .clear-troop-button:active{transform:scale(.96)}
+  #accountCommandBox{padding-top:14px!important}
+  #accountCommandButtons button{min-height:48px!important;border-radius:15px!important;font-size:13px!important}
+  #toggleAccountCommands{right:18px!important;bottom:22px!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;border:2px solid #60a5fa!important;background:linear-gradient(180deg,#3b82f6,#1d4ed8)!important;box-shadow:0 12px 34px rgba(37,99,235,.55),0 0 0 5px rgba(37,99,235,.14)!important}
+  #toggleAccountCommands svg{width:28px!important;height:28px!important}
+  #mainControlPanel.commands-collapsed{min-height:20px!important;height:20px!important;padding:0!important;background:transparent!important;border-color:transparent!important;box-shadow:none!important;overflow:visible!important}
+  #mainControlPanel.commands-collapsed #toggleAccountCommands{bottom:22px!important}
+  @media(max-width:640px){
+    .max-w-4xl{padding-left:10px!important;padding-right:10px!important}
+    #pageHeader img{height:110px!important}
+    #mainControlPanel{padding:14px!important;border-radius:22px!important}
+    .troop-range-row{grid-template-columns:1fr auto 1fr;gap:7px}
+    .range-control{gap:6px}
+    .range-control label{font-size:11px}
+    .compact-range{width:64px!important;height:38px!important}
+    .clear-troop-button{min-width:108px;height:40px;padding:0 9px;font-size:9px;gap:5px}
+    .clear-troop-button svg{width:17px!important;height:17px!important}
+    .compact-room{height:44px!important;width:min(100%,380px)!important}
+    #toggleAccountCommands{right:12px!important;bottom:14px!important;width:54px!important;height:54px!important}
+  }
+</style>
+
+<style id="commandbox-image-match-v17">
+  .command-section{border:1px solid rgba(37,99,235,.62);border-radius:20px;padding:14px;background:linear-gradient(145deg,rgba(5,22,52,.78),rgba(3,12,30,.72));box-shadow:inset 0 1px rgba(96,165,250,.05),0 10px 28px rgba(0,0,0,.18)}
+  .command-title{display:flex;align-items:center;gap:10px;color:#eaf2ff;font-size:16px;font-weight:800;margin-bottom:12px}
+  .command-title-icon{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#dbeafe;border:1px solid rgba(59,130,246,.55);background:rgba(8,47,107,.42);box-shadow:0 0 14px rgba(37,99,235,.14)}
+  .command-title-icon svg{width:19px;height:19px}
+  .save-load-row{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px;gap:10px;align-items:center}
+  .command-input{height:48px!important;border-radius:15px!important;font-size:14px!important;padding:0 14px!important}
+  .command-icon-button{height:48px;width:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.18s ease;box-sizing:border-box}
+  .command-icon-button svg{width:25px;height:25px}
+  .save-button{background:#2563eb;color:#fff;border:1px solid #3b82f6;box-shadow:0 8px 22px rgba(37,99,235,.25)}
+  .load-button{background:#17243a;color:#e2e8f0;border:1px solid #334155}
+  .command-icon-button:active,.command-wide-button:active{transform:scale(.96)}
+  .troop-range-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(150px,1.05fr) minmax(0,1fr)!important;align-items:end;gap:12px!important;padding-top:2px!important;border-top:0!important}
+  .range-box{display:flex;align-items:center;gap:10px;min-width:0;padding:8px 10px;border:1px solid rgba(37,99,235,.5);border-radius:14px;background:rgba(4,18,43,.55)}
+  .range-label{font-size:13px;font-weight:800;color:#cbd5e1;white-space:nowrap}
+  .range-box .compact-range{width:74px!important;flex:1;min-width:55px;height:40px!important}
+  .clear-troop-button{width:100%;height:48px;min-width:0!important;border-radius:14px!important;font-size:12px!important}
+  .clear-troop-button svg{width:20px!important;height:20px!important}
+  .main-command-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .main-command-field{min-width:0;border:1px solid rgba(37,99,235,.5);border-radius:14px;padding:9px 10px 10px;background:rgba(4,18,43,.48)}
+  .main-command-field label{display:block;font-size:12px;font-weight:800;color:#cbd5e1;margin:0 0 7px 2px}
+  .main-command-field .command-input{width:100%;box-sizing:border-box}
+  .command-actions-grid{margin-top:10px}
+  .command-wide-button{height:48px;border-radius:14px;border:1px solid rgba(59,130,246,.65);display:flex;align-items:center;justify-content:center;gap:10px;color:#eff6ff;font-weight:800;font-size:13px;cursor:pointer;transition:.18s ease}
+  .command-wide-button svg{width:20px;height:20px}
+  .generate-button{background:linear-gradient(180deg,#1459d9,#123f9d);box-shadow:0 8px 24px rgba(37,99,235,.18)}
+  .setpass-button{background:linear-gradient(180deg,#17345f,#132744);border-color:rgba(96,165,250,.55)}
+  .room-command-row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+  .compact-room{width:min(100%,520px)!important;max-width:520px!important;height:48px!important;text-align:center!important}
+  #toggleAccountCommands{position:fixed!important;right:18px!important;bottom:22px!important;z-index:999999!important}
+  @media(max-width:600px){
+    .command-section{padding:12px;border-radius:17px}
+    .save-load-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:7px}
+    .command-icon-button{width:54px;height:46px}
+    .command-input{height:44px!important;font-size:13px!important}
+    .troop-range-row{grid-template-columns:minmax(0,1fr) minmax(125px,1.1fr) minmax(0,1fr)!important;gap:7px!important}
+    .range-box{padding:7px 6px;gap:5px}
+    .range-label{font-size:11px}
+    .range-box .compact-range{height:38px!important;font-size:12px!important}
+    .clear-troop-button{height:44px;font-size:10px!important;padding:0 5px!important;gap:5px}
+    .main-command-grid{gap:7px}
+    .main-command-field{padding:7px}
+    .main-command-field label{font-size:10px;margin-bottom:5px}
+    .command-wide-button{height:44px;font-size:10px;gap:6px}
+    .command-wide-button svg{width:17px;height:17px}
+    .room-command-row{gap:10px}
+    .compact-room{height:44px!important}
+  }
 </style>
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
@@ -318,62 +430,73 @@ box-sizing:border-box!important;border-radius:0!important;
     </div>
   </div>
 
-  <div id="mainControlPanel" class="relative bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5">
-    <div class="flex items-center justify-between">
-      <h3 class="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-        
-      
-      </h3>
-    </div>
-    
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
-      <div class="space-y-1.5">
-        <label class="text-xs font-semibold text-slate-400">Main troop</label>
-        <input id="mainTroop" class="modern-input compact-main w-full px-3 text-sm transition-all" placeholder="Contoh: u1" autocomplete="off">
-      </div>
-      <div class="space-y-1.5">
-        <label class="text-xs font-semibold text-slate-400">Main password</label>
-        <div class="flex gap-2">
-          <input id="mainPassword" type="password" class="modern-input compact-main min-w-0 flex-1 px-3 text-sm transition-all" placeholder="Password akun" autocomplete="off">
-          <button id="generatePassword" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
-        </div>
+  <div id="mainControlPanel" class="relative bg-slate-900/90 backdrop-blur-xl border border-blue-700/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-4 sm:space-y-5">
 
-        <div class="pt-2">
-          <label class="block text-[11px] font-semibold text-slate-400 mb-1.5">Save / Load</label>
-          <div class="flex gap-2">
-            <input id="saveName" class="modern-input compact-save min-w-0 flex-1 px-3 text-sm" value="troop1" placeholder="Nama file save" autocomplete="off">
-            <button id="saveAccounts" class="shrink-0 bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-10 h-9" title="Save JSON" aria-label="Save JSON">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            </button>
-            <button id="loadAccounts" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-2 rounded-lg transition-all active:scale-95 flex items-center justify-center w-10 h-9" title="Load JSON" aria-label="Load JSON">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-            </button>
-          </div>
-          <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
-        </div>
+    <!-- Save / Load -->
+    <div class="command-section save-load-section">
+      <div class="command-title">
+        <span class="command-title-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h11l3 3v13H5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 4v5h8V4M8 20v-6h8v6"/></svg>
+        </span>
+        <span>Save / Load</span>
       </div>
-    </div>
-
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 pt-3 border-t border-slate-800/60">
-      <div class="flex items-center gap-2.5 justify-between sm:justify-start">
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-slate-400">Mulai</label>
-          <input id="rangeStart" type="number" class="modern-input compact-range bg-slate-950/80 border border-slate-800/80 rounded-xl px-2 py-2 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
-        </div>
-        <span class="text-slate-500 mt-6 text-xs font-medium">s/d</span>
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-slate-400">Akhir</label>
-          <input id="rangeEnd" type="number" class="modern-input compact-range bg-slate-950/80 border border-slate-800/80 rounded-xl px-2 py-2 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <button id="generateTroop" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-          GENERATE TROOP
+      <div class="save-load-row">
+        <input id="saveName" class="modern-input command-input save-name-input" value="troop1" placeholder="Nama file save" autocomplete="off">
+        <button id="saveAccounts" class="command-icon-button save-button" title="Save JSON" aria-label="Save JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         </button>
-        <button id="clearFields" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/40 font-bold px-3.5 py-3 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center" title="Hapus Semua">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        <button id="loadAccounts" class="command-icon-button load-button" title="Load JSON" aria-label="Load JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        </button>
+      </div>
+      <input id="loadFile" class="hidden" type="file" accept="application/json,.json">
+    </div>
+
+    <!-- Troop command box -->
+    <div class="command-section troop-command-section">
+      <div class="command-title">
+        <span class="command-title-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </span>
+        <span>Troop</span>
+      </div>
+
+      <div class="troop-range-row">
+        <label class="range-box" for="rangeStart">
+          <span class="range-label">Mulai</span>
+          <input id="rangeStart" type="number" class="modern-input compact-range" value="1" inputmode="numeric">
+        </label>
+
+        <button id="clearFields" class="clear-troop-button" title="Hapus Troop" aria-label="Hapus Troop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>HAPUS TROOP</span>
+        </button>
+
+        <label class="range-box" for="rangeEnd">
+          <span class="range-label">Akhir</span>
+          <input id="rangeEnd" type="number" class="modern-input compact-range" value="10" inputmode="numeric">
+        </label>
+      </div>
+
+      <div class="main-command-grid">
+        <div class="main-command-field">
+          <label for="mainTroop">Main Troop</label>
+          <input id="mainTroop" class="modern-input command-input" placeholder="Contoh: u1" autocomplete="off">
+        </div>
+        <div class="main-command-field">
+          <label for="mainPassword">Main Password</label>
+          <input id="mainPassword" type="password" class="modern-input command-input" placeholder="Password akun" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="main-command-grid command-actions-grid">
+        <button id="generateTroop" class="command-wide-button generate-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M3 12h18"/></svg>
+          <span>GENERATE TROOP</span>
+        </button>
+        <button id="generatePassword" class="command-wide-button setpass-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="10" width="14" height="10" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 10V7a4 4 0 018 0v3M12 14v2"/></svg>
+          <span>SET PASS</span>
         </button>
       </div>
     </div>
@@ -383,25 +506,24 @@ box-sizing:border-box!important;border-radius:0!important;
 
     <div id="accountCommandBox" class="relative pt-2.5 border-t border-slate-800/60">
       <div id="accountCommandButtons" class="flex flex-row gap-2">
-      <button id="loginAll" class="login-all-button flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-        LOGIN ALL
-      </button>
-      <button id="logoutAll" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-        LOGOUT ALL
-      </button>
+        <button id="loginAll" class="login-all-button flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          LOGIN ALL
+        </button>
+        <button id="logoutAll" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          LOGOUT ALL
+        </button>
       </div>
     </div>
-    <button id="toggleAccountCommands" type="button" onclick="toggleAccountCommands()" class="absolute right-1 bottom-0 translate-y-1/2 z-10 w-8 h-8 rounded-full bg-slate-800 border border-slate-600 text-slate-300 shadow-lg flex items-center justify-center transition-all active:scale-90" title="Sembunyikan bagian atas" aria-label="Sembunyikan bagian atas" aria-expanded="true">
-      <svg id="toggleAccountCommandsIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6"/></svg>
+    <button id="toggleAccountCommands" type="button" onclick="toggleAccountCommands()" title="Sembunyikan bagian atas" aria-label="Sembunyikan bagian atas" aria-expanded="true">
+      <svg id="toggleAccountCommandsIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6"/></svg>
     </button>
   </div>
 
-
-  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
-    <div class="flex flex-col sm:flex-row gap-2.5">
-      <input id="room" class="modern-input compact-room flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-blue-700/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
+    <div class="room-command-row">
+      <input id="room" class="modern-input compact-room" placeholder="Nama room tujuan..." autocomplete="off">
       <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
         <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
         <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
@@ -494,6 +616,6 @@ box-sizing:border-box!important;border-radius:0!important;
 
 </div>
 
-<script src="/frontend.js?v=11"></script>
+<script src="/frontend.js?v=17"></script>
 </body>
 </html>
