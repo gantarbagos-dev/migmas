@@ -97,6 +97,111 @@
   .troop-icon{width:27px;height:27px}
 }
 </style>
+
+<style id="login-mobile-animation">
+/* Login UI - mobile friendly, animated, tanpa mengubah logic */
+.login-icon{
+  position:relative;
+  overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .18s ease, box-shadow .25s ease, background .25s ease;
+}
+.login-icon::before{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.20) 50%,transparent 65%);
+  transform:translateX(-70%) rotate(8deg);
+  animation:loginShine 3.8s ease-in-out infinite;
+  pointer-events:none;
+}
+.login-icon svg{position:relative;z-index:1}
+.login-icon:hover{
+  transform:translateY(-1px) scale(1.04);
+  box-shadow:0 0 18px rgba(16,185,129,.24);
+}
+.login-icon:active{transform:scale(.90)}
+.troop-card{
+  animation:troopIn .45s cubic-bezier(.2,.8,.2,1) both;
+}
+.troop-card:nth-child(1){animation-delay:.02s}
+.troop-card:nth-child(2){animation-delay:.05s}
+.troop-card:nth-child(3){animation-delay:.08s}
+.troop-card:nth-child(4){animation-delay:.11s}
+.troop-card:nth-child(5){animation-delay:.14s}
+.troop-card:nth-child(6){animation-delay:.17s}
+.troop-card:nth-child(7){animation-delay:.20s}
+.troop-card:nth-child(8){animation-delay:.23s}
+.troop-card:nth-child(9){animation-delay:.26s}
+.troop-card:nth-child(10){animation-delay:.29s}
+.troop-input{
+  transition:border-color .22s ease,box-shadow .22s ease,transform .18s ease,background .22s ease;
+}
+.troop-input:focus{
+  transform:translateY(-1px);
+  background:rgba(15,23,42,.98);
+  box-shadow:0 0 0 2px rgba(59,130,246,.18),0 8px 20px rgba(0,0,0,.16);
+}
+.troop-status.online{
+  animation:onlinePulse 2.2s ease-in-out infinite;
+}
+@keyframes troopIn{
+  from{opacity:0;transform:translateY(8px) scale(.985)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes loginShine{
+  0%,55%{transform:translateX(-75%) rotate(8deg)}
+  75%,100%{transform:translateX(75%) rotate(8deg)}
+}
+@keyframes onlinePulse{
+  0%,100%{box-shadow:0 0 8px rgba(16,185,129,.10)}
+  50%{box-shadow:0 0 14px rgba(16,185,129,.22)}
+}
+@media(max-width:430px){
+  .login-icon{box-shadow:0 0 12px rgba(16,185,129,.12)}
+  .troop-card{animation-duration:.38s}
+}
+@media(prefers-reduced-motion:reduce){
+  .troop-card,.login-icon::before,.troop-status.online{
+    animation:none!important;
+  }
+  .login-icon,.troop-input{transition:none!important}
+}
+</style>
+
+
+<style id="main-login-animation">
+.login-all-button{
+  position:relative;
+  overflow:hidden;
+  transition:transform .18s ease,box-shadow .25s ease,background .25s ease;
+}
+.login-all-button::after{
+  content:"";
+  position:absolute;
+  top:0;bottom:0;width:45%;
+  left:-55%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
+  transform:skewX(-18deg);
+  animation:mainLoginSweep 4.5s ease-in-out infinite;
+}
+.login-all-button svg,.login-all-button{
+  isolation:isolate;
+}
+.login-all-button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 26px rgba(16,185,129,.18);
+}
+.login-all-button:active{transform:scale(.97)}
+@keyframes mainLoginSweep{
+  0%,55%{left:-55%}
+  80%,100%{left:120%}
+}
+@media(prefers-reduced-motion:reduce){
+  .login-all-button::after{animation:none}
+}
+</style>
+
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
@@ -165,7 +270,7 @@
     <div id="accounts" class="space-y-1.5 pt-1"></div>
 
     <div class="flex flex-row gap-2 pt-2.5 border-t border-slate-800/60">
-      <button id="loginAll" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
+      <button id="loginAll" class="login-all-button flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         LOGIN ALL
       </button>
