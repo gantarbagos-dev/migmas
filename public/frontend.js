@@ -23,19 +23,19 @@ function sync(){
 
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
-    <div class="bg-slate-950/80 border border-slate-800/70 rounded-xl p-3 space-y-2.5 transition-all hover:border-slate-700">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-bold tracking-wide text-slate-400">Troop ${i+1}</span>
-        <span id="status${i}" class="text-[9px] font-bold px-2 py-0.5 rounded-full ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input id="u${i}" value="${esc(a.username)}" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
-        <input id="p${i}" value="${esc(a.password)}" type="password" class="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
-      </div>
-      <div class="grid grid-cols-[1fr_auto_1fr] gap-1.5 pt-0.5 items-center">
-        <button onclick="loginOne(${i})" class="bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-2 rounded-lg text-[11px] transition-all active:scale-95">IN</button>
-        <span id="b${i}" class="min-w-[54px] text-center text-[9px] font-semibold text-slate-400 leading-none whitespace-nowrap"><span class="mr-0.5 text-[9px]">CR</span><strong class="text-[10px] font-bold text-slate-200">${esc(a.balance)}</strong></span>
-        <button onclick="logoutOne(${i})" class="bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-2 rounded-lg text-[11px] transition-all active:scale-95">OUT</button>
+    <div class="bg-slate-950/80 border border-slate-800/70 rounded-lg p-2 transition-all hover:border-slate-700">
+      <div class="grid grid-cols-[52px_minmax(0,1fr)_minmax(0,1fr)_76px_72px_72px] sm:grid-cols-[58px_minmax(0,1fr)_minmax(0,1fr)_88px_68px_68px] gap-1.5 items-center">
+        <div class="flex flex-col items-center justify-center min-w-0">
+          <span class="text-[10px] font-bold tracking-wide text-slate-300">T${i+1}</span>
+          <span id="status${i}" class="mt-0.5 w-full text-center text-[7px] font-bold px-1 py-0.5 rounded-full ${a.status === 'ONLINE' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' : a.status === 'SUSPEND' ? 'bg-amber-950/80 text-amber-300 border border-amber-800/50' : a.status === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-slate-900 text-slate-400 border border-slate-800'}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
+        </div>
+        <input id="u${i}" value="${esc(a.username)}" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
+        <input id="p${i}" value="${esc(a.password)}" type="password" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
+        <div id="b${i}" class="min-w-0 h-8 flex items-center justify-center rounded-md bg-slate-900/90 border border-slate-800 text-[9px] text-slate-400 whitespace-nowrap overflow-hidden" title="Saldo">
+          <span class="mr-1 text-[8px] text-slate-500">CR</span><strong class="text-[10px] font-bold text-slate-100 truncate">${esc(a.balance)}</strong>
+        </div>
+        <button onclick="loginOne(${i})" class="h-8 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold rounded-md text-[9px] transition-all active:scale-95">LOGIN</button>
+        <button onclick="logoutOne(${i})" class="h-8 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold rounded-md text-[9px] transition-all active:scale-95">OUT</button>
       </div>
     </div>
   `).join("");
