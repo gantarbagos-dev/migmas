@@ -222,10 +222,11 @@ function resolveBalance(sessionId, msg) {
   return true;
 }
 
-function waitForKickQueued(sessionId, timeoutMs = 8000) {
-  return new Promise((resolve, reject) => {
+function createKickQueuedWaiter(sessionId, timeoutMs = 8000) {
+  let entry;
+  const promise = new Promise((resolve, reject) => {
     const queue = kickQueuedWaiters.get(sessionId) || [];
-    const entry = { resolve, reject, timer: null };
+    entry = { resolve, reject, timer: null };
     entry.timer = setTimeout(() => {
       const current = kickQueuedWaiters.get(sessionId) || [];
       const index = current.indexOf(entry);
@@ -237,6 +238,19 @@ function waitForKickQueued(sessionId, timeoutMs = 8000) {
     queue.push(entry);
     kickQueuedWaiters.set(sessionId, queue);
   });
+  return { promise, entry };
+}
+
+function removeKickQueuedWaiter(sessionId, entry, error) {
+  const queue = kickQueuedWaiters.get(sessionId) || [];
+  const index = queue.indexOf(entry);
+  if (index < 0) return false;
+  queue.splice(index, 1);
+  clearTimeout(entry.timer);
+  if (queue.length) kickQueuedWaiters.set(sessionId, queue);
+  else kickQueuedWaiters.delete(sessionId);
+  entry.reject(error);
+  return true;
 }
 
 function resolveKickQueued(sessionId, msg) {
@@ -484,8 +498,8 @@ app.post("/api/kick-loop", async (req, res) => {
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
     textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
-    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount })),
-    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }))
+    targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount })),
+    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }))
   });
 
   (async () => {
@@ -493,9 +507,10 @@ app.post("/api/kick-loop", async (req, res) => {
     let completedSteps = 0;
     let completedJobs = 0;
     let failedJobs = 0;
-    const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, total: ids.length * loopCount }));
+    let dispatchedJobs = 0;
+    const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
-    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, total: totalSteps, failed: 0 }));
+    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }));
     const stateLock = { chain: Promise.resolve() };
 
     function addProgress(fn) {
@@ -531,8 +546,25 @@ app.post("/api/kick-loop", async (req, res) => {
         // room.kick.queued before the next target is sent.
         // The queued response is matched later through the per-session FIFO waiter.
         // No job.get verification is performed.
-        const queuedPromise = sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
-        const verification = queuedPromise
+        const dispatch = await sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        if (dispatch.dispatched) {
+          dispatchedJobs++;
+          targetProgress[targetIndex].dispatched++;
+          wsProgress[wsOrdinal - 1].dispatched++;
+          await addProgress(async () => {
+            publishKickProgress(execution, {
+              phase: "dispatched", completedSteps, totalSteps, completedJobs, dispatchedJobs, totalJobs,
+              percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
+              loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+              sessionId, websocket: wsOrdinal, direction: "forward",
+              acknowledged: 0, total: 1, sent: dispatchedJobs, failedJobs, sendConfirmed: true,
+              noAck: true, backgroundAck: true,
+              targetProgress: targetProgress.map(x => ({ ...x })),
+              wsProgress: wsProgress.map(x => ({ ...x }))
+            });
+          });
+        }
+        const verification = dispatch.queued
           .then(async queued => {
             // FAST MODE: only use room.kick.queued as the acknowledgement.
             // No job.get is sent or waited for.
@@ -549,7 +581,7 @@ app.post("/api/kick-loop", async (req, res) => {
               const finishedJobs = completedJobs + failedJobs;
               completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
               publishKickProgress(execution, {
-                phase: "job_done", completedSteps, totalSteps, completedJobs, totalJobs,
+                phase: "job_done", completedSteps, totalSteps, completedJobs, dispatchedJobs, totalJobs,
                 percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
                 loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                 sessionId, websocket: wsOrdinal, direction: "forward",
@@ -573,7 +605,7 @@ app.post("/api/kick-loop", async (req, res) => {
               const finishedJobs = completedJobs + failedJobs;
               completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
               publishKickProgress(execution, {
-                phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+                phase: "job_failed", completedSteps, totalSteps, completedJobs, dispatchedJobs, totalJobs,
                 percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
                 loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                 sessionId, websocket: wsOrdinal, direction: "forward",
@@ -599,7 +631,7 @@ app.post("/api/kick-loop", async (req, res) => {
           const finishedJobs = completedJobs + failedJobs;
           completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
           publishKickProgress(execution, {
-            phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+            phase: "job_failed", completedSteps, totalSteps, completedJobs, dispatchedJobs, totalJobs,
             percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
             loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
             sessionId, websocket: wsOrdinal, direction: "forward",
@@ -616,21 +648,15 @@ app.post("/api/kick-loop", async (req, res) => {
     async function sendKickAndWaitQueued(sessionId, payload) {
       // Register the FIFO waiter BEFORE send() so an extremely fast API response
       // cannot arrive before the listener is ready.
-      const queuedPromise = waitForKickQueued(sessionId, 8000);
+      const waiter = createKickQueuedWaiter(sessionId, 8000);
       try {
         await sendAsync(sessionId, payload);
+        return { queued: waiter.promise, dispatched: true };
       } catch (e) {
-        const queue = kickQueuedWaiters.get(sessionId) || [];
-        const entry = queue[queue.length - 1];
-        if (entry) {
-          clearTimeout(entry.timer);
-          queue.pop();
-          if (queue.length) kickQueuedWaiters.set(sessionId, queue);
-          else kickQueuedWaiters.delete(sessionId);
-          entry.reject(e);
-        }
+        // Remove only this request's waiter; preserve other in-flight kicks.
+        removeKickQueuedWaiter(sessionId, waiter.entry, e);
+        return { queued: Promise.reject(e), dispatched: false };
       }
-      return queuedPromise;
     }
 
 
@@ -643,9 +669,8 @@ app.post("/api/kick-loop", async (req, res) => {
           const burst = [];
           const burstIndexes = orderedIndices.slice(pos, pos + RACE_BURST);
 
-          // Race burst: dispatch up to three kicks immediately without waiting
-          // for queued ACKs. ACKs are only awaited after the burst is on the wire,
-          // preventing an unlimited flood while keeping latency low.
+          // Race burst: dispatch up to three kicks immediately.
+          // Queued ACKs are background-only and never gate the next burst.
           for (const targetIndex of burstIndexes) {
             const targetUsername = targetList[targetIndex];
             const dispatched = await sendTarget(
@@ -655,7 +680,7 @@ app.post("/api/kick-loop", async (req, res) => {
             burst.push(dispatched.verification);
           }
 
-          await Promise.allSettled(burst);
+          void Promise.allSettled(burst);
 
           const hasNextBurst = pos + RACE_BURST < orderedIndices.length || round + 1 < loopCount;
           if (delayMs > 0 && hasNextBurst) {
@@ -663,8 +688,8 @@ app.post("/api/kick-loop", async (req, res) => {
               const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
               publishKickProgress(execution, {
                 phase: "delay", completedSteps, totalSteps,
-                completedJobs, totalJobs,
-                percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
+                completedJobs, dispatchedJobs, totalJobs,
+                percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
                 loop: round + 1,
                 targetIndex: lastTargetIndex + 1,
                 target: targetList[lastTargetIndex],
@@ -690,6 +715,7 @@ app.post("/api/kick-loop", async (req, res) => {
         completedSteps: 0,
         totalSteps,
         completedJobs: 0,
+        dispatchedJobs: 0,
         totalJobs,
         percent: 0,
         loop: 1,
@@ -721,6 +747,7 @@ app.post("/api/kick-loop", async (req, res) => {
         completedSteps: Math.min(totalSteps, Math.floor(completedJobs / Math.max(1, ids.length))),
         totalSteps,
         completedJobs,
+        dispatchedJobs,
         totalJobs,
         percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
         loop: loopCount,
@@ -740,7 +767,7 @@ app.post("/api/kick-loop", async (req, res) => {
     } catch (e) {
       execution.done = true;
       execution.error = safeError(e);
-      publishKickProgress(execution, { phase: "error", error: execution.error, completedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })), wsProgress: wsProgress.map(x => ({ ...x })) });
+      publishKickProgress(execution, { phase: "error", error: execution.error, completedJobs, dispatchedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })), wsProgress: wsProgress.map(x => ({ ...x })) });
     }
 
   })();
@@ -749,7 +776,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "race_burst_3_queued_ack_only",
+    mode: "race_burst_3_background_ack",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
