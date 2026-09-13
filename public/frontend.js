@@ -32,10 +32,10 @@ function renderAccounts(){
         <input id="u${i}" value="${esc(a.username)}" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Username" autocomplete="off">
         <input id="p${i}" value="${esc(a.password)}" type="password" class="min-w-0 w-full h-8 bg-slate-900/90 border border-slate-800 rounded-md px-2 text-[10px] sm:text-xs text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Password" autocomplete="off">
         <div id="b${i}" class="min-w-0 h-8 flex items-center justify-center rounded-md bg-slate-900/90 border border-slate-800 text-[9px] text-slate-400 whitespace-nowrap overflow-hidden" title="Saldo">
-          <span class="mr-1 text-[8px] text-slate-500">CR</span><strong class="text-[10px] font-bold text-slate-100 truncate">${esc(a.balance)}</strong>
+          <strong class="text-[10px] font-bold text-slate-100 truncate">${esc(a.balance)}</strong>
         </div>
-        <button onclick="loginOne(${i})" class="h-8 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold rounded-md text-[9px] transition-all active:scale-95">LOGIN</button>
-        <button onclick="logoutOne(${i})" class="h-8 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold rounded-md text-[9px] transition-all active:scale-95">OUT</button>
+        <button onclick="loginOne(${i})" class="h-8 w-8 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold rounded-md transition-all active:scale-95 flex items-center justify-center" title="Login" aria-label="Login"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path stroke-linecap="round" stroke-linejoin="round" d="m10 17 5-5-5-5M15 12H3"/></svg></button>
+        <button onclick="logoutOne(${i})" class="h-8 w-8 bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold rounded-md transition-all active:scale-95 flex items-center justify-center" title="Logout" aria-label="Logout"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg></button>
       </div>
     </div>
   `).join("");
@@ -63,7 +63,9 @@ function setStatus(i, text, kind=""){
 }
 
 function setBalance(i, label){
-  accounts[i].balance = label || "-";
+  let value = String(label ?? "").trim();
+  value = value.replace(/\s*(CR|credits?)\s*$/i, "").trim();
+  accounts[i].balance = value || "-";
   const b = el(`b${i}`);
   if(b) { const v = b.querySelector("strong"); if(v) v.textContent = accounts[i].balance; else b.textContent = accounts[i].balance; }
 }
