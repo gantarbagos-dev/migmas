@@ -36,6 +36,11 @@ function renderAccounts(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg>
         </button>
       </div>
+      <div class="kick-troop-progress" id="kickTroopProgress${i}" data-kick-troop="${i+1}">
+        <div class="kick-troop-progress-head"><span>KICK</span><span id="kickTroopProgressText${i}">0/0</span></div>
+        <div class="kick-troop-progress-track"><div id="kickTroopProgressBar${i}" class="kick-troop-progress-bar"></div></div>
+        <span id="kickTroopProgressFail${i}" class="kick-troop-progress-fail"></span>
+      </div>
     </div>
   `).join("");
 }
@@ -721,6 +726,39 @@ async function balanceAll(){
   }
 }
 
+function resetPerTroopKickProgress(){
+  for(let i=0;i<10;i++){
+    const bar=el(`kickTroopProgressBar${i}`);
+    const txt=el(`kickTroopProgressText${i}`);
+    const fail=el(`kickTroopProgressFail${i}`);
+    if(bar) bar.style.width="0%";
+    if(txt) txt.textContent="0/0";
+    if(fail) fail.textContent="";
+  }
+}
+
+function updatePerTroopKickProgress(wsProgress){
+  if(!Array.isArray(wsProgress)) return;
+  wsProgress.forEach(tp=>{
+    const i=Math.max(0,Number(tp.websocket||0)-1);
+    if(i<0 || i>=10) return;
+    const completed=Math.max(0,Number(tp.completed)||0);
+    const failed=Math.max(0,Number(tp.failed)||0);
+    const total=Math.max(0,Number(tp.total)||0);
+    const finished=Math.min(total,completed+failed);
+    const pct=total>0 ? Math.min(100,Math.round((finished/total)*100)) : 0;
+    const bar=el(`kickTroopProgressBar${i}`);
+    const txt=el(`kickTroopProgressText${i}`);
+    const fail=el(`kickTroopProgressFail${i}`);
+    if(bar){
+      bar.style.width=`${pct}%`;
+      bar.classList.toggle("has-failure",failed>0);
+    }
+    if(txt) txt.textContent=`${completed}/${total}`;
+    if(fail) fail.textContent=failed>0 ? `gagal ${failed}` : "";
+  });
+}
+
 function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   // Hentikan polling progress yang sedang berjalan.
   if (typeof window.stopKickProgressPolling === "function") {
@@ -735,6 +773,7 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   if (step) step.textContent = "Target 0/0";
   const targetProgress = el("kickTargetProgress");
   if (targetProgress) targetProgress.innerHTML = "";
+  resetPerTroopKickProgress();
   if (wsProgressBox) wsProgressBox.innerHTML = "";
   if (meta) meta.textContent = reason;
 }
@@ -751,6 +790,11 @@ async function kickSelectedTargets(){
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
   const step = el("kickProgressStep");
   const targetProgressBox = el("kickTargetProgress");
+  resetPerTroopKickProgress();
+  for(let i=0;i<wsCount;i++){
+    const txt=el(`kickTroopProgressText${i}`);
+    if(txt) txt.textContent=`0/${total}`;
+  }
   if (targetProgressBox) {
     targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
   }
@@ -793,6 +837,8 @@ async function kickSelectedTargets(){
         const p = state.progress || {};
         if(p.type !== "kick.progress") return;
 
+        if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
+
         if (targetProgressBox && Array.isArray(p.targetProgress)) {
           p.targetProgress.forEach(tp => {
             const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
@@ -810,7 +856,7 @@ async function kickSelectedTargets(){
         bar.style.width = `${percent}%`;
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu ACK";
+        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu job";
         else if(p.phase === "job_done") txt.textContent = "KICK OK";
         else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
@@ -835,11 +881,11 @@ async function kickSelectedTargets(){
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
           stopProgress();
         } else if(p.phase === "target_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • job ${p.jobStatus || "completed"}`;
         } else if(p.phase === "job_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} selesai`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • job selesai`;
         } else if(p.phase === "job_failed") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ${p.error || "gagal"}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ${p.error || "job gagal"}`;
         }
 
         if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
