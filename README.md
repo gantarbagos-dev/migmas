@@ -7,3 +7,5 @@ Kick All now uses Race Mode: each WebSocket dispatches up to 3 `room.kick` comma
 - `textdelay` is used only between loops; targets inside the same burst and consecutive bursts are sent without delay.
 - Progress remains based on verified job results.
 - Final execution waits only for queued acknowledgements so progress reflects API acceptance; there is no job completion verification.
+
+Version 43: direct T1-T10 progress lookup and safe coalesced progress finalization.
