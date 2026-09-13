@@ -4,11 +4,6 @@ const targets = [];
 const participantNames = [];
 const el = id => document.getElementById(id);
 
-const log = msg => {
-  const t = new Date().toLocaleTimeString();
-  const logEl = el("log");
-  if(logEl) logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
-};
 
 function esc(v){
   return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
@@ -89,26 +84,24 @@ function validRange(){
 function generateTroop(){
   sync();
   const main = el("mainTroop").value.trim();
-  if(!main){ log("Generate Troop gagal: isi Main troop terlebih dahulu."); return; }
+  if(!main){ return; }
   const range = validRange();
-  if(!range){ log("Generate Troop gagal: angka mulai harus berupa bilangan bulat yang valid."); return; }
+  if(!range){ return; }
   el("rangeEnd").value = String(range.end);
   for(let i=0; i<10; i++){
     accounts[i].username = main + String(range.start + i * range.step);
   }
   renderAccounts();
-  log(`Generate Troop berhasil: ${accounts[0].username} sampai ${accounts[9].username}.`);
 }
 
 function generatePassword(){
   sync();
   const p = el("mainPassword").value;
-  if(!p){ log("Generate Password gagal: isi Main password terlebih dahulu."); return; }
+  if(!p){ return; }
   for(let i=0; i<10; i++){
     accounts[i].password = p;
   }
   renderAccounts();
-  log("Generate Password: Main password disalin ke semua 10 troop.");
 }
 
 function clearFields(){
@@ -120,7 +113,6 @@ function clearFields(){
   el("mainTroop").value = "";
   el("mainPassword").value = "";
   renderAccounts();
-  log("Semua field troop dikosongkan.");
 }
 
 let apiDisplayIndex = null;
@@ -141,7 +133,7 @@ function openEvents(i){
       const msg = wrapper?.event ?? wrapper;
       handleApiEvent(i, msg);
     }catch(err){
-      handleApiEvent(i, {type:"sse.parse.error", raw:e.data, error:String(err)});
+      return;
     }
   };
   es.onerror = () => {
@@ -178,7 +170,6 @@ function resetTimer(){
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
   renderTimer();
-  log("Timer di-reset ke 60000 ms.");
 }
 
 function triggerKickAllIfReached(previousValue = null){
@@ -194,7 +185,6 @@ function triggerKickAllIfReached(previousValue = null){
 
   if(reached){
     kickTriggeredForTimer = true;
-    log(`Countdown mencapai ${configuredMs} ms: menjalankan KICK ALL otomatis.`);
     const button = el("kickAllButton");
     if(button) button.click();
     else kickSelectedTargets();
@@ -244,7 +234,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
       timerValue = 0;
       timerFrame = 0;
       renderTimer();
-      log("Countdown selesai: 0 ms. Menunggu event vote_started berikutnya.");
       return;
     }
 
@@ -256,14 +245,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
   timerFrame = setTimeout(tick, 0);
 }
 
-const apiEventHistory = [];
-const MAX_API_EVENT_HISTORY = 8;
-
-function clearApiEvents(){
-  apiEventHistory.length = 0;
-  const box = el("apiEvent");
-  if(box) box.textContent = "Log API dibersihkan. Menunggu event baru…";
-}
 
 function getKickEventData(msg){
   return msg?.data ?? msg ?? {};
@@ -368,18 +349,7 @@ function isVoteFinishedEvent(msg){
     ["vote_completed","vote_cancelled","vote_failed","kick_completed","kick_failed","completed","cancelled"].includes(action);
 }
 
-function appendApiEvent(i, msg){
-  const box = el("apiEvent");
-  if(!box) return;
-  const entry = `[${new Date().toLocaleTimeString()}] Troop ${i + 1} • ${msg?.type ?? "unknown"}\n${JSON.stringify(msg, null, 2)}`;
-  apiEventHistory.push(entry);
-  if(apiEventHistory.length > MAX_API_EVENT_HISTORY) apiEventHistory.shift();
-  box.textContent = apiEventHistory.join("\n\n────────────────────────\n\n");
-  box.scrollTop = box.scrollHeight;
-}
-
 function handleApiEvent(i, msg){
-  appendApiEvent(i, msg);
   if(isVoteFinishedEvent(msg)){
     // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
@@ -398,7 +368,6 @@ function handleApiEvent(i, msg){
 
     activeVoteKey = eventKey;
     const countdownMs = getVoteCountdownMs(msg);
-    log(`Vote kick terdeteksi: countdown real-time ${countdownMs} ms.`);
     startCountdown(countdownMs, eventKey);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
@@ -410,27 +379,22 @@ function handleApiEvent(i, msg){
     setStatus(i, "ERROR");
     accounts[i].sessionId = null;
     setBalance(i, "-");
-    log(`Troop ${i+1}: ERROR - session digantikan oleh login lain.`);
   }
   if(msg.type === "session.closed"){
     accounts[i].sessionId = null;
     setStatus(i, "OFFLINE");
     setBalance(i, "-");
-    log(`Troop ${i+1}: OFFLINE - koneksi WebSocket terputus.`);
   }
   if(msg.type === "session.error"){
     setStatus(i, "ERROR");
-    log(`Troop ${i+1}: ERROR - ${msg.error || "WebSocket error"}`);
   }
   if(msg.type === "login.status" && String(msg.status).toUpperCase() === "SUSPEND"){
     setStatus(i, "SUSPEND");
-    log(`Troop ${i+1}: SUSPEND - ${msg.message || "Akun ditangguhkan."}`);
   }
   if(String(msg.type||"").includes("participants") || hasParticipantContainer(msg.data)){
     const list = extractParticipantNames(msg);
     if(list.length){
       renderParticipants(list);
-      log(`Participants diterima dari Troop ${i+1}: ${list.length} peserta.`);
     }
   }
 }
@@ -518,7 +482,7 @@ function clearTargets(){
 async function loginOne(i){
   sync();
   const a = accounts[i];
-  if(!a.username || !a.password){ log(`Troop ${i+1}: nama dan password wajib diisi.`); return; }
+  if(!a.username || !a.password){ ; return; }
   if(a.sessionId) await logoutOne(i, true);
   setStatus(i, "LOGIN…");
   try{
@@ -536,11 +500,9 @@ async function loginOne(i){
     else setBalance(i, "-");
     setStatus(i, "ONLINE");
     openEvents(i);
-    log(`Troop ${i+1} ${a.username}: ONLINE`);
   }catch(e){
     const status = e.loginStatus === "SUSPEND" ? "SUSPEND" : "ERROR";
     setStatus(i, status);
-    log(`Troop ${i+1}: LOGIN ${status} - ${e.message}`);
   }
 }
 
@@ -555,20 +517,18 @@ async function logoutOne(i, silent=false){
   a.sessionId = null;
   setStatus(i, "OFFLINE");
   setBalance(i, "-");
-  if(!silent) log(`Troop ${i+1}: LOGOUT`);
+  if(!silent) ;
 }
 
 async function batchAction(action, extra={}){
   const ids = accounts.map(a => a.sessionId).filter(Boolean);
-  if(!ids.length){ log(`${action.toUpperCase()}: tidak ada Troop yang ONLINE.`); return null; }
+  if(!ids.length){ ; return null; }
   try{
     const r = await fetch("/api/batch-action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionIds:ids, action, ...extra})});
     const j = await r.json();
-    if(!j.ok){ log(`${action.toUpperCase()} gagal: ${j.error||"Tidak ada session aktif."}`); return null; }
-    log(`${action.toUpperCase()}: ${j.sent}/${j.total} WebSocket diperintah bersamaan.`);
+    if(!j.ok){ ; return null; }
     return j;
   }catch(e){
-    log(`${action.toUpperCase()} gagal - ${e.message}`);
     return null;
   }
 }
@@ -576,7 +536,7 @@ async function batchAction(action, extra={}){
 async function loginAll(){
   sync();
   const list = accounts.map((a, i) => ({index:i, username:a.username, password:a.password, sessionId:a.sessionId})).filter(a => a.username && a.password);
-  if(!list.length){ log("LOGIN ALL: isi minimal satu Troop."); return; }
+  if(!list.length){ ; return; }
   list.forEach(a => setStatus(a.index, "LOGIN…"));
   try{
     const r = await fetch("/api/login-batch", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({accounts:list})});
@@ -600,11 +560,9 @@ async function loginAll(){
     }
     const ok = (j.results || []).filter(x => x.ok).length;
     const total = (j.results || []).length;
-    log(`LOGIN ALL: ${ok}/${total} Troop login bersamaan.`);
-    for(const item of (j.results || [])) if(!item.ok) log(`Troop ${item.index+1}: LOGIN ${String(item.status || "ERROR").toUpperCase()} - ${item.error}`);
+    for(const item of (j.results || [])) if(!item.ok) ;
   }catch(e){
     for(const a of list) setStatus(a.index, "ERROR");
-    log(`LOGIN ALL gagal - ${e.message}`);
   }
   resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
 }
@@ -618,12 +576,10 @@ async function logoutAll(){
     setStatus(i, "OFFLINE");
     setBalance(i, "-");
   }
-  log("LOGOUT ALL: semua WebSocket ditutup bersamaan.");
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket logout.");
 }
 
 el("resetTimerButton")?.addEventListener("click", resetTimer);
-el("clearApiEvents")?.addEventListener("click", clearApiEvents);
 el("generateTroop").onclick = generateTroop;
 el("generatePassword").onclick = generatePassword;
 el("clearFields").onclick = clearFields;
@@ -649,7 +605,6 @@ el("saveAccounts").onclick = function(){
   link.download = name + ".json";
   link.click();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  log(`Save berhasil: ${name}`);
 };
 
 el("loadAccounts").onclick = ()=> el("loadFile").click();
@@ -674,9 +629,7 @@ el("loadFile").onchange = e => {
         const base = file.name.replace(/\.json$/i, "");
         el("saveName").value = base || "troop1";
         renderAccounts();
-        log(`Load berhasil: ${file.name}`);
       }catch(err){
-        log(`Load gagal: ${err.message}`);
       }
     };
     reader.readAsText(file);
@@ -689,37 +642,35 @@ el("logoutAll").onclick = logoutAll;
 
 async function joinAll(){
   const room = el("room").value.trim();
-  if(!room){ log("JOIN ALL: nama room belum diisi."); return; }
+  if(!room){ ; return; }
   await batchAction("join", {room});
 }
 
 async function leaveAll(){
   const room = el("room").value.trim();
-  if(!room){ log("LEAVE ALL: nama room belum diisi."); return; }
+  if(!room){ ; return; }
   await batchAction("leave", {room});
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
 async function participants(){
   const room = el("room").value.trim();
-  if(!room){ log("PARTICIPANTS: nama room belum diisi."); return; }
+  if(!room){ ; return; }
   clearParticipants();
   const sessionId = accounts.map(a => a.sessionId).find(Boolean);
-  if(!sessionId){ log("PARTICIPANTS: tidak ada Troop yang ONLINE."); return; }
+  if(!sessionId){ ; return; }
   try{
     const r = await fetch("/api/action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId, action:"participants", room})});
     const j = await r.json();
-    if(!j.ok){ log(`PARTICIPANTS gagal: ${j.error||"Gagal meminta list peserta."}`); return; }
+    if(!j.ok){ ; return; }
     const troopIndex = accounts.findIndex(a => a.sessionId === sessionId);
-    log(`PARTICIPANTS: list peserta diminta oleh Troop ${troopIndex >= 0 ? troopIndex + 1 : "ONLINE"} saja.`);
   }catch(e){
-    log(`PARTICIPANTS gagal - ${e.message}`);
   }
 }
 
 async function balanceAll(){
   const online = accounts.map((a, i) => ({i, sessionId:a.sessionId})).filter(x => x.sessionId);
-  if(!online.length){ log("CEK SALDO ALL: tidak ada Troop yang ONLINE."); return; }
+  if(!online.length){ ; return; }
   // Saldo tidak bergantung pada satu SSE event-source. Backend menunggu
   // wallet.balance.result untuk setiap session dan mengembalikan hasilnya.
   try{
@@ -741,12 +692,9 @@ async function balanceAll(){
         ok++;
       }else{
         setBalance(item.i, "-");
-        log(`Troop ${item.i + 1}: CEK SALDO GAGAL - ${result?.error || "Tidak ada response."}`);
       }
     }
-    log(`CEK SALDO ALL: ${ok}/${online.length} saldo berhasil diperbarui.`);
   }catch(e){
-    log(`CEK SALDO ALL gagal - ${e.message}`);
   }
 }
 
@@ -771,8 +719,8 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
 
 async function kickSelectedTargets(){
   const room = el("room").value.trim();
-  if(!room){ log("KICK ALL: nama room belum diisi."); return; }
-  if(!targets.length){ log("KICK ALL: belum ada target kick."); return; }
+  if(!room){ ; return; }
+  if(!targets.length){ ; return; }
 
   const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
@@ -805,7 +753,6 @@ async function kickSelectedTargets(){
     if(!j.ok || !j.executionId){
       txt.textContent = "Gagal";
       meta.textContent = j.error || "Gagal memulai KICK ALL.";
-      log(`KICK ALL gagal: ${j.error || "Gagal memulai KICK ALL."}`);
       return;
     }
 
@@ -881,11 +828,9 @@ async function kickSelectedTargets(){
         } else if(p.phase === "completed") { bar.style.width = "100%";
           meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • delay ${textdelay} ms`;
           stopProgress();
-          log(`KICK ALL selesai: ${targets.length} target × ${textloop} loop.`);
         } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
           stopProgress();
-          log(`KICK ALL gagal: ${p.error || "Eksekusi gagal."}`);
         } else if(p.phase === "target_done") {
           meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target}`;
         } else if(p.phase === "job_done") {
@@ -919,7 +864,6 @@ async function kickSelectedTargets(){
   }catch(e){
     txt.textContent = "Gagal";
     meta.textContent = e.message;
-    log(`KICK ALL gagal - ${e.message}`);
   }
 }
 
