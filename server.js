@@ -17,6 +17,7 @@ const subscribers = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const kickJobWaiters = new Map();
+const kickQueuedWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -94,6 +95,7 @@ function connectAccount(username, password) {
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
       resolveBalance(sessionId, msg);
+      resolveKickQueued(sessionId, msg);
       resolveKickJob(sessionId, msg);
 
       // Jangan membuat event countdown sintetis dari teks umum.
@@ -217,6 +219,37 @@ function resolveBalance(sessionId, msg) {
     return true;
   }
   entry.resolve(wallet);
+  return true;
+}
+
+function waitForKickQueued(sessionId, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const queue = kickQueuedWaiters.get(sessionId) || [];
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
+      const current = kickQueuedWaiters.get(sessionId) || [];
+      const index = current.indexOf(entry);
+      if (index >= 0) current.splice(index, 1);
+      if (current.length) kickQueuedWaiters.set(sessionId, current);
+      else kickQueuedWaiters.delete(sessionId);
+      reject(new Error("Timeout menunggu room.kick.queued."));
+    }, timeoutMs);
+    queue.push(entry);
+    kickQueuedWaiters.set(sessionId, queue);
+  });
+}
+
+function resolveKickQueued(sessionId, msg) {
+  if (msg?.type !== "room.kick.queued") return false;
+  const queue = kickQueuedWaiters.get(sessionId);
+  if (!queue?.length) return false;
+  const entry = queue.shift();
+  if (queue.length) kickQueuedWaiters.set(sessionId, queue);
+  else kickQueuedWaiters.delete(sessionId);
+  clearTimeout(entry.timer);
+  const jobId = extractJobId(msg);
+  if (!jobId) entry.reject(new Error("API mengembalikan room.kick.queued tanpa job_id."));
+  else entry.resolve({ jobId, response: msg });
   return true;
 }
 
@@ -445,7 +478,7 @@ app.post("/api/kick-loop", async (req, res) => {
   // One independent sequence per WebSocket:
   // Troop-1: target 1 -> delay -> target 2 -> ... -> target 10 -> delay -> loop 2
   // Troop-2 does the same sequence concurrently, and so on.
-  // No room.kick ACK and no job.get is awaited.
+  // Fast mode: wait only for the queue response, then verify job status in the background.
   const totalSteps = loopCount * targetList.length;
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
@@ -476,13 +509,17 @@ app.post("/api/kick-loop", async (req, res) => {
     const wsEntries = ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
     const pairCount = Math.ceil(targetList.length / 2);
 
+    const pendingVerifications = [];
+
     async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
       const startedAt = Date.now();
-      let ok = false;
-      let error = null;
-      let jobId = null;
-      let jobStatus = "send_failed";
+      const result = {
+        sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
+        targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
+        ok: null, jobStatus: "queued_wait", jobId: null, error: null, totalMs: 0
+      };
+
       try {
         const account = sessions.get(sessionId);
         if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
@@ -490,82 +527,110 @@ app.post("/api/kick-loop", async (req, res) => {
           throw new Error("Permission rooms.kick tidak tersedia.");
         }
 
-        // The API queues room.kick and returns a job_id. Progress is only
-        // counted as successful after that job reaches a terminal success state.
+        // FAST: only wait until the API accepts the kick and gives us job_id.
+        // Do NOT wait for job.get before sending the next target.
         const queued = await sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
-        jobId = queued.jobId;
-        const statusResult = await waitKickJobCompletion(sessionId, jobId);
-        jobStatus = statusResult.status || (statusResult.ok ? "completed" : "failed");
-        if (!statusResult.ok) throw new Error(statusResult.error || "Kick job gagal.");
-
+        result.jobId = queued.jobId;
         sent++;
-        completedJobs++;
-        targetProgress[targetIndex].completed++;
-        wsProgress[wsOrdinal - 1].completed++;
-        ok = true;
+
+        // REAL verification continues independently in the background.
+        const verification = waitKickJobCompletion(sessionId, queued.jobId)
+          .then(async statusResult => {
+            result.jobStatus = statusResult.status || (statusResult.ok ? "completed" : "failed");
+            result.totalMs = Math.max(0, Date.now() - startedAt);
+            if (!statusResult.ok) throw new Error(statusResult.error || "Kick job gagal.");
+
+            result.ok = true;
+            completedJobs++;
+            targetProgress[targetIndex].completed++;
+            wsProgress[wsOrdinal - 1].completed++;
+
+            await addProgress(async () => {
+              const finishedJobs = completedJobs + failedJobs;
+              completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
+              publishKickProgress(execution, {
+                phase: "job_done", completedSteps, totalSteps, completedJobs, totalJobs,
+                percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
+                loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                sessionId, websocket: wsOrdinal, direction: "forward",
+                acknowledged: 1, total: 1, sent, failedJobs, sendConfirmed: true,
+                jobId: queued.jobId, jobStatus: result.jobStatus,
+                targetProgress: targetProgress.map(x => ({ ...x })),
+                wsProgress: wsProgress.map(x => ({ ...x }))
+              });
+            });
+            return result;
+          })
+          .catch(async e => {
+            result.ok = false;
+            result.jobStatus = result.jobStatus === "queued_wait" ? "failed" : result.jobStatus;
+            result.error = safeError(e);
+            result.totalMs = Math.max(0, Date.now() - startedAt);
+            failedJobs++;
+            wsProgress[wsOrdinal - 1].failed++;
+
+            await addProgress(async () => {
+              const finishedJobs = completedJobs + failedJobs;
+              completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
+              publishKickProgress(execution, {
+                phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+                percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
+                loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+                sessionId, websocket: wsOrdinal, direction: "forward",
+                acknowledged: 0, total: 1, sent, failedJobs, sendConfirmed: true,
+                jobId: queued.jobId, jobStatus: result.jobStatus, error: result.error,
+                targetProgress: targetProgress.map(x => ({ ...x })),
+                wsProgress: wsProgress.map(x => ({ ...x }))
+              });
+            });
+            return result;
+          });
+
+        pendingVerifications.push(verification);
+        return result;
       } catch (e) {
+        result.ok = false;
+        result.jobStatus = "send_failed";
+        result.error = safeError(e);
+        result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
         wsProgress[wsOrdinal - 1].failed++;
-        error = safeError(e);
-      }
-
-      const result = {
-        sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
-        targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
-        ok, jobStatus, jobId, error,
-        totalMs: Math.max(0, Date.now() - startedAt)
-      };
-
-      await addProgress(async () => {
-        const finishedJobs = completedJobs + failedJobs;
-        completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
-        publishKickProgress(execution, {
-          phase: ok ? "job_done" : "job_failed", completedSteps, totalSteps,
-          completedJobs, totalJobs,
-          percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
-          loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-          sessionId, websocket: wsOrdinal, direction: "forward",
-          acknowledged: ok ? 1 : 0, total: 1, sent, failedJobs, sendConfirmed: ok,
-          jobId, jobStatus,
-          targetProgress: targetProgress.map(x => ({ ...x })),
-          wsProgress: wsProgress.map(x => ({ ...x }))
+        await addProgress(async () => {
+          const finishedJobs = completedJobs + failedJobs;
+          completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
+          publishKickProgress(execution, {
+            phase: "job_failed", completedSteps, totalSteps, completedJobs, totalJobs,
+            percent: totalJobs > 0 ? Math.round((finishedJobs / totalJobs) * 100) : 0,
+            loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+            sessionId, websocket: wsOrdinal, direction: "forward",
+            acknowledged: 0, total: 1, sent, failedJobs, sendConfirmed: false,
+            jobId: null, jobStatus: result.jobStatus, error: result.error,
+            targetProgress: targetProgress.map(x => ({ ...x })),
+            wsProgress: wsProgress.map(x => ({ ...x }))
+          });
         });
-      });
-      return result;
+        return result;
+      }
     }
 
     async function sendKickAndWaitQueued(sessionId, payload) {
-      return new Promise((resolve, reject) => {
-        const account = sessions.get(sessionId);
-        if (!account || account.socket.readyState !== WebSocket.OPEN) return reject(new Error("WebSocket tidak terhubung."));
-        let timer = null;
-        const handler = raw => {
-          let msg;
-          try { msg = JSON.parse(raw.toString()); } catch { return; }
-          if (msg?.type !== "room.kick.queued") return;
-          const jobId = extractJobId(msg);
-          if (!jobId) return reject(new Error("API mengembalikan room.kick.queued tanpa job_id."));
-          if (timer) clearTimeout(timer);
-          account.socket.off("message", handler);
-          resolve({ jobId, response: msg });
-        };
-        timer = setTimeout(() => {
-          account.socket.off("message", handler);
-          reject(new Error("Timeout menunggu room.kick.queued."));
-        }, 8000);
-        account.socket.on("message", handler);
-        try { account.socket.send(JSON.stringify(payload), err => {
-          if (err) {
-            clearTimeout(timer);
-            account.socket.off("message", handler);
-            reject(err);
-          }
-        }); } catch (e) {
-          clearTimeout(timer);
-          account.socket.off("message", handler);
-          reject(e);
+      // Register the FIFO waiter BEFORE send() so an extremely fast API response
+      // cannot arrive before the listener is ready.
+      const queuedPromise = waitForKickQueued(sessionId, 8000);
+      try {
+        await sendAsync(sessionId, payload);
+      } catch (e) {
+        const queue = kickQueuedWaiters.get(sessionId) || [];
+        const entry = queue[queue.length - 1];
+        if (entry) {
+          clearTimeout(entry.timer);
+          queue.pop();
+          if (queue.length) kickQueuedWaiters.set(sessionId, queue);
+          else kickQueuedWaiters.delete(sessionId);
+          entry.reject(e);
         }
-      });
+      }
+      return queuedPromise;
     }
 
     async function waitKickJobCompletion(sessionId, jobId) {
@@ -671,6 +736,10 @@ app.post("/api/kick-loop", async (req, res) => {
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
 
+      // All sends are already dispatched; now wait only for background verification
+      // so the final execution state still reflects real job results.
+      await Promise.allSettled(pendingVerifications);
+
       const allJobsSucceeded = completedJobs === totalJobs && failedJobs === 0;
       publishKickProgress(execution, {
         phase: allJobsSucceeded ? "completed" : "completed_with_errors",
@@ -705,7 +774,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "paired_targets_per_websocket_job_confirmed",
+    mode: "fast_send_background_job_verification",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
