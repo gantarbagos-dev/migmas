@@ -64,8 +64,8 @@ function setStatus(i, text, kind=""){
 
 function setBalance(i, label){
   let value = String(label ?? "").trim();
-  value = value.replace(/\s*(CR|credits?)\s*$/i, "").trim();
-  accounts[i].balance = value || "-";
+  const numeric = value.replace(/[^0-9.,-]/g, "").trim();
+  accounts[i].balance = numeric || "-";
   const b = el(`b${i}`);
   if(b) { const v = b.querySelector("strong"); if(v) v.textContent = accounts[i].balance; else b.textContent = accounts[i].balance; }
 }
@@ -400,8 +400,8 @@ function handleApiEvent(i, msg){
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
-    if(w?.label) setBalance(i, w.label);
-    else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+    if(w?.balance_cr != null) setBalance(i, w.balance_cr);
+    else if(w?.label) setBalance(i, w.label);
   }
   if(msg.type === "session.replaced"){
     setStatus(i, "ERROR");
@@ -528,8 +528,8 @@ async function loginOne(i){
     }
     a.sessionId = j.account.sessionId;
     const w = j.account.wallet;
-    if(w?.label) setBalance(i, w.label);
-    else if(w?.balance_cr != null) setBalance(i, `${w.balance_cr} CR`);
+    if(w?.balance_cr != null) setBalance(i, w.balance_cr);
+    else if(w?.label) setBalance(i, w.label);
     else setBalance(i, "-");
     setStatus(i, "ONLINE");
     openEvents(i);
@@ -732,8 +732,8 @@ async function balanceAll(){
       const result = bySession.get(item.sessionId);
       if(result?.ok){
         const w = result.wallet || {};
-        if(w.label) setBalance(item.i, w.label);
-        else if(w.balance_cr != null) setBalance(item.i, `${w.balance_cr} CR`);
+        if(w.balance_cr != null) setBalance(item.i, w.balance_cr);
+        else if(w.label) setBalance(item.i, w.label);
         else setBalance(item.i, "-");
         ok++;
       }else{
