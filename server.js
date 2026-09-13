@@ -472,14 +472,25 @@ function sleep(ms) {
 
 app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
-  const { sessionIds, room, targets } = body;
+  const { sessionIds, room, targets, websocketSlots } = body;
   const textdelay = body.textdelay;
   const textloop = body.textloop;
   const burstSize = Math.max(1, Math.min(parseInt(body.burstSize, 10) || 3, 10));
 
-  const ids = Array.isArray(sessionIds)
-    ? [...new Set(sessionIds.map(String).filter(Boolean))].slice(0, 10)
+  // Preserve the physical Troop/WebSocket slot. Do not compact the list when
+  // a middle Troop is offline: T1 must always mean WebSocket slot 1, etc.
+  const slotEntries = Array.isArray(websocketSlots)
+    ? websocketSlots
+        .map(x => ({ sessionId: String(x?.sessionId || "").trim(), websocket: Number(x?.websocket) }))
+        .filter(x => x.sessionId && Number.isInteger(x.websocket) && x.websocket >= 1 && x.websocket <= 10)
+        .sort((a, b) => a.websocket - b.websocket)
+        .filter((x, i, arr) => i === arr.findIndex(y => y.websocket === x.websocket))
     : [];
+  const ids = slotEntries.length
+    ? slotEntries.map(x => x.sessionId)
+    : (Array.isArray(sessionIds)
+        ? [...new Set(sessionIds.map(String).filter(Boolean))].slice(0, 10)
+        : []);
   const targetList = Array.isArray(targets)
     ? targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10)
     : [];
@@ -500,7 +511,8 @@ app.post("/api/kick-loop", async (req, res) => {
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
     textdelay: delayMs, textloop: loopCount, burstSize, totalSteps, totalJobs,
     targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount })),
-    wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }))
+    wsProgress: (slotEntries.length ? slotEntries : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 })))
+      .map(x => ({ websocket: x.websocket, sessionId: x.sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }))
   });
 
   (async () => {
@@ -511,7 +523,8 @@ app.post("/api/kick-loop", async (req, res) => {
     let dispatchedJobs = 0;
     const targetProgress = targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount }));
     const sequenceResults = [];
-    const wsProgress = ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }));
+    const wsProgress = (slotEntries.length ? slotEntries : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 })))
+      .map(x => ({ websocket: x.websocket, sessionId: x.sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }));
     const stateLock = { chain: Promise.resolve() };
 
     function addProgress(fn) {
@@ -522,7 +535,9 @@ app.post("/api/kick-loop", async (req, res) => {
     // Independent pair execution per WebSocket:
     // WS 1-10: 1-2 -> delay -> 3-4 -> delay -> 5-6 -> delay -> 7-8 -> delay -> 9-10
     // Each WebSocket runs its own sequence independently; there is NO barrier between WebSockets.
-    const wsEntries = ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
+    const wsEntries = slotEntries.length
+      ? slotEntries.map(x => ({ sessionId: x.sessionId, websocket: x.websocket }))
+      : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
     const RACE_BURST = burstSize;
 
     const pendingVerifications = []; // retained for compatibility; dispatch is not ACK-gated
