@@ -17,7 +17,6 @@ const subscribers = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const kickJobWaiters = new Map();
-const kickQueuedWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -180,18 +179,19 @@ function send(sessionId, payload) {
 // that was actually accepted by the WebSocket transport, not merely an
 // attempted call to socket.send(). This still is NOT an API kick ACK.
 function sendAsync(sessionId, payload) {
-  return new Promise((resolve, reject) => {
-    const account = sessions.get(sessionId);
-    if (!account) return reject(new Error("Session tidak ditemukan / sudah terputus."));
-    const socket = account.socket;
-    if (socket.readyState !== WebSocket.OPEN) return reject(new Error("WebSocket tidak terhubung."));
-    const body = JSON.stringify(payload);
-    try {
-      socket.send(body, err => err ? reject(err) : resolve());
-    } catch (e) {
-      reject(e);
-    }
-  });
+  const account = sessions.get(sessionId);
+  if (!account) return Promise.reject(new Error("Session tidak ditemukan / sudah terputus."));
+  const socket = account.socket;
+  if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("WebSocket tidak terhubung."));
+  const body = JSON.stringify(payload);
+  try {
+    // Low-latency dispatch: do not wait for the ws send callback.
+    // API ACKs remain handled by the existing background message flow.
+    socket.send(body);
+    return Promise.resolve();
+  } catch (e) {
+    return Promise.reject(e);
+  }
 }
 
 function waitForBalance(sessionId, timeoutMs = 8000) {
@@ -241,17 +241,6 @@ function createKickQueuedWaiter(sessionId, timeoutMs = 8000) {
   return { promise, entry };
 }
 
-function removeKickQueuedWaiter(sessionId, entry, error) {
-  const queue = kickQueuedWaiters.get(sessionId) || [];
-  const index = queue.indexOf(entry);
-  if (index < 0) return false;
-  queue.splice(index, 1);
-  clearTimeout(entry.timer);
-  if (queue.length) kickQueuedWaiters.set(sessionId, queue);
-  else kickQueuedWaiters.delete(sessionId);
-  entry.reject(error);
-  return true;
-}
 
 function resolveKickQueued(sessionId, msg) {
   if (msg?.type !== "room.kick.queued") return false;
@@ -632,10 +621,7 @@ app.post("/api/kick-loop", async (req, res) => {
             troopResults.push(dispatched.result);
             burst.push(dispatched.verification);
           }
-
-          void Promise.allSettled(burst);
-
-          // Burst berjalan tanpa delay. Delay hanya dipakai saat pindah ke loop berikutnya.
+// Burst berjalan tanpa delay. Delay hanya dipakai saat pindah ke loop berikutnya.
           const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
           const hasNextLoop = round + 1 < loopCount;
           if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
@@ -728,7 +714,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: `race_burst_${burstSize}_instant_dispatch`,
+    mode: `race_burst_${burstSize}_no_ack`,
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
