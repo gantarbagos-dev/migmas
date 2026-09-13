@@ -738,10 +738,10 @@ function updatePerTroopKickProgress(wsProgress){
     const i=Math.max(0,Number(tp.websocket||0)-1);
     if(i<0 || i>=10) return;
     const completed=Math.max(0,Number(tp.completed)||0);
+    const dispatched=Math.max(completed,Number(tp.dispatched)||0);
     const failed=Math.max(0,Number(tp.failed)||0);
     const total=Math.max(0,Number(tp.total)||0);
-    const finished=Math.min(total,completed+failed);
-    const pct=total>0 ? Math.min(100,Math.round((finished/total)*100)) : 0;
+    const pct=total>0 ? Math.min(100,Math.round((dispatched/total)*100)) : 0;
     const bar=el(`kickTroopProgressBar${i}`);
     const txt=el(`kickTroopProgressText${i}`);
     const fail=el(`kickTroopProgressFail${i}`);
@@ -839,15 +839,21 @@ async function kickSelectedTargets(){
             if (!cell) return;
             const span = cell.querySelector("span");
             const done = Number(tp.completed) || 0;
+            const dispatched = Math.max(done, Number(tp.dispatched) || 0);
             const total = Number(tp.total) || (textloop * wsCount);
-            if (span) span.textContent = `${done}/${total}`;
-            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+            if (span) span.textContent = `${dispatched}/${total}`;
+            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${dispatched >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : dispatched > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
           });
         }
 
+        const dispatchTotal = Number(p.totalJobs) || 0;
+        const dispatchCount = Number(p.dispatchedJobs);
         const fallbackPercent = Number(p.percent) || 0;
-        const percent = Math.max(0, Math.min(100, Number.isFinite(Number(p.percent)) ? Number(p.percent) : fallbackPercent));
+        const percent = dispatchTotal > 0 && Number.isFinite(dispatchCount)
+          ? Math.max(0, Math.min(100, Math.round((dispatchCount / dispatchTotal) * 100)))
+          : Math.max(0, Math.min(100, fallbackPercent));
         bar.style.width = `${percent}%`;
+        bar.style.transition = "width 100ms linear";
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
         else if(p.phase === "waiting_ack") txt.textContent = "Menunggu queued";
@@ -900,7 +906,7 @@ async function kickSelectedTargets(){
     const pollProgress = async () => {
       await readProgress();
       if(progressStopped) return;
-      progressTimer = setTimeout(pollProgress, 350);
+      progressTimer = setTimeout(pollProgress, 100);
     };
     pollProgress();
 
