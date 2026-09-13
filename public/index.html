@@ -80,6 +80,39 @@
   }
   .modern-input:focus { transform: translateY(-1px); }
   .modern-input::placeholder { color: #64748b !important; }
+  /* Compact control sizing for mobile and desktop */
+  .compact-main {
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+    padding-left: 11px !important;
+    padding-right: 11px !important;
+    border-radius: 12px !important;
+  }
+  .compact-save {
+    height: 38px !important;
+    min-height: 38px !important;
+    font-size: 12px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    border-radius: 11px !important;
+  }
+  .compact-range {
+    width: 56px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 5px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+  }
+  .compact-room {
+    max-width: 260px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+    padding: 0 12px !important;
+    border-radius: 12px !important;
+  }
   .troop-input {
     height: 34px !important;
     border-radius: 11px !important;
@@ -92,6 +125,8 @@
     .modern-input { height: 42px; border-radius: 13px !important; }
     .troop-input { height: 31px !important; font-size: 9px !important; }
   }
+</style>
+
 <style>
 /* MIGSOCK — responsive single-row WebSocket cards */
 #accounts{display:flex;flex-direction:column;gap:7px;padding-top:2px}
@@ -116,9 +151,9 @@
 .troop-status.offline{color:#94a3b8;background:rgba(30,41,59,.95);border-color:#475569;box-shadow:none}
 .troop-status.offline:before{background:#cbd5e1;box-shadow:none}
 .troop-credentials{display:contents;min-width:0}
-.troop-input{width:100%;min-width:0;height:29px;background:rgba(15,23,42,.92);border:1px solid rgba(51,65,85,.85);border-radius:8px;padding:0 6px;color:#e2e8f0;font-size:9px;line-height:1;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis}
+.troop-input{width:100%;min-width:0;height:29px;background:#ffffff !important;border:1px solid rgba(51,65,85,.85);border-radius:8px;padding:0 6px;color:#0f172a !important;font-size:9px;line-height:1;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis}
 .troop-input::placeholder{color:#64748b;opacity:1}
-.troop-input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.18)}
+.troop-input:focus{background:#ffffff !important;color:#0f172a !important;border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.18)}
 .troop-balance{height:29px;min-width:0;width:100%;padding:0 4px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:8px;font-weight:800;color:#e0f2fe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(180deg,rgba(9,44,100,.72),rgba(5,23,58,.9));border:1px solid rgba(37,99,235,.65);border-radius:999px;box-shadow:0 0 10px rgba(37,99,235,.12);box-sizing:border-box}
 .troop-icon{width:28px;height:28px;padding:0;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .12s,border-color .12s;cursor:pointer;box-sizing:border-box}
 .troop-icon:active{transform:scale(.92)}
@@ -181,7 +216,7 @@
 }
 .troop-input:focus{
   transform:translateY(-1px);
-  background:rgba(15,23,42,.98);
+  background:#ffffff !important;color:#0f172a !important;
   box-shadow:0 0 0 2px rgba(59,130,246,.18),0 8px 20px rgba(0,0,0,.16);
 }
 .troop-status.online{
@@ -285,23 +320,23 @@ box-sizing:border-box!important;border-radius:0!important;
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
       <div class="space-y-1.5">
         <label class="text-xs font-semibold text-slate-400">Main troop</label>
-        <input id="mainTroop" class="modern-input w-full px-3.5 text-sm transition-all" placeholder="Contoh: u1" autocomplete="off">
+        <input id="mainTroop" class="modern-input compact-main w-full px-3 text-sm transition-all" placeholder="Contoh: u1" autocomplete="off">
       </div>
       <div class="space-y-1.5">
         <label class="text-xs font-semibold text-slate-400">Main password</label>
         <div class="flex gap-2">
-          <input id="mainPassword" type="password" class="modern-input min-w-0 flex-1 px-3.5 text-sm transition-all" placeholder="Password akun" autocomplete="off">
-          <button id="generatePassword" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
+          <input id="mainPassword" type="password" class="modern-input compact-main min-w-0 flex-1 px-3 text-sm transition-all" placeholder="Password akun" autocomplete="off">
+          <button id="generatePassword" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all border border-slate-700/80 active:scale-95">Set Pass</button>
         </div>
 
         <div class="pt-2">
           <label class="block text-[11px] font-semibold text-slate-400 mb-1.5">Save / Load</label>
           <div class="flex gap-2">
-            <input id="saveName" class="modern-input min-w-0 flex-1 px-3 text-sm" value="troop1" placeholder="Nama file save" autocomplete="off">
-            <button id="saveAccounts" class="shrink-0 bg-blue-600 hover:bg-blue-500 text-white p-2.5 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Save JSON" aria-label="Save JSON">
+            <input id="saveName" class="modern-input compact-save min-w-0 flex-1 px-3 text-sm" value="troop1" placeholder="Nama file save" autocomplete="off">
+            <button id="saveAccounts" class="shrink-0 bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center w-10 h-9" title="Save JSON" aria-label="Save JSON">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             </button>
-            <button id="loadAccounts" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center w-11 h-11" title="Load JSON" aria-label="Load JSON">
+            <button id="loadAccounts" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 p-2 rounded-lg transition-all active:scale-95 flex items-center justify-center w-10 h-9" title="Load JSON" aria-label="Load JSON">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             </button>
           </div>
@@ -314,12 +349,12 @@ box-sizing:border-box!important;border-radius:0!important;
       <div class="flex items-center gap-2.5 justify-between sm:justify-start">
         <div class="space-y-1">
           <label class="text-xs font-semibold text-slate-400">Mulai</label>
-          <input id="rangeStart" type="number" class="modern-input w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
+          <input id="rangeStart" type="number" class="modern-input compact-range bg-slate-950/80 border border-slate-800/80 rounded-xl px-2 py-2 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="1">
         </div>
         <span class="text-slate-500 mt-6 text-xs font-medium">s/d</span>
         <div class="space-y-1">
           <label class="text-xs font-semibold text-slate-400">Akhir</label>
-          <input id="rangeEnd" type="number" class="modern-input w-20 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2.5 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
+          <input id="rangeEnd" type="number" class="modern-input compact-range bg-slate-950/80 border border-slate-800/80 rounded-xl px-2 py-2 text-center text-sm font-bold text-slate-200 focus:border-blue-500" value="10">
         </div>
       </div>
 
@@ -352,7 +387,7 @@ box-sizing:border-box!important;border-radius:0!important;
 
   <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-3.5">
     <div class="flex flex-col sm:flex-row gap-2.5">
-      <input id="room" class="modern-input flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3.5 py-3 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
+      <input id="room" class="modern-input compact-room flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2 text-sm text-slate-200 focus:border-blue-500 placeholder:text-slate-600" placeholder="Nama room tujuan..." autocomplete="off">
       <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
         <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
         <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
@@ -388,9 +423,6 @@ box-sizing:border-box!important;border-radius:0!important;
         <h3 class="text-sm sm:text-base font-bold text-slate-200">Target Kick</h3>
         <div class="flex items-center gap-1.5">
           <span class="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800/80">Daftar Eksekusi</span>
-          <button onclick="resetTimer()" class="bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/50 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-9 h-9 shrink-0" title="Reset Timer" aria-label="Reset Timer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v3l2 1M8.5 5.5 7 4m8.5 1.5L17 4M9 3h6"/></svg>
-          </button>
         </div>
       </div>
       <div id="targetList" class="flex-1 min-h-[200px] max-h-[280px] overflow-y-auto bg-slate-950/80 border border-slate-800/80 rounded-xl p-2 space-y-1.5">
@@ -414,8 +446,8 @@ box-sizing:border-box!important;border-radius:0!important;
           <input id="textloop" type="number" min="1" step="1" value="5" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <div class="flex flex-col gap-1">
-          <button onclick="clearTargets()" class="bg-rose-950/40 hover:bg-rose-900/50 text-rose-400 border border-rose-800/50 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-9 h-9 shrink-0" title="Hapus Target Kick" aria-label="Hapus Target Kick">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.9 1.9 0 01-1.9-1.8L5 7m5 4v6m4-6v6m1-10V4a1 1 0 01-1 1v3M4 7h16"/></svg>
+          <button onclick="resetTimer()" class="bg-blue-950/40 hover:bg-blue-900/50 text-blue-400 border border-blue-800/50 font-bold rounded-lg text-xs transition-all active:scale-95 flex items-center justify-center w-9 h-9 shrink-0" title="Reset Timer" aria-label="Reset Timer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v3l2 1M8.5 5.5 7 4m8.5 1.5L17 4M9 3h6"/></svg>
           </button>
         </div>
       </div>
