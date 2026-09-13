@@ -475,6 +475,7 @@ app.post("/api/kick-loop", async (req, res) => {
   const { sessionIds, room, targets } = body;
   const textdelay = body.textdelay;
   const textloop = body.textloop;
+  const burstSize = Math.max(1, Math.min(parseInt(body.burstSize, 10) || 3, 10));
 
   const ids = Array.isArray(sessionIds)
     ? [...new Set(sessionIds.map(String).filter(Boolean))].slice(0, 10)
@@ -497,7 +498,7 @@ app.post("/api/kick-loop", async (req, res) => {
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
-    textdelay: delayMs, textloop: loopCount, totalSteps, totalJobs,
+    textdelay: delayMs, textloop: loopCount, burstSize, totalSteps, totalJobs,
     targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount })),
     wsProgress: ids.map((sessionId, i) => ({ websocket: i + 1, sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }))
   });
@@ -522,7 +523,7 @@ app.post("/api/kick-loop", async (req, res) => {
     // WS 1-10: 1-2 -> delay -> 3-4 -> delay -> 5-6 -> delay -> 7-8 -> delay -> 9-10
     // Each WebSocket runs its own sequence independently; there is NO barrier between WebSockets.
     const wsEntries = ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
-    const RACE_BURST = 3;
+    const RACE_BURST = burstSize;
 
     const pendingVerifications = []; // retained for compatibility; dispatch is not ACK-gated
 
@@ -580,7 +581,7 @@ app.post("/api/kick-loop", async (req, res) => {
         wsProgress[wsOrdinal - 1].failed++;
         await addProgress(async () => {
           const finishedJobs = completedJobs + failedJobs;
-          completedSteps = Math.min(totalSteps, Math.floor(finishedJobs / Math.max(1, ids.length)));
+          completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
           publishKickProgress(execution, {
             phase: "send_failed", completedSteps, totalSteps, completedJobs, dispatchedJobs, totalJobs,
             percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
@@ -619,8 +620,10 @@ app.post("/api/kick-loop", async (req, res) => {
 
           void Promise.allSettled(burst);
 
-          const hasNextBurst = pos + RACE_BURST < orderedIndices.length || round + 1 < loopCount;
-          if (delayMs > 0 && hasNextBurst) {
+          // Burst berjalan tanpa delay. Delay hanya dipakai saat pindah ke loop berikutnya.
+          const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
+          const hasNextLoop = round + 1 < loopCount;
+          if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
             await addProgress(async () => {
               const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
               publishKickProgress(execution, {
@@ -675,15 +678,15 @@ app.post("/api/kick-loop", async (req, res) => {
       sequenceResults.push(...results);
 
       // No ACK/job.get barrier: completion follows transport dispatch.
-      const allJobsSucceeded = completedJobs === totalJobs && failedJobs === 0;
+      const allJobsSucceeded = dispatchedJobs === totalJobs && failedJobs === 0;
       publishKickProgress(execution, {
         phase: allJobsSucceeded ? "completed" : "completed_with_errors",
-        completedSteps: Math.min(totalSteps, Math.floor(completedJobs / Math.max(1, ids.length))),
+        completedSteps: Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length))),
         totalSteps,
         completedJobs,
         dispatchedJobs,
         totalJobs,
-        percent: totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0,
+        percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
         loop: loopCount,
         targetIndex: targetList.length,
         target: targetList[targetList.length - 1],
@@ -710,7 +713,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "race_burst_3_instant_dispatch",
+    mode: `race_burst_${burstSize}_instant_dispatch`,
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,

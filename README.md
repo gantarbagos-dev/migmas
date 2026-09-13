@@ -4,6 +4,6 @@ Kick All now uses Race Mode: each WebSocket dispatches up to 3 `room.kick` comma
 
 - Up to 10 WebSockets run concurrently.
 - Target dispatch is not blocked by queue acknowledgement or job completion.
-- `textdelay` still controls the configured delay between target pairs in each WebSocket sequence.
+- `textdelay` is used only between loops; targets inside the same burst and consecutive bursts are sent without delay.
 - Progress remains based on verified job results.
 - Final execution waits only for queued acknowledgements so progress reflects API acceptance; there is no job completion verification.
