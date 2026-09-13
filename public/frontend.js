@@ -850,7 +850,7 @@ async function kickSelectedTargets(){
         bar.style.width = `${percent}%`;
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu job";
+        else if(p.phase === "waiting_ack") txt.textContent = "Menunggu queued";
         else if(p.phase === "job_done") txt.textContent = "KICK OK";
         else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
@@ -865,7 +865,7 @@ async function kickSelectedTargets(){
         step.textContent = `Target ${done}/${totalSteps}`;
 
         if(p.phase === "waiting_ack") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ACK ${p.acknowledged || 0}/${p.total || wsCount}`;
+          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • QUEUED ${p.acknowledged || 0}/${p.total || wsCount}`;
         } else if(p.phase === "delay") {
           meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
