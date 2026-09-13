@@ -49,52 +49,50 @@
   }
 </style>
 <style>
-/* MIGSOCK — compact, elegant mobile troop rows */
+/* MIGSOCK — responsive single-row WebSocket cards */
 #accounts{display:flex;flex-direction:column;gap:7px;padding-top:2px}
-.troop-card{position:relative;background:linear-gradient(180deg,rgba(5,13,32,.96),rgba(2,7,20,.96));border:1px solid rgba(30,64,175,.42);border-radius:15px;padding:7px 8px;box-shadow:inset 0 1px 0 rgba(96,165,250,.06),0 6px 18px rgba(0,0,0,.18);overflow:hidden}
+.troop-card{position:relative;background:linear-gradient(180deg,rgba(5,13,32,.96),rgba(2,7,20,.96));border:1px solid rgba(30,64,175,.42);border-radius:15px;padding:6px 7px;box-shadow:inset 0 1px 0 rgba(96,165,250,.06),0 6px 18px rgba(0,0,0,.18);overflow:hidden}
 .troop-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#0ea5e9,#2563eb,#7c3aed);opacity:.75}
-.troop-main{display:grid;grid-template-columns:28px minmax(78px,1.2fr) minmax(58px,.9fr) auto 50px 30px 30px;align-items:center;gap:5px;min-width:0}
-.troop-id{display:flex;align-items:center;justify-content:center;min-width:0}
-.troop-name{width:27px;height:27px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(180deg,#0b4ea2,#082c68);border:1px solid rgba(37,99,235,.7);font-size:10px;font-weight:800;color:#e0f2fe;line-height:1;box-shadow:0 0 10px rgba(37,99,235,.2)}
-.troop-status{position:relative;font-size:8px;font-weight:800;letter-spacing:.01em;padding:4px 7px 4px 17px;border-radius:999px;white-space:nowrap;color:#94a3b8;background:#0b1224;border:1px solid #26334f;overflow:visible;line-height:1}
-.troop-status:before{content:"";position:absolute;left:6px;top:50%;width:6px;height:6px;transform:translateY(-50%);border-radius:50%;background:#64748b;box-shadow:0 0 5px rgba(100,116,139,.45)}
-.troop-status:after{content:"";position:absolute;left:4px;bottom:-5px;width:7px;height:7px;background:inherit;border-left:1px solid currentColor;border-bottom:1px solid currentColor;transform:skewY(-28deg) rotate(-12deg)}
-.troop-status.online{color:#34d399;background:rgba(4,78,59,.55);border-color:rgba(16,185,129,.65);box-shadow:0 0 10px rgba(16,185,129,.12)}
-.troop-status.online:before{background:#34d399;box-shadow:0 0 7px #34d399}
-.troop-status.suspend{color:#fcd34d;background:rgba(120,53,15,.45);border-color:rgba(217,119,6,.55)}
-.troop-status.suspend:before{background:#fbbf24}
-.troop-status.error{color:#fb7185;background:rgba(127,29,29,.45);border-color:rgba(225,29,72,.55)}
-.troop-status.error:before{background:#fb7185}
+.troop-main{display:grid;grid-template-columns:26px 18px minmax(0,1fr) minmax(0,1fr) 42px 28px 28px;align-items:center;gap:4px;min-width:0;width:100%}
+.troop-id{display:contents}
+.troop-name{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:linear-gradient(180deg,#0b4ea2,#082c68);border:1px solid rgba(37,99,235,.7);font-size:9px;font-weight:800;color:#e0f2fe;line-height:1;box-shadow:0 0 10px rgba(37,99,235,.2);box-sizing:border-box}
+.troop-status{position:relative;width:16px;height:16px;padding:0;margin:0;display:block;box-sizing:border-box;border-radius:50% 50% 50% 2px;transform:rotate(-45deg);font-size:0;line-height:0;white-space:nowrap;color:#94a3b8;background:#334155;border:1px solid #64748b;box-shadow:0 0 6px rgba(100,116,139,.35);overflow:visible}
+.troop-status:before{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;transform:translate(-50%,-50%) rotate(45deg);border-radius:50%;background:#cbd5e1;box-shadow:0 0 6px currentColor}
+.troop-status:after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid currentColor;opacity:.18;animation:statusRing 2s ease-out infinite}
+.troop-status.online{color:#34d399;background:rgba(4,78,59,.95);border-color:#10b981;box-shadow:0 0 10px rgba(16,185,129,.45)}
+.troop-status.online:before{background:#ecfdf5;box-shadow:0 0 8px #34d399}
+.troop-status.suspend{color:#fbbf24;background:rgba(120,53,15,.95);border-color:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,.42)}
+.troop-status.suspend:before{background:#fff7ed;box-shadow:0 0 8px #f59e0b}
+.troop-status.error{color:#fb7185;background:rgba(127,29,29,.95);border-color:#f43f5e;box-shadow:0 0 10px rgba(244,63,94,.42)}
+.troop-status.error:before{background:#fff1f2;box-shadow:0 0 8px #fb7185}
+.troop-status.connecting{color:#f59e0b;background:rgba(120,53,15,.95);border-color:#f59e0b;box-shadow:0 0 10px rgba(245,158,11,.42)}
+.troop-status.connecting:before{background:#fff7ed;box-shadow:0 0 8px #f59e0b}
+.troop-status.login{color:#60a5fa;background:rgba(30,64,175,.95);border-color:#3b82f6;box-shadow:0 0 10px rgba(59,130,246,.4)}
+.troop-status.login:before{background:#eff6ff;box-shadow:0 0 8px #60a5fa}
+.troop-status.offline{color:#94a3b8;background:rgba(30,41,59,.95);border-color:#475569;box-shadow:none}
+.troop-status.offline:before{background:#cbd5e1;box-shadow:none}
 .troop-credentials{display:contents;min-width:0}
-.troop-input{width:100%;min-width:0;height:31px;background:rgba(15,23,42,.92);border:1px solid rgba(51,65,85,.85);border-radius:9px;padding:0 8px;color:#e2e8f0;font-size:10px;line-height:1;box-sizing:border-box}
+.troop-input{width:100%;min-width:0;height:29px;background:rgba(15,23,42,.92);border:1px solid rgba(51,65,85,.85);border-radius:8px;padding:0 6px;color:#e2e8f0;font-size:9px;line-height:1;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis}
 .troop-input::placeholder{color:#64748b;opacity:1}
 .troop-input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.18)}
-.troop-balance{height:31px;min-width:50px;padding:0 7px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;font-weight:800;color:#e0f2fe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(180deg,rgba(9,44,100,.72),rgba(5,23,58,.9));border:1px solid rgba(37,99,235,.65);border-radius:999px;box-shadow:0 0 10px rgba(37,99,235,.12)}
-.troop-icon{width:30px;height:30px;padding:0;border-radius:9px;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .12s,border-color .12s;cursor:pointer;box-sizing:border-box}
+.troop-balance{height:29px;min-width:0;width:100%;padding:0 4px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:8px;font-weight:800;color:#e0f2fe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(180deg,rgba(9,44,100,.72),rgba(5,23,58,.9));border:1px solid rgba(37,99,235,.65);border-radius:999px;box-shadow:0 0 10px rgba(37,99,235,.12);box-sizing:border-box}
+.troop-icon{width:28px;height:28px;padding:0;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .12s,border-color .12s;cursor:pointer;box-sizing:border-box}
 .troop-icon:active{transform:scale(.92)}
-.troop-icon svg{width:15px;height:15px}
+.troop-icon svg{width:14px;height:14px}
 .login-icon{color:#34d399;background:rgba(4,78,59,.3);border:1px solid rgba(16,185,129,.65);box-shadow:0 0 9px rgba(16,185,129,.08)}
 .login-icon:hover{background:rgba(6,95,70,.5)}
 .logout-icon{color:#fb7185;background:rgba(127,29,29,.22);border:1px solid rgba(225,29,72,.58)}
 .logout-icon:hover{background:rgba(136,19,55,.35)}
-@media(max-width:430px){
-  .troop-card{padding:6px 7px;border-radius:13px}
-  .troop-main{grid-template-columns:25px minmax(67px,1.15fr) minmax(51px,.82fr) auto 46px 28px 28px;gap:4px}
-  .troop-name{width:25px;height:25px;font-size:9px;border-radius:8px}
-  .troop-input{height:29px;padding:0 6px;font-size:9px;border-radius:8px}
-  .troop-status{font-size:7px;padding:4px 6px 4px 16px}
-  .troop-status:before{left:6px;width:5px;height:5px}
-  .troop-status:after{left:4px}
-  .troop-balance{height:29px;min-width:46px;font-size:9px;padding:0 5px}
-  .troop-icon{width:28px;height:28px;border-radius:8px}
-  .troop-icon svg{width:14px;height:14px}
-}
+@keyframes statusRing{0%{transform:scale(.7);opacity:.45}70%,100%{transform:scale(1.45);opacity:0}}
 @media(max-width:365px){
-  .troop-main{grid-template-columns:24px minmax(62px,1.1fr) minmax(47px,.78fr) auto 42px 27px 27px;gap:3px}
-  .troop-input{font-size:8px;padding:0 5px}
-  .troop-status{font-size:6.5px;padding-left:15px;padding-right:5px}
-  .troop-balance{font-size:8px;min-width:42px}
-  .troop-icon{width:27px;height:27px}
+  .troop-card{padding:5px 6px;border-radius:12px}
+  .troop-main{grid-template-columns:24px 17px minmax(0,1fr) minmax(0,1fr) 38px 26px 26px;gap:3px}
+  .troop-name{width:24px;height:24px;font-size:8px}
+  .troop-status{width:15px;height:15px}
+  .troop-input{height:27px;font-size:8px;padding:0 5px}
+  .troop-balance{height:27px;font-size:7px}
+  .troop-icon{width:26px;height:26px}
+  .troop-icon svg{width:13px;height:13px}
 }
 </style>
 
@@ -214,217 +212,6 @@ box-sizing:border-box!important;border-radius:0!important;
 .login-container{padding-left:8px!important;padding-right:8px!important}
 }
 </style>
-
-<style id="websocket-login-premium">
-/* PREMIUM WEBSOCKET LOGIN ROWS
-   Visual-only enhancement: no login/logout/API logic is changed. */
-#accounts{
-  gap:8px!important;
-  padding:4px 2px 2px!important;
-}
-.troop-card{
-  --ws-accent:#38bdf8;
-  --ws-glow:rgba(56,189,248,.18);
-  position:relative!important;
-  isolation:isolate;
-  min-height:48px;
-  padding:6px 8px!important;
-  border:1px solid rgba(71,85,105,.38)!important;
-  border-radius:14px!important;
-  background:
-    radial-gradient(circle at 5% 50%,rgba(56,189,248,.09),transparent 23%),
-    linear-gradient(105deg,rgba(8,17,35,.98),rgba(5,10,23,.98) 55%,rgba(9,15,30,.98))!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.035),
-    0 8px 22px rgba(0,0,0,.22)!important;
-  overflow:hidden!important;
-  transform:translateZ(0);
-  transition:border-color .25s ease,transform .25s ease,box-shadow .3s ease;
-}
-.troop-card:before{
-  width:3px!important;
-  background:linear-gradient(180deg,#22d3ee,#3b82f6,#8b5cf6)!important;
-  box-shadow:0 0 12px rgba(59,130,246,.45);
-  opacity:1!important;
-}
-.troop-card:after{
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:-1;
-  background:linear-gradient(90deg,transparent,rgba(56,189,248,.045),transparent);
-  transform:translateX(-110%);
-  animation:wsAmbientSweep 5.5s ease-in-out infinite;
-}
-.troop-scanline{
-  position:absolute;
-  top:0;bottom:0;
-  width:26%;
-  left:-30%;
-  pointer-events:none;
-  background:linear-gradient(90deg,transparent,rgba(125,211,252,.10),rgba(255,255,255,.07),transparent);
-  transform:skewX(-18deg);
-  animation:wsScan 4.8s ease-in-out infinite;
-  z-index:2;
-}
-.troop-main{
-  grid-template-columns:34px 105px minmax(90px,1fr) minmax(90px,1fr) 50px 31px 31px!important;
-  gap:7px!important;
-}
-.troop-id{justify-content:flex-start!important}
-.troop-name{
-  width:31px!important;height:31px!important;
-  border-radius:10px!important;
-  font-size:9px!important;
-  background:linear-gradient(145deg,#123f80,#071b3e)!important;
-  border-color:rgba(56,189,248,.55)!important;
-  box-shadow:inset 0 0 10px rgba(56,189,248,.08),0 0 12px rgba(37,99,235,.16)!important;
-  position:relative;
-}
-.troop-name:after{
-  content:"";
-  position:absolute;
-  inset:-3px;
-  border:1px solid rgba(56,189,248,.18);
-  border-radius:12px;
-  animation:wsRing 2.8s ease-out infinite;
-}
-.troop-ws-state{
-  min-width:0;
-  display:flex;
-  align-items:center;
-  gap:6px;
-  height:31px;
-  padding:0 7px;
-  border-radius:10px;
-  background:rgba(2,8,23,.72);
-  border:1px solid rgba(51,65,85,.58);
-  overflow:hidden;
-}
-.troop-ws-label{
-  font-size:8px;
-  font-weight:900;
-  letter-spacing:.12em;
-  color:#64748b;
-}
-.troop-ws-dot{
-  width:7px;height:7px;flex:0 0 7px;
-  border-radius:50%;
-  background:#64748b;
-  box-shadow:0 0 0 0 rgba(100,116,139,.5);
-  animation:wsDotIdle 2s ease-in-out infinite;
-}
-.troop-status{
-  margin-left:auto;
-  border-radius:7px!important;
-  padding:5px 7px!important;
-  font-size:8px!important;
-  letter-spacing:.08em!important;
-  line-height:1!important;
-  background:transparent!important;
-  border:0!important;
-  box-shadow:none!important;
-}
-.troop-status:before,.troop-status:after{display:none!important}
-.troop-status.online{
-  color:#6ee7b7!important;
-  text-shadow:0 0 9px rgba(52,211,153,.42);
-  animation:wsOnlineText 1.8s ease-in-out infinite!important;
-}
-.troop-status.online ~ *{}
-.troop-ws-state:has(.troop-status.online){
-  border-color:rgba(16,185,129,.32);
-  box-shadow:inset 0 0 18px rgba(16,185,129,.045),0 0 13px rgba(16,185,129,.06);
-}
-.troop-ws-state:has(.troop-status.online) .troop-ws-dot{
-  background:#34d399;
-  box-shadow:0 0 0 0 rgba(52,211,153,.5),0 0 9px rgba(52,211,153,.8);
-  animation:wsDotOnline 1.6s ease-out infinite;
-}
-.troop-status.error{color:#fb7185!important;text-shadow:0 0 8px rgba(244,63,94,.35)}
-.troop-ws-state:has(.troop-status.error){border-color:rgba(244,63,94,.3)}
-.troop-ws-state:has(.troop-status.error) .troop-ws-dot{
-  background:#fb7185;box-shadow:0 0 8px rgba(251,113,133,.7);animation:wsError 1s ease-in-out infinite;
-}
-.troop-status.suspend{color:#fbbf24!important}
-.troop-ws-state:has(.troop-status.suspend) .troop-ws-dot{background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.7)}
-.troop-credentials{gap:7px!important}
-.troop-input{
-  height:31px!important;
-  border-radius:9px!important;
-  background:rgba(2,8,23,.68)!important;
-  border-color:rgba(51,65,85,.65)!important;
-  transition:border-color .2s,box-shadow .2s,transform .2s,background .2s!important;
-}
-.troop-input:hover{border-color:rgba(71,85,105,.95)!important}
-.troop-input:focus{
-  border-color:rgba(56,189,248,.6)!important;
-  box-shadow:0 0 0 2px rgba(56,189,248,.10),0 0 16px rgba(56,189,248,.07)!important;
-}
-.troop-balance{
-  height:31px!important;
-  min-width:54px!important;
-  font-size:9px!important;
-  border-radius:9px!important;
-  background:linear-gradient(180deg,rgba(10,42,82,.7),rgba(4,18,42,.9))!important;
-  border-color:rgba(37,99,235,.42)!important;
-}
-.troop-icon{
-  width:31px!important;height:31px!important;
-  border-radius:9px!important;
-  position:relative;
-  z-index:3;
-}
-.login-icon{
-  color:#6ee7b7!important;
-  background:rgba(6,78,59,.25)!important;
-  border-color:rgba(16,185,129,.48)!important;
-  box-shadow:inset 0 0 12px rgba(16,185,129,.04),0 0 9px rgba(16,185,129,.05)!important;
-}
-.login-icon:hover{
-  box-shadow:inset 0 0 16px rgba(16,185,129,.08),0 0 20px rgba(16,185,129,.2)!important;
-}
-.logout-icon:hover{box-shadow:0 0 18px rgba(244,63,94,.16)!important}
-@keyframes wsScan{
-  0%,48%{left:-30%;opacity:0}
-  55%{opacity:1}
-  82%,100%{left:125%;opacity:0}
-}
-@keyframes wsAmbientSweep{
-  0%,65%{transform:translateX(-110%)}
-  100%{transform:translateX(110%)}
-}
-@keyframes wsRing{
-  0%{transform:scale(.86);opacity:.7}
-  75%,100%{transform:scale(1.18);opacity:0}
-}
-@keyframes wsDotIdle{
-  0%,100%{opacity:.65}
-  50%{opacity:1}
-}
-@keyframes wsDotOnline{
-  0%{box-shadow:0 0 0 0 rgba(52,211,153,.55),0 0 7px rgba(52,211,153,.65)}
-  65%{box-shadow:0 0 0 7px rgba(52,211,153,0),0 0 13px rgba(52,211,153,.85)}
-  100%{box-shadow:0 0 0 0 rgba(52,211,153,0),0 0 7px rgba(52,211,153,.65)}
-}
-@keyframes wsError{
-  0%,100%{opacity:.65;transform:scale(1)}
-  50%{opacity:1;transform:scale(1.3)}
-}
-@keyframes wsOnlineText{
-  0%,100%{opacity:.78}
-  50%{opacity:1}
-}
-@media(max-width:768px){
-  #accounts{overflow-x:auto;padding-bottom:5px!important}
-  .troop-card{min-width:520px}
-  .troop-main{grid-template-columns:34px 95px 115px 115px 50px 31px 31px!important}
-}
-@media(prefers-reduced-motion:reduce){
-  .troop-card:after,.troop-scanline,.troop-name:after,.troop-ws-dot,.troop-status.online{animation:none!important}
-}
-</style>
-
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 

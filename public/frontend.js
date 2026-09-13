@@ -24,15 +24,10 @@ function sync(){
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
     <div class="troop-card">
-      <div class="troop-scanline"></div>
       <div class="troop-main">
         <div class="troop-id">
           <span class="troop-name">T${i+1}</span>
-        </div>
-        <div class="troop-ws-state">
-          <span class="troop-ws-dot"></span>
-          <span class="troop-ws-label">WS</span>
-          <span id="status${i}" class="troop-status ${a.status === 'ONLINE' ? 'online' : a.status === 'SUSPEND' ? 'suspend' : a.status === 'ERROR' ? 'error' : ''}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
+          <span id="status${i}" title="${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}" aria-label="Status Troop ${i+1}: ${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}" class="troop-status ${a.status === 'ONLINE' ? 'online' : a.status === 'SUSPEND' ? 'suspend' : a.status === 'ERROR' ? 'error' : a.status === 'OFFLINE' ? 'offline' : a.status === 'LOGIN…' || a.status === 'LOGIN...' ? 'login' : ''}"></span>
         </div>
         <div class="troop-credentials">
           <input id="u${i}" value="${esc(a.username)}" class="troop-input" placeholder="Username" autocomplete="off" aria-label="Username Troop ${i+1}">
@@ -57,11 +52,16 @@ function setStatus(i, text, kind=""){
   const temporary = normalized === "LOGIN…" || normalized === "LOGIN...";
   const status = ["ONLINE","OFFLINE","ERROR","SUSPEND"].includes(normalized) ? normalized : (temporary ? normalized : "ERROR");
   accounts[i].status = status;
-  s.textContent = status === "LOGIN…" || status === "LOGIN..." ? "LOGIN" : status;
+  const label = status === "LOGIN…" || status === "LOGIN..." ? "LOGIN" : status;
+  s.textContent = "";
+  s.title = label;
+  s.setAttribute("aria-label", `Status Troop ${i+1}: ${label}`);
   s.className = "troop-status";
   if(status === "ONLINE") s.classList.add("online");
   else if(status === "SUSPEND") s.classList.add("suspend");
   else if(status === "ERROR") s.classList.add("error");
+  else if(status === "OFFLINE") s.classList.add("offline");
+  else if(temporary) s.classList.add("login");
 }
 
 
