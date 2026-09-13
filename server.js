@@ -172,24 +172,6 @@ function send(sessionId, payload) {
   account.socket.send(JSON.stringify(payload));
 }
 
-// Await the ws library's send callback so kick progress represents a command
-// that was actually accepted by the WebSocket transport, not merely an
-// attempted call to socket.send(). This still is NOT an API kick ACK.
-function sendAsync(sessionId, payload) {
-  const account = sessions.get(sessionId);
-  if (!account) return Promise.reject(new Error("Session tidak ditemukan / sudah terputus."));
-  const socket = account.socket;
-  if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("WebSocket tidak terhubung."));
-  const body = JSON.stringify(payload);
-  try {
-    // Low-latency dispatch: do not wait for the ws send callback.
-    socket.send(body);
-    return Promise.resolve();
-  } catch (e) {
-    return Promise.reject(e);
-  }
-}
-
 function waitForBalance(sessionId, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     const old = balanceWaiters.get(sessionId);
@@ -445,23 +427,36 @@ app.post("/api/kick-loop", async (req, res) => {
     const stateLock = { chain: Promise.resolve() };
 
     let kickProgressScheduled = false;
-let kickProgressDirty = false;
+    let kickProgressContext = null;
 
-function scheduleKickProgress() {
-  kickProgressDirty = true;
-  if (kickProgressScheduled) return;
-  kickProgressScheduled = true;
-  setTimeout(() => {
-    kickProgressScheduled = false;
-    if (!kickProgressDirty) return;
-    kickProgressDirty = false;
-    void addProgress(() => {
-      publishKickProgress();
-    });
-  }, 0);
-}
+    // Coalesce frequent progress updates so the dispatch hot path does not
+    // create a Promise-chain entry for every target. UI polling still receives
+    // the latest counters shortly after a burst.
+    function scheduleKickProgress(context) {
+      kickProgressContext = context;
+      if (kickProgressScheduled) return;
+      kickProgressScheduled = true;
+      setTimeout(() => {
+        kickProgressScheduled = false;
+        const ctx = kickProgressContext;
+        kickProgressContext = null;
+        if (!ctx) return;
+        publishKickProgress(execution, {
+          ...ctx,
+          completedSteps,
+          totalSteps,
+          dispatchedJobs,
+          totalJobs,
+          percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
+          sent: dispatchedJobs,
+          failedJobs,
+          targetProgress: targetProgress.map(x => ({ ...x })),
+          wsProgress: wsProgress.map(x => ({ ...x }))
+        });
+      }, 25);
+    }
 
-function addProgress(fn) {
+    function addProgress(fn) {
       stateLock.chain = stateLock.chain.then(fn).catch(() => {});
       return stateLock.chain;
     }
@@ -474,46 +469,54 @@ function addProgress(fn) {
       : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
     const RACE_BURST = burstSize;
 
-    function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
+    // Validate each active WebSocket once, then keep the socket reference in
+    // the hot dispatch loop. Payload strings are also prebuilt once.
+    const troopRuntime = wsEntries.map(({ sessionId, websocket }) => {
+      const account = sessions.get(sessionId);
+      if (!account || account.socket.readyState !== WebSocket.OPEN) {
+        throw new Error(`WebSocket T${websocket} tidak terhubung.`);
+      }
+      if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
+        throw new Error(`Permission rooms.kick tidak tersedia pada T${websocket}.`);
+      }
+      return { sessionId, websocket, socket: account.socket };
+    });
+
+    const kickPayloads = targetList.map(targetUsername =>
+      JSON.stringify({ type: "room.kick", room, target_username: targetUsername })
+    );
+
+    function sendTarget(runtime, round, targetIndex, sequencePosition) {
+      const { sessionId, websocket, socket } = runtime;
       const targetUsername = targetList[targetIndex];
       const startedAt = Date.now();
       const result = {
-        sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
+        sessionId, websocket, loop: round + 1, target: targetUsername,
         targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
         ok: false, jobStatus: "sent", jobId: null, error: null, totalMs: 0
       };
 
       try {
-        const account = sessions.get(sessionId);
-        if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
-        if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
-          throw new Error("Permission rooms.kick tidak tersedia.");
-        }
+        if (socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
 
-        // INSTANT NO-ACK DISPATCH: send directly and continue immediately.
-        sendAsync(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        // Instant no-ACK dispatch: no Promise, callback, ACK, or job.get.
+        socket.send(kickPayloads[targetIndex]);
 
         dispatchedJobs++;
         targetProgress[targetIndex].dispatched++;
-        wsProgress[wsOrdinal - 1].dispatched++;
+        const wsState = wsProgress.find(x => x.websocket === websocket);
+        if (wsState) wsState.dispatched++;
         result.ok = true;
         result.jobStatus = "sent";
         result.totalMs = Math.max(0, Date.now() - startedAt);
 
-        void addProgress(async () => {
-          publishKickProgress(execution, {
-            phase: "dispatched", completedSteps, totalSteps, dispatchedJobs, totalJobs,
-            percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
-            loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-            sessionId, websocket: wsOrdinal, direction: "forward",
-            sent: dispatchedJobs, failedJobs,
-            sendConfirmed: true, noAck: true,
-            targetProgress: targetProgress.map(x => ({ ...x })),
-            wsProgress: wsProgress.map(x => ({ ...x }))
-          });
+        scheduleKickProgress({
+          phase: "dispatched",
+          loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+          sessionId, websocket, direction: "forward",
+          sendConfirmed: true, noAck: true
         });
 
-        // Successful transport dispatch is the unit used for the progress bar.
         return { result, verification: Promise.resolve(result) };
       } catch (e) {
         result.ok = false;
@@ -521,26 +524,22 @@ function addProgress(fn) {
         result.error = safeError(e);
         result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
-        wsProgress[wsOrdinal - 1].failed++;
-        void addProgress(async () => {
-          completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
-          publishKickProgress(execution, {
-            phase: "send_failed", completedSteps, totalSteps, dispatchedJobs, totalJobs,
-            percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
-            loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
-            sessionId, websocket: wsOrdinal, direction: "forward",
-            sent: dispatchedJobs, failedJobs,
-            sendConfirmed: false, noAck: true, error: result.error,
-            targetProgress: targetProgress.map(x => ({ ...x })),
-            wsProgress: wsProgress.map(x => ({ ...x }))
-          });
+        const wsState = wsProgress.find(x => x.websocket === websocket);
+        if (wsState) wsState.failed++;
+
+        scheduleKickProgress({
+          phase: "send_failed",
+          loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
+          sessionId, websocket, direction: "forward",
+          sendConfirmed: false, noAck: true, error: result.error
         });
         return { result, verification: Promise.resolve(result) };
       }
     }
 
 
-    async function runTroop(sessionId, wsOrdinal) {
+    async function runTroop(runtime) {
+      const { sessionId, websocket: wsOrdinal } = runtime;
       const troopResults = [];
       const orderedIndices = Array.from({ length: targetList.length }, (_, i) => i);
 
@@ -552,8 +551,8 @@ function addProgress(fn) {
           // Race burst: dispatch up to the configured burst size immediately.
           for (const targetIndex of burstIndexes) {
             const targetUsername = targetList[targetIndex];
-            const dispatched = await sendTarget(
-              sessionId, wsOrdinal, round, targetIndex, pos + burst.length + 1
+            const dispatched = sendTarget(
+              runtime, round, targetIndex, pos + burst.length + 1
             );
             troopResults.push(dispatched.result);
             burst.push(dispatched.verification);
@@ -565,23 +564,21 @@ function addProgress(fn) {
         await waitBatchDelay(delayMs);
       }
       if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
-            await addProgress(async () => {
-              const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
-              publishKickProgress(execution, {
-                phase: "delay", completedSteps, totalSteps,
-                dispatchedJobs, totalJobs,
-                percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
-                loop: round + 1,
-                targetIndex: lastTargetIndex + 1,
-                target: targetList[lastTargetIndex],
-                delayMs, nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : null,
-                sessionId, websocket: wsOrdinal,
-                direction: "forward",
-                sent, failedJobs, sendConfirmed: true,
-                noAck: true,
-                targetProgress: targetProgress.map(x => ({ ...x })),
-                wsProgress: wsProgress.map(x => ({ ...x }))
-              });
+            const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
+            publishKickProgress(execution, {
+              phase: "delay", completedSteps, totalSteps,
+              dispatchedJobs, totalJobs,
+              percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
+              loop: round + 1,
+              targetIndex: lastTargetIndex + 1,
+              target: targetList[lastTargetIndex],
+              delayMs, nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : null,
+              sessionId, websocket: wsOrdinal,
+              direction: "forward",
+              sent: dispatchedJobs, failedJobs, sendConfirmed: true,
+              noAck: true,
+              targetProgress: targetProgress.map(x => ({ ...x })),
+              wsProgress: wsProgress.map(x => ({ ...x }))
             });
             await sleep(delayMs);
           }
@@ -612,7 +609,7 @@ function addProgress(fn) {
 
       // All WebSockets start their own independent 1->10 sequence concurrently.
       const results = await Promise.all(
-        wsEntries.map(({ sessionId, websocket }) => runTroop(sessionId, websocket))
+        troopRuntime.map(runtime => runTroop(runtime))
       );
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
