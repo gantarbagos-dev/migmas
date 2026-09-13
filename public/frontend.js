@@ -857,13 +857,13 @@ async function kickSelectedTargets(){
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
         else if(p.phase === "waiting_ack") txt.textContent = "Menunggu queued";
-        else if(p.phase === "job_done") txt.textContent = "KICK OK";
-        else if(p.phase === "job_failed") txt.textContent = "KICK GAGAL";
+        else if(p.phase === "job_done" || p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
+        else if(p.phase === "job_failed" || p.phase === "send_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
         else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
         else if(p.phase === "completed") txt.textContent = "Selesai";
         else if(p.phase === "completed_with_errors") txt.textContent = "Selesai • Ada Gagal";
-        else if(p.phase === "send_failed") txt.textContent = "Kirim Gagal";
+        
         else if(p.phase === "failed") txt.textContent = "Gagal";
 
         const done = Number(p.completedSteps) || 0;
