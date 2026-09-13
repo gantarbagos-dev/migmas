@@ -24,9 +24,14 @@ function sync(){
 function renderAccounts(){
   el("accounts").innerHTML = accounts.map((a, i) => `
     <div class="troop-card">
+      <div class="troop-scanline"></div>
       <div class="troop-main">
         <div class="troop-id">
           <span class="troop-name">T${i+1}</span>
+        </div>
+        <div class="troop-ws-state">
+          <span class="troop-ws-dot"></span>
+          <span class="troop-ws-label">WS</span>
           <span id="status${i}" class="troop-status ${a.status === 'ONLINE' ? 'online' : a.status === 'SUSPEND' ? 'suspend' : a.status === 'ERROR' ? 'error' : ''}">${esc(a.status || (a.sessionId ? "ONLINE" : "OFFLINE"))}</span>
         </div>
         <div class="troop-credentials">

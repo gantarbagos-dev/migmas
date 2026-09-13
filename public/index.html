@@ -214,6 +214,217 @@ box-sizing:border-box!important;border-radius:0!important;
 .login-container{padding-left:8px!important;padding-right:8px!important}
 }
 </style>
+
+<style id="websocket-login-premium">
+/* PREMIUM WEBSOCKET LOGIN ROWS
+   Visual-only enhancement: no login/logout/API logic is changed. */
+#accounts{
+  gap:8px!important;
+  padding:4px 2px 2px!important;
+}
+.troop-card{
+  --ws-accent:#38bdf8;
+  --ws-glow:rgba(56,189,248,.18);
+  position:relative!important;
+  isolation:isolate;
+  min-height:48px;
+  padding:6px 8px!important;
+  border:1px solid rgba(71,85,105,.38)!important;
+  border-radius:14px!important;
+  background:
+    radial-gradient(circle at 5% 50%,rgba(56,189,248,.09),transparent 23%),
+    linear-gradient(105deg,rgba(8,17,35,.98),rgba(5,10,23,.98) 55%,rgba(9,15,30,.98))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.035),
+    0 8px 22px rgba(0,0,0,.22)!important;
+  overflow:hidden!important;
+  transform:translateZ(0);
+  transition:border-color .25s ease,transform .25s ease,box-shadow .3s ease;
+}
+.troop-card:before{
+  width:3px!important;
+  background:linear-gradient(180deg,#22d3ee,#3b82f6,#8b5cf6)!important;
+  box-shadow:0 0 12px rgba(59,130,246,.45);
+  opacity:1!important;
+}
+.troop-card:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(90deg,transparent,rgba(56,189,248,.045),transparent);
+  transform:translateX(-110%);
+  animation:wsAmbientSweep 5.5s ease-in-out infinite;
+}
+.troop-scanline{
+  position:absolute;
+  top:0;bottom:0;
+  width:26%;
+  left:-30%;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(125,211,252,.10),rgba(255,255,255,.07),transparent);
+  transform:skewX(-18deg);
+  animation:wsScan 4.8s ease-in-out infinite;
+  z-index:2;
+}
+.troop-main{
+  grid-template-columns:34px minmax(150px,1fr) minmax(120px,1.15fr) 54px 34px 34px!important;
+  gap:7px!important;
+}
+.troop-id{justify-content:flex-start!important}
+.troop-name{
+  width:31px!important;height:31px!important;
+  border-radius:10px!important;
+  font-size:9px!important;
+  background:linear-gradient(145deg,#123f80,#071b3e)!important;
+  border-color:rgba(56,189,248,.55)!important;
+  box-shadow:inset 0 0 10px rgba(56,189,248,.08),0 0 12px rgba(37,99,235,.16)!important;
+  position:relative;
+}
+.troop-name:after{
+  content:"";
+  position:absolute;
+  inset:-3px;
+  border:1px solid rgba(56,189,248,.18);
+  border-radius:12px;
+  animation:wsRing 2.8s ease-out infinite;
+}
+.troop-ws-state{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  height:31px;
+  padding:0 7px;
+  border-radius:10px;
+  background:rgba(2,8,23,.72);
+  border:1px solid rgba(51,65,85,.58);
+  overflow:hidden;
+}
+.troop-ws-label{
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.12em;
+  color:#64748b;
+}
+.troop-ws-dot{
+  width:7px;height:7px;flex:0 0 7px;
+  border-radius:50%;
+  background:#64748b;
+  box-shadow:0 0 0 0 rgba(100,116,139,.5);
+  animation:wsDotIdle 2s ease-in-out infinite;
+}
+.troop-status{
+  margin-left:auto;
+  border-radius:7px!important;
+  padding:5px 7px!important;
+  font-size:8px!important;
+  letter-spacing:.08em!important;
+  line-height:1!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.troop-status:before,.troop-status:after{display:none!important}
+.troop-status.online{
+  color:#6ee7b7!important;
+  text-shadow:0 0 9px rgba(52,211,153,.42);
+  animation:wsOnlineText 1.8s ease-in-out infinite!important;
+}
+.troop-status.online ~ *{}
+.troop-ws-state:has(.troop-status.online){
+  border-color:rgba(16,185,129,.32);
+  box-shadow:inset 0 0 18px rgba(16,185,129,.045),0 0 13px rgba(16,185,129,.06);
+}
+.troop-ws-state:has(.troop-status.online) .troop-ws-dot{
+  background:#34d399;
+  box-shadow:0 0 0 0 rgba(52,211,153,.5),0 0 9px rgba(52,211,153,.8);
+  animation:wsDotOnline 1.6s ease-out infinite;
+}
+.troop-status.error{color:#fb7185!important;text-shadow:0 0 8px rgba(244,63,94,.35)}
+.troop-ws-state:has(.troop-status.error){border-color:rgba(244,63,94,.3)}
+.troop-ws-state:has(.troop-status.error) .troop-ws-dot{
+  background:#fb7185;box-shadow:0 0 8px rgba(251,113,133,.7);animation:wsError 1s ease-in-out infinite;
+}
+.troop-status.suspend{color:#fbbf24!important}
+.troop-ws-state:has(.troop-status.suspend) .troop-ws-dot{background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.7)}
+.troop-credentials{gap:7px!important}
+.troop-input{
+  height:31px!important;
+  border-radius:9px!important;
+  background:rgba(2,8,23,.68)!important;
+  border-color:rgba(51,65,85,.65)!important;
+  transition:border-color .2s,box-shadow .2s,transform .2s,background .2s!important;
+}
+.troop-input:hover{border-color:rgba(71,85,105,.95)!important}
+.troop-input:focus{
+  border-color:rgba(56,189,248,.6)!important;
+  box-shadow:0 0 0 2px rgba(56,189,248,.10),0 0 16px rgba(56,189,248,.07)!important;
+}
+.troop-balance{
+  height:31px!important;
+  min-width:54px!important;
+  font-size:9px!important;
+  border-radius:9px!important;
+  background:linear-gradient(180deg,rgba(10,42,82,.7),rgba(4,18,42,.9))!important;
+  border-color:rgba(37,99,235,.42)!important;
+}
+.troop-icon{
+  width:31px!important;height:31px!important;
+  border-radius:9px!important;
+  position:relative;
+  z-index:3;
+}
+.login-icon{
+  color:#6ee7b7!important;
+  background:rgba(6,78,59,.25)!important;
+  border-color:rgba(16,185,129,.48)!important;
+  box-shadow:inset 0 0 12px rgba(16,185,129,.04),0 0 9px rgba(16,185,129,.05)!important;
+}
+.login-icon:hover{
+  box-shadow:inset 0 0 16px rgba(16,185,129,.08),0 0 20px rgba(16,185,129,.2)!important;
+}
+.logout-icon:hover{box-shadow:0 0 18px rgba(244,63,94,.16)!important}
+@keyframes wsScan{
+  0%,48%{left:-30%;opacity:0}
+  55%{opacity:1}
+  82%,100%{left:125%;opacity:0}
+}
+@keyframes wsAmbientSweep{
+  0%,65%{transform:translateX(-110%)}
+  100%{transform:translateX(110%)}
+}
+@keyframes wsRing{
+  0%{transform:scale(.86);opacity:.7}
+  75%,100%{transform:scale(1.18);opacity:0}
+}
+@keyframes wsDotIdle{
+  0%,100%{opacity:.65}
+  50%{opacity:1}
+}
+@keyframes wsDotOnline{
+  0%{box-shadow:0 0 0 0 rgba(52,211,153,.55),0 0 7px rgba(52,211,153,.65)}
+  65%{box-shadow:0 0 0 7px rgba(52,211,153,0),0 0 13px rgba(52,211,153,.85)}
+  100%{box-shadow:0 0 0 0 rgba(52,211,153,0),0 0 7px rgba(52,211,153,.65)}
+}
+@keyframes wsError{
+  0%,100%{opacity:.65;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.3)}
+}
+@keyframes wsOnlineText{
+  0%,100%{opacity:.78}
+  50%{opacity:1}
+}
+@media(max-width:768px){
+  #accounts{overflow-x:auto;padding-bottom:5px!important}
+  .troop-card{min-width:520px}
+  .troop-main{grid-template-columns:34px 120px 180px 54px 34px 34px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .troop-card:after,.troop-scanline,.troop-name:after,.troop-ws-dot,.troop-status.online{animation:none!important}
+}
+</style>
+
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
