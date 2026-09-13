@@ -165,7 +165,7 @@
 .logout-icon:hover{background:rgba(136,19,55,.35)}
 @keyframes statusRing{0%{transform:scale(.7);opacity:.45}70%,100%{transform:scale(1.45);opacity:0}}
 
-.kick-troop-progress{margin-top:4px;padding-top:3px;border-top:1px solid rgba(51,65,85,.38);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:5px;font-size:7px;line-height:1}.kick-troop-progress-head{display:flex;align-items:center;gap:4px;color:#60a5fa;font-weight:800;white-space:nowrap}.kick-troop-progress-track{height:4px;min-width:0;border-radius:999px;background:#0f172a;border:1px solid rgba(30,64,175,.45);overflow:hidden}.kick-troop-progress-bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#2563eb,#38bdf8);transition:width .18s linear}.kick-troop-progress-bar.has-failure{background:linear-gradient(90deg,#2563eb,#f59e0b)}.kick-troop-progress-fail{min-width:25px;text-align:right;color:#fb7185;font-weight:700;white-space:nowrap}
+.kick-troop-progress-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:7px}.kick-troop-progress{display:block;width:100%;min-width:0;box-sizing:border-box;padding:6px 7px 5px;border:1px solid rgba(59,130,246,.45);border-radius:9px;background:linear-gradient(180deg,rgba(15,38,78,.68),rgba(2,12,30,.78));font-size:8px;line-height:1;box-shadow:inset 0 0 12px rgba(37,99,235,.06)}.kick-troop-progress-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px;color:#93c5fd;font-weight:900;letter-spacing:.2px;white-space:nowrap}.kick-troop-progress-head span:first-child{color:#60a5fa}.kick-troop-progress-track{display:block;width:100%;height:7px;min-width:0;border-radius:999px;background:rgba(15,23,42,.95);border:1px solid rgba(59,130,246,.55);box-shadow:inset 0 1px 3px rgba(0,0,0,.55),0 0 8px rgba(37,99,235,.12);overflow:hidden;box-sizing:border-box}.kick-troop-progress-bar{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#1d4ed8 0%,#2563eb 55%,#38bdf8 100%);transition:width .22s ease;box-shadow:0 0 8px rgba(56,189,248,.45)}.kick-troop-progress-bar.has-failure{background:linear-gradient(90deg,#2563eb 0%,#38bdf8 55%,#f59e0b 100%)}.kick-troop-progress-fail{display:block;min-height:8px;margin-top:3px;text-align:right;color:#fb7185;font-size:7px;font-weight:800;white-space:nowrap}@media(max-width:365px){.kick-troop-progress-grid{gap:4px}.kick-troop-progress{padding:5px 5px 4px}.kick-troop-progress-track{height:6px}}
 @media(max-width:365px){
   .troop-card{padding:5px 6px;border-radius:12px}
   .troop-main{grid-template-columns:24px 17px minmax(0,1fr) minmax(0,1fr) 38px 26px 26px;gap:3px}
@@ -612,12 +612,20 @@ box-sizing:border-box!important;border-radius:0!important;
       </div>
       <div class="text-[10px] font-semibold text-slate-400 pt-1">PROGRESS TARGET</div>
       <div id="kickTargetProgress" class="grid grid-cols-5 gap-1"></div>
+      <div class="kick-troop-progress-grid" id="kickTroopProgressGrid" aria-label="Progress KICK per Troop">
+        ${Array.from({length:10},(_,i)=>`
+          <div class="kick-troop-progress" id="kickTroopProgress${i}" data-kick-troop="${i+1}">
+            <div class="kick-troop-progress-head"><span>T${i+1}</span><span id="kickTroopProgressText${i}">0/0</span></div>
+            <div class="kick-troop-progress-track"><div id="kickTroopProgressBar${i}" class="kick-troop-progress-bar"></div></div>
+            <span id="kickTroopProgressFail${i}" class="kick-troop-progress-fail"></span>
+          </div>`).join("")}
+      </div>
       <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
     </div>
   </div>
 
 </div>
 
-<script src="/frontend.js?v=18"></script>
+<script src="/frontend.js?v=20"></script>
 </body>
 </html>

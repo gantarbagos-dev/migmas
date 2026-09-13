@@ -36,11 +36,6 @@ function renderAccounts(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 17l5-5-5-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></svg>
         </button>
       </div>
-      <div class="kick-troop-progress" id="kickTroopProgress${i}" data-kick-troop="${i+1}">
-        <div class="kick-troop-progress-head"><span>KICK</span><span id="kickTroopProgressText${i}">0/0</span></div>
-        <div class="kick-troop-progress-track"><div id="kickTroopProgressBar${i}" class="kick-troop-progress-bar"></div></div>
-        <span id="kickTroopProgressFail${i}" class="kick-troop-progress-fail"></span>
-      </div>
     </div>
   `).join("");
 }
@@ -774,7 +769,6 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const targetProgress = el("kickTargetProgress");
   if (targetProgress) targetProgress.innerHTML = "";
   resetPerTroopKickProgress();
-  if (wsProgressBox) wsProgressBox.innerHTML = "";
   if (meta) meta.textContent = reason;
 }
 
