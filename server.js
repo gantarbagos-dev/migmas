@@ -527,14 +527,20 @@ app.post("/api/kick-loop", async (req, res) => {
           throw new Error("Permission rooms.kick tidak tersedia.");
         }
 
-        // FAST: only wait until the API accepts the kick and gives us job_id.
-        // Do NOT wait for job.get before sending the next target.
-        const queued = await sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
-        result.jobId = queued.jobId;
-        sent++;
+        // ULTRA FAST: send the kick immediately and do NOT wait for either
+        // room.kick.queued or job.get before the next target is sent.
+        // The queued response is matched later through the per-session FIFO
+        // waiter and its job is verified in the background.
+        const queuedPromise = sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        const verification = queuedPromise
+          .then(async queued => {
+            result.jobId = queued.jobId;
+            result.jobStatus = "queued";
+            sent++;
 
-        // REAL verification continues independently in the background.
-        const verification = waitKickJobCompletion(sessionId, queued.jobId)
+            // REAL verification continues independently in the background.
+            return waitKickJobCompletion(sessionId, queued.jobId);
+          })
           .then(async statusResult => {
             result.jobStatus = statusResult.status || (statusResult.ok ? "completed" : "failed");
             result.totalMs = Math.max(0, Date.now() - startedAt);
@@ -554,7 +560,7 @@ app.post("/api/kick-loop", async (req, res) => {
                 loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                 sessionId, websocket: wsOrdinal, direction: "forward",
                 acknowledged: 1, total: 1, sent, failedJobs, sendConfirmed: true,
-                jobId: queued.jobId, jobStatus: result.jobStatus,
+                jobId: result.jobId, jobStatus: result.jobStatus,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -563,7 +569,7 @@ app.post("/api/kick-loop", async (req, res) => {
           })
           .catch(async e => {
             result.ok = false;
-            result.jobStatus = result.jobStatus === "queued_wait" ? "failed" : result.jobStatus;
+            result.jobStatus = result.jobStatus === "queued_wait" ? "queue_timeout" : result.jobStatus;
             result.error = safeError(e);
             result.totalMs = Math.max(0, Date.now() - startedAt);
             failedJobs++;
@@ -578,7 +584,7 @@ app.post("/api/kick-loop", async (req, res) => {
                 loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
                 sessionId, websocket: wsOrdinal, direction: "forward",
                 acknowledged: 0, total: 1, sent, failedJobs, sendConfirmed: true,
-                jobId: queued.jobId, jobStatus: result.jobStatus, error: result.error,
+                jobId: result.jobId, jobStatus: result.jobStatus, error: result.error,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -697,7 +703,7 @@ app.post("/api/kick-loop", async (req, res) => {
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
                 sent, failedJobs, sendConfirmed: true,
-        noAck: false,
+        noAck: true,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -724,7 +730,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sent: 0,
         failedJobs: 0,
         sendConfirmed: true,
-        noAck: false,
+        noAck: true,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
       });
@@ -755,7 +761,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sent,
         failedJobs,
         sendConfirmed: true,
-        noAck: false,
+        noAck: true,
         targetProgress: targetProgress.map(x => ({ ...x })),
         wsProgress: wsProgress.map(x => ({ ...x }))
       });
