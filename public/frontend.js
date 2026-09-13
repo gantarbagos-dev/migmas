@@ -34,7 +34,7 @@ function renderAccounts(){
       </div>
       <div class="grid grid-cols-[1fr_auto_1fr] gap-1.5 pt-0.5 items-center">
         <button onclick="loginOne(${i})" class="bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-800/30 font-bold py-1.5 px-2 rounded-lg text-[11px] transition-all active:scale-95">IN</button>
-        <span id="b${i}" class="min-w-[54px] text-center text-[10px] font-semibold bg-slate-900 border border-slate-800 text-slate-300 px-2 py-1.5 rounded-lg">${esc(a.balance)}</span>
+        <span id="b${i}" class="min-w-[62px] text-center bg-slate-900 border border-slate-800 text-slate-300 px-1.5 py-1 rounded-lg leading-tight"><span class="block text-[7px] uppercase tracking-wide text-slate-500">Saldo</span><strong class="block text-[10px] font-semibold text-slate-300">${esc(a.balance)}</strong></span>
         <button onclick="logoutOne(${i})" class="bg-rose-950/15 hover:bg-rose-950/25 text-rose-400 border border-rose-800/30 font-bold py-1.5 px-2 rounded-lg text-[11px] transition-all active:scale-95">OUT</button>
       </div>
     </div>
@@ -65,7 +65,7 @@ function setStatus(i, text, kind=""){
 function setBalance(i, label){
   accounts[i].balance = label || "-";
   const b = el(`b${i}`);
-  if(b) b.textContent = accounts[i].balance;
+  if(b) { const v = b.querySelector("strong"); if(v) v.textContent = accounts[i].balance; else b.textContent = accounts[i].balance; }
 }
 
 function validRange(){
