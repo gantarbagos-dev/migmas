@@ -478,7 +478,7 @@ app.post("/api/kick-loop", async (req, res) => {
   // One independent sequence per WebSocket:
   // Troop-1: target 1 -> delay -> target 2 -> ... -> target 10 -> delay -> loop 2
   // Troop-2 does the same sequence concurrently, and so on.
-  // Fast mode: wait only for the queue response, then verify job status in the background.
+  // Race mode: dispatch small bursts per WebSocket. No job.get verification.
   const totalSteps = loopCount * targetList.length;
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
@@ -507,7 +507,7 @@ app.post("/api/kick-loop", async (req, res) => {
     // WS 1-10: 1-2 -> delay -> 3-4 -> delay -> 5-6 -> delay -> 7-8 -> delay -> 9-10
     // Each WebSocket runs its own sequence independently; there is NO barrier between WebSockets.
     const wsEntries = ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
-    const pairCount = Math.ceil(targetList.length / 2);
+    const RACE_BURST = 3;
 
     const pendingVerifications = [];
 
@@ -528,25 +528,19 @@ app.post("/api/kick-loop", async (req, res) => {
         }
 
         // ULTRA FAST: send the kick immediately and do NOT wait for either
-        // room.kick.queued or job.get before the next target is sent.
-        // The queued response is matched later through the per-session FIFO
-        // waiter and its job is verified in the background.
+        // room.kick.queued before the next target is sent.
+        // The queued response is matched later through the per-session FIFO waiter.
+        // No job.get verification is performed.
         const queuedPromise = sendKickAndWaitQueued(sessionId, { type: "room.kick", room, target_username: targetUsername });
         const verification = queuedPromise
           .then(async queued => {
-            result.jobId = queued.jobId;
+            // FAST MODE: only use room.kick.queued as the acknowledgement.
+            // No job.get is sent or waited for.
+            result.jobId = queued.jobId || null;
             result.jobStatus = "queued";
             sent++;
-
-            // REAL verification continues independently in the background.
-            return waitKickJobCompletion(sessionId, queued.jobId);
-          })
-          .then(async statusResult => {
-            result.jobStatus = statusResult.status || (statusResult.ok ? "completed" : "failed");
-            result.totalMs = Math.max(0, Date.now() - startedAt);
-            if (!statusResult.ok) throw new Error(statusResult.error || "Kick job gagal.");
-
             result.ok = true;
+            result.totalMs = Math.max(0, Date.now() - startedAt);
             completedJobs++;
             targetProgress[targetIndex].completed++;
             wsProgress[wsOrdinal - 1].completed++;
@@ -593,7 +587,7 @@ app.post("/api/kick-loop", async (req, res) => {
           });
 
         pendingVerifications.push(verification);
-        return result;
+        return { result, verification };
       } catch (e) {
         result.ok = false;
         result.jobStatus = "send_failed";
@@ -615,7 +609,7 @@ app.post("/api/kick-loop", async (req, res) => {
             wsProgress: wsProgress.map(x => ({ ...x }))
           });
         });
-        return result;
+        return { result, verification: Promise.resolve(result) };
       }
     }
 
@@ -639,59 +633,34 @@ app.post("/api/kick-loop", async (req, res) => {
       return queuedPromise;
     }
 
-    async function waitKickJobCompletion(sessionId, jobId) {
-      const waiter = waitForKickJob(sessionId, jobId, 15000);
-      // Poll the official job status endpoint over the same WebSocket.
-      const account = sessions.get(sessionId);
-      if (!account || account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
-      let stopped = false;
-      const poll = async () => {
-        while (!stopped) {
-          try {
-            if (account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket terputus saat menunggu status job.");
-            account.socket.send(JSON.stringify({ type: "job.get", job_id: jobId }));
-          } catch (e) {
-            stopped = true;
-            const pending = kickJobWaiters.get(`${sessionId}:${jobId}`);
-            if (pending?.timer) clearTimeout(pending.timer);
-            kickJobWaiters.delete(`${sessionId}:${jobId}`);
-            throw e;
-          }
-          await sleep(250);
-        }
-      };
-      poll().catch(() => {});
-      try {
-        const result = await waiter;
-        stopped = true;
-        return { ok: result.ok, status: result.status, error: result.ok ? null : extractKickJobError(result) };
-      } finally {
-        stopped = true;
-      }
-    }
 
     async function runTroop(sessionId, wsOrdinal) {
       const troopResults = [];
       const orderedIndices = Array.from({ length: targetList.length }, (_, i) => i);
 
       for (let round = 0; round < loopCount; round++) {
-        for (let pair = 0; pair < pairCount; pair++) {
-          const firstPos = pair * 2;
-          for (let offset = 0; offset < 2; offset++) {
-            const pos = firstPos + offset;
-            if (pos >= orderedIndices.length) break;
-            const targetIndex = orderedIndices[pos];
-            troopResults.push(await sendTarget(
-              sessionId, wsOrdinal, round, targetIndex, pos + 1
-            ));
+        for (let pos = 0; pos < orderedIndices.length; pos += RACE_BURST) {
+          const burst = [];
+          const burstIndexes = orderedIndices.slice(pos, pos + RACE_BURST);
+
+          // Race burst: dispatch up to three kicks immediately without waiting
+          // for queued ACKs. ACKs are only awaited after the burst is on the wire,
+          // preventing an unlimited flood while keeping latency low.
+          for (const targetIndex of burstIndexes) {
+            const targetUsername = targetList[targetIndex];
+            const dispatched = await sendTarget(
+              sessionId, wsOrdinal, round, targetIndex, pos + burst.length + 1
+            );
+            troopResults.push(dispatched.result);
+            burst.push(dispatched.verification);
           }
 
-          // Delay belongs only to this WebSocket's own sequence.
-          // No other WebSocket is blocked by this delay.
-          const hasNextPair = pair + 1 < pairCount || round + 1 < loopCount;
-          if (delayMs > 0 && hasNextPair) {
+          await Promise.allSettled(burst);
+
+          const hasNextBurst = pos + RACE_BURST < orderedIndices.length || round + 1 < loopCount;
+          if (delayMs > 0 && hasNextBurst) {
             await addProgress(async () => {
-              const lastTargetIndex = orderedIndices[Math.min((pair + 1) * 2, orderedIndices.length) - 1];
+              const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
               publishKickProgress(execution, {
                 phase: "delay", completedSteps, totalSteps,
                 completedJobs, totalJobs,
@@ -699,11 +668,11 @@ app.post("/api/kick-loop", async (req, res) => {
                 loop: round + 1,
                 targetIndex: lastTargetIndex + 1,
                 target: targetList[lastTargetIndex],
-                delayMs, nextPair: pair + 2 <= pairCount ? pair + 2 : null,
+                delayMs, nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : null,
                 sessionId, websocket: wsOrdinal,
                 direction: "forward",
                 sent, failedJobs, sendConfirmed: true,
-        noAck: true,
+                noAck: true,
                 targetProgress: targetProgress.map(x => ({ ...x })),
                 wsProgress: wsProgress.map(x => ({ ...x }))
               });
@@ -742,8 +711,8 @@ app.post("/api/kick-loop", async (req, res) => {
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
 
-      // All sends are already dispatched; now wait only for background verification
-      // so the final execution state still reflects real job results.
+      // Wait for queued acknowledgements so final progress reflects API acceptance.
+      // No job.get verification is performed.
       await Promise.allSettled(pendingVerifications);
 
       const allJobsSucceeded = completedJobs === totalJobs && failedJobs === 0;
@@ -780,14 +749,14 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: "fast_send_background_job_verification",
+    mode: "race_burst_3_queued_ack_only",
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
     textdelay: delayMs,
     totalSteps,
     totalJobs,
-    noAck: false
+    noAck: true
   });
 });
 
