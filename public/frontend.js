@@ -567,6 +567,29 @@ async function loginAll(){
   resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
 }
 
+function toggleAccountCommands(){
+  const panel = el("mainControlPanel");
+  const box = el("accountCommandBox");
+  const button = el("toggleAccountCommands");
+  const icon = el("toggleAccountCommandsIcon");
+  if(!panel || !box) return;
+
+  const collapsed = panel.classList.toggle("commands-collapsed");
+  box.classList.toggle("commands-collapsed", collapsed);
+
+  if(button){
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.title = collapsed ? "Tampilkan semua" : "Sembunyikan bagian atas";
+    button.setAttribute("aria-label", collapsed ? "Tampilkan semua" : "Sembunyikan bagian atas");
+  }
+
+  if(icon){
+    icon.innerHTML = collapsed
+      ? '<path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>'
+      : '<path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6"/>';
+  }
+}
+
 async function logoutAll(){
   const ids = accounts.map(a => a.sessionId).filter(Boolean);
   accounts.forEach(a => { if(a.eventSource) try{ a.eventSource.close(); }catch{}; a.eventSource = null; });
@@ -711,7 +734,6 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   if (txt) txt.textContent = "Siap";
   if (step) step.textContent = "Target 0/0";
   const targetProgress = el("kickTargetProgress");
-  const wsProgressBox = el("kickWsProgress");
   if (targetProgress) targetProgress.innerHTML = "";
   if (wsProgressBox) wsProgressBox.innerHTML = "";
   if (meta) meta.textContent = reason;
@@ -729,10 +751,6 @@ async function kickSelectedTargets(){
   const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
   const step = el("kickProgressStep");
   const targetProgressBox = el("kickTargetProgress");
-  const wsProgressBox = el("kickWsProgress");
-  if (wsProgressBox) {
-    wsProgressBox.innerHTML = Array.from({length: wsCount}, (_, i) => `<div data-kick-ws="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-2 py-1.5 text-[9px] text-slate-400"><div class="flex justify-between"><span>WS ${i+1}</span><span class="ws-count">0/${total}</span></div><div class="mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div class="ws-bar h-full w-0 bg-blue-500 transition-all duration-200"></div></div></div>`).join("");
-  }
   if (targetProgressBox) {
     targetProgressBox.innerHTML = targets.map((t, i) => `<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${textloop * wsCount}</span></div>`).join("");
   }
@@ -784,21 +802,6 @@ async function kickSelectedTargets(){
             const total = Number(tp.total) || (textloop * wsCount);
             if (span) span.textContent = `${done}/${total}`;
             cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${done >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
-          });
-        }
-
-        if (wsProgressBox && Array.isArray(p.wsProgress)) {
-          p.wsProgress.forEach(wp => {
-            const cell = wsProgressBox.querySelector(`[data-kick-ws="${wp.websocket}"]`);
-            if (!cell) return;
-            const done = Number(wp.completed) || 0;
-            const totalWs = Number(wp.total) || total;
-            const pct = totalWs > 0 ? Math.min(100, (done / totalWs) * 100) : 0;
-            const count = cell.querySelector(".ws-count");
-            const wsBar = cell.querySelector(".ws-bar");
-            if (count) count.textContent = `${done}/${totalWs}${Number(wp.failed) ? ` • Gagal ${wp.failed}` : ""}`;
-            if (wsBar) wsBar.style.width = `${pct}%`;
-            cell.className = `rounded-md border px-2 py-1.5 text-[9px] ${done >= totalWs ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : done > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
           });
         }
 
