@@ -14,10 +14,6 @@ const API_WS = "wss://developer.mig33.id/developer/ws";
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
 const sessions = new Map();
 const subscribers = new Map();
-const eventHistory = new Map();
-const MAX_EVENT_HISTORY = 500;
-const kickJobWaiters = new Map();
-const kickJobStatusWaiters = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 
@@ -46,15 +42,8 @@ function classifyLoginFailure(err) {
   return "error";
 }
 
-function resultPermissions(msg) {
-  return Array.isArray(msg?.data?.developer?.permissions) ? msg.data.developer.permissions : [];
-}
 
 function publish(sessionId, msg) {
-  if (!eventHistory.has(sessionId)) eventHistory.set(sessionId, []);
-  const history = eventHistory.get(sessionId);
-  history.push(msg);
-  if (history.length > MAX_EVENT_HISTORY) history.shift();
   const set = subscribers.get(sessionId);
   if (!set) return;
   const payload = `data: ${JSON.stringify(msg)}\n\n`;
@@ -74,7 +63,6 @@ function closeSession(sessionId, reason = "logout") {
     for (const res of set) { try { res.end(); } catch {} }
     subscribers.delete(sessionId);
   }
-  eventHistory.delete(sessionId);
   const bw = balanceWaiters.get(sessionId);
   if (bw) { clearTimeout(bw.timer); bw.reject(new Error("Session ditutup sebelum saldo diterima.")); balanceWaiters.delete(sessionId); }
   return true;
@@ -104,8 +92,6 @@ function connectAccount(username, password) {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
-      resolveKickQueued(sessionId, msg);
-      resolveJobStatus(sessionId, msg);
       resolveBalance(sessionId, msg);
 
       // Jangan membuat event countdown sintetis dari teks umum.
@@ -178,7 +164,6 @@ function connectAccount(username, password) {
   });
 }
 
-function nowMs() { return Date.now(); }
 
 function send(sessionId, payload) {
   const account = sessions.get(sessionId);
@@ -203,96 +188,6 @@ function sendAsync(sessionId, payload) {
       reject(e);
     }
   });
-}
-
-function waitForKickQueued(sessionId, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const entry = { resolve, reject, timer: null };
-    entry.timer = setTimeout(() => {
-      const list = kickJobWaiters.get(sessionId) || [];
-      const index = list.indexOf(entry);
-      if (index >= 0) list.splice(index, 1);
-      if (list.length) kickJobWaiters.set(sessionId, list);
-      else kickJobWaiters.delete(sessionId);
-      reject(new Error("Timeout menunggu respons room.kick."));
-    }, timeoutMs);
-    const list = kickJobWaiters.get(sessionId) || [];
-    list.push(entry);
-    kickJobWaiters.set(sessionId, list);
-  });
-}
-
-function findJobId(value, depth = 0) {
-  if (depth > 8 || value == null) return null;
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findJobId(item, depth + 1);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (typeof value !== "object") return null;
-
-  // Known API shapes first.
-  const direct = value.job_id ?? value.jobId ?? value.id;
-  if (direct != null && typeof direct !== "object") return String(direct);
-  if (value.job) {
-    const nested = findJobId(value.job, depth + 1);
-    if (nested) return nested;
-  }
-  if (value.result) {
-    const nested = findJobId(value.result, depth + 1);
-    if (nested) return nested;
-  }
-  return null;
-}
-
-function resolveKickQueued(sessionId, msg) {
-  const list = kickJobWaiters.get(sessionId);
-  if (!list?.length) return false;
-
-  const type = String(msg?.type || "").toLowerCase();
-  const isQueued = type === "room.kick.queued" ||
-    type === "room.kick.result" ||
-    type === "room.kick.accepted" ||
-    type === "room.kick.started" ||
-    (type.startsWith("room.kick.") && (type.includes("queue") || type.includes("accept")));
-  const isKickError = type === "room.kick.error" ||
-    type === "room.kick.failed" ||
-    type === "room.kick.rejected";
-
-  // A generic error is only consumed here when it clearly belongs to the kick
-  // command. This prevents an unrelated API error from satisfying the waiter.
-  const errorText = extractJobMessage(msg).toLowerCase();
-  const genericKickError = type === "error" &&
-    (errorText.includes("kick") || errorText.includes("room") || errorText.includes("permission"));
-
-  if (!isQueued && !isKickError && !genericKickError) return false;
-
-  const entry = list.shift();
-  clearTimeout(entry.timer);
-  if (list.length) kickJobWaiters.set(sessionId, list);
-  else kickJobWaiters.delete(sessionId);
-
-  if (isKickError || genericKickError) {
-    const code = msg?.data?.error || msg?.error || "kick_error";
-    const message = msg?.data?.message || msg?.data?.error_message || msg?.message || code;
-    entry.reject(new Error(`${code}: ${message}`));
-    return true;
-  }
-
-  const jobId = findJobId(msg?.data) || findJobId(msg);
-  if (!jobId) {
-    // Some API/proxy versions acknowledge the command without exposing the
-    // job id in the first envelope. Keep the original response in the error
-    // so the UI shows the actual API event instead of a blind timeout.
-    const status = extractJobState(msg);
-    entry.reject(new Error(`room.kick diterima tetapi job_id tidak ditemukan${status ? ` (status: ${status})` : ""}.`));
-    return true;
-  }
-  entry.resolve(jobId);
-  return true;
 }
 
 function waitForBalance(sessionId, timeoutMs = 8000) {
@@ -323,99 +218,7 @@ function resolveBalance(sessionId, msg) {
   return true;
 }
 
-function waitForJobStatus(sessionId, jobId, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    const key = `${sessionId}:${jobId}`;
-    const timer = setTimeout(() => {
-      kickJobStatusWaiters.delete(key);
-      reject(new Error(`Timeout menunggu status job ${jobId}.`));
-    }, timeoutMs);
-    kickJobStatusWaiters.set(key, { resolve, reject, timer });
-  });
-}
-
-function resolveJobStatus(sessionId, msg) {
-  if (!msg) return false;
-  const data = msg.data || {};
-  const job = data.job || data.result?.job || data.result?.data?.job || {};
-  const jobId = data.job_id ?? job.job_id ?? data.result?.job_id ?? data.result?.job?.job_id ?? msg.job_id ?? msg.data?.id ?? null;
-  if (!jobId) return false;
-  const key = `${sessionId}:${jobId}`;
-  const entry = kickJobStatusWaiters.get(key);
-  if (!entry) return false;
-
-  const state = extractJobState(msg);
-  const type = String(msg.type || "").toLowerCase();
-  const looksLikeJobResponse = type.includes("job") || type === "error";
-  if (!state && !looksLikeJobResponse) return false;
-
-  clearTimeout(entry.timer);
-  kickJobStatusWaiters.delete(key);
-  entry.resolve(msg);
-  return true;
-}
-
-function extractJobState(msg) {
-  const candidates = [
-    msg?.data?.status, msg?.data?.job?.status, msg?.data?.job?.state,
-    msg?.data?.result?.status, msg?.data?.result?.state,
-    msg?.data?.result?.data?.status, msg?.data?.result?.data?.job?.status,
-    msg?.status, msg?.state
-  ];
-  return candidates.find(v => typeof v === "string")?.toLowerCase() || "";
-}
-
-function extractJobMessage(msg) {
-  return String(
-    msg?.data?.message ?? msg?.data?.error ??
-    msg?.data?.result?.message ?? msg?.data?.result?.error ??
-    msg?.message ?? msg?.error ?? ""
-  );
-}
-
-async function waitForKickJob(sessionId, jobId, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastState = "";
-  while (Date.now() < deadline) {
-    const waiter = waitForJobStatus(sessionId, jobId, Math.max(1000, deadline - Date.now()));
-    try {
-      send(sessionId, { type: "job.get", job_id: jobId });
-    } catch (e) {
-      const entry = kickJobStatusWaiters.get(`${sessionId}:${jobId}`);
-      if (entry) { clearTimeout(entry.timer); kickJobStatusWaiters.delete(`${sessionId}:${jobId}`); }
-      throw e;
-    }
-    const msg = await waiter;
-    const state = extractJobState(msg);
-    if (state) lastState = state;
-    if (["completed", "complete", "success", "succeeded", "done", "finished"].includes(state)) {
-      return { ok: true, status: state, event: msg };
-    }
-    if (["failed", "error", "cancelled", "canceled", "rejected"].includes(state)) {
-      return { ok: false, status: state, error: extractJobMessage(msg) || `Job berstatus ${state}.`, event: msg };
-    }
-    if (String(msg?.type || "").toLowerCase() === "error") {
-      return { ok: false, status: "error", error: extractJobMessage(msg) || "job.get gagal.", event: msg };
-    }
-    await sleep(250);
-  }
-  throw new Error(`Timeout job ${jobId}${lastState ? ` (status terakhir: ${lastState})` : ""}.`);
-}
-
 function getActiveSessionIds() { return [...sessions.keys()]; }
-
-function extractEventText(value, depth = 0) {
-  if (depth > 10 || value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value !== "object") return "";
-  if (Array.isArray(value)) {
-    return value.map(v => extractEventText(v, depth + 1)).join(" ");
-  }
-  return Object.values(value)
-    .map(v => extractEventText(v, depth + 1))
-    .filter(Boolean)
-    .join(" ");
-}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "MIG Duel Kick 10", activeSessions: sessions.size });
@@ -463,7 +266,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, clients: new Set(), done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
+  const execution = { id, meta, done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -475,18 +278,8 @@ function createKickExecution(meta) {
 function publishKickProgress(execution, event) {
   if (!execution) return;
   execution.latest = { type: "kick.progress", ...event };
-  const payload = `data: ${JSON.stringify(execution.latest)}\n\n`;
-  for (const res of execution.clients) { try { res.write(payload); } catch {} }
 }
 
-function finishKickExecution(execution, result) {
-  if (!execution) return;
-  execution.done = true;
-  execution.result = result;
-  publishKickProgress(execution, result);
-  for (const res of execution.clients) { try { res.end(); } catch {} }
-  execution.clients.clear();
-}
 
 app.get("/api/kick-progress-state", (req, res) => {
   const id = String(req.query.id || "");
@@ -495,24 +288,6 @@ app.get("/api/kick-progress-state", (req, res) => {
   return res.json({ ok: true, executionId: id, done: execution.done, progress: execution.latest, result: execution.done ? execution.result : null });
 });
 
-app.get("/api/kick-progress", (req, res) => {
-  const id = String(req.query.id || "");
-  const execution = kickExecutions.get(id);
-  if (!execution) return res.status(404).end();
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders?.();
-  execution.clients.add(res);
-  res.write(`data: ${JSON.stringify({ type: "kick.progress", phase: "connected", ...execution.meta })}\n\n`);
-  if (execution.done) {
-    res.write(`data: ${JSON.stringify(execution.result)}\n\n`);
-    res.end();
-    execution.clients.delete(res);
-  }
-  const keepAlive = setInterval(() => { try { res.write(": keep-alive\n\n"); } catch {} }, 15000);
-  req.on("close", () => { clearInterval(keepAlive); execution.clients.delete(res); });
-});
 
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
@@ -524,9 +299,6 @@ app.get("/api/events", (req, res) => {
   if (!subscribers.has(sessionId)) subscribers.set(sessionId, new Set());
   subscribers.get(sessionId).add(res);
   res.write(`data: ${JSON.stringify({ type: "stream.ready" })}\n\n`);
-  for (const oldEvent of (eventHistory.get(sessionId) || [])) {
-    try { res.write(`data: ${JSON.stringify(oldEvent)}\n\n`); } catch {}
-  }
   const keepAlive = setInterval(() => { try { res.write(": keep-alive\n\n"); } catch {} }, 20000);
   req.on("close", () => {
     clearInterval(keepAlive);
@@ -661,7 +433,7 @@ app.post("/api/kick-loop", async (req, res) => {
 
     async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
-      const startedAt = nowMs();
+      const startedAt = Date.now();
       // Progress sukses hanya bertambah setelah WebSocket menerima operasi send.
       // Jangan increment counter sebelum send: WS error/closed harus tetap 0 progress.
       let ok = false;
@@ -688,7 +460,7 @@ app.post("/api/kick-loop", async (req, res) => {
         sessionId, websocket: wsOrdinal, loop: round + 1, target: targetUsername,
         targetIndex: targetIndex + 1, sequencePosition, direction: "forward",
         ok, jobStatus: ok ? "sent" : "send_failed", unconfirmed: ok, error,
-        totalMs: Math.max(0, nowMs() - startedAt)
+        totalMs: Math.max(0, Date.now() - startedAt)
       };
 
       await addProgress(async () => {
