@@ -382,6 +382,12 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
 
+function waitBatchDelay(delayMs) {
+  const ms = Math.max(0, Number(delayMs) || 0);
+  return ms > 0 ? sleep(ms) : Promise.resolve();
+}
+
+
 app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
   const { sessionIds, room, targets, websocketSlots } = body;
@@ -438,7 +444,24 @@ app.post("/api/kick-loop", async (req, res) => {
       .map(x => ({ websocket: x.websocket, sessionId: x.sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }));
     const stateLock = { chain: Promise.resolve() };
 
-    function addProgress(fn) {
+    let kickProgressScheduled = false;
+let kickProgressDirty = false;
+
+function scheduleKickProgress() {
+  kickProgressDirty = true;
+  if (kickProgressScheduled) return;
+  kickProgressScheduled = true;
+  setTimeout(() => {
+    kickProgressScheduled = false;
+    if (!kickProgressDirty) return;
+    kickProgressDirty = false;
+    void addProgress(() => {
+      publishKickProgress();
+    });
+  }, 0);
+}
+
+function addProgress(fn) {
       stateLock.chain = stateLock.chain.then(fn).catch(() => {});
       return stateLock.chain;
     }
@@ -451,7 +474,7 @@ app.post("/api/kick-loop", async (req, res) => {
       : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
     const RACE_BURST = burstSize;
 
-    async function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
+    function sendTarget(sessionId, wsOrdinal, round, targetIndex, sequencePosition) {
       const targetUsername = targetList[targetIndex];
       const startedAt = Date.now();
       const result = {
@@ -468,7 +491,7 @@ app.post("/api/kick-loop", async (req, res) => {
         }
 
         // INSTANT NO-ACK DISPATCH: send directly and continue immediately.
-        await sendAsync(sessionId, { type: "room.kick", room, target_username: targetUsername });
+        sendAsync(sessionId, { type: "room.kick", room, target_username: targetUsername });
 
         dispatchedJobs++;
         targetProgress[targetIndex].dispatched++;
@@ -477,7 +500,7 @@ app.post("/api/kick-loop", async (req, res) => {
         result.jobStatus = "sent";
         result.totalMs = Math.max(0, Date.now() - startedAt);
 
-        await addProgress(async () => {
+        void addProgress(async () => {
           publishKickProgress(execution, {
             phase: "dispatched", completedSteps, totalSteps, dispatchedJobs, totalJobs,
             percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
@@ -499,7 +522,7 @@ app.post("/api/kick-loop", async (req, res) => {
         result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
         wsProgress[wsOrdinal - 1].failed++;
-        await addProgress(async () => {
+        void addProgress(async () => {
           completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
           publishKickProgress(execution, {
             phase: "send_failed", completedSteps, totalSteps, dispatchedJobs, totalJobs,
@@ -537,8 +560,11 @@ app.post("/api/kick-loop", async (req, res) => {
           }
 // Burst berjalan tanpa delay. Delay hanya dipakai saat pindah ke loop berikutnya.
           const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
-          const hasNextLoop = round + 1 < loopCount;
-          if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
+      const hasNextLoop = round + 1 < loopCount;
+      if (delayMs > 0 && !isEndOfLoop) {
+        await waitBatchDelay(delayMs);
+      }
+      if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
             await addProgress(async () => {
               const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
               publishKickProgress(execution, {
