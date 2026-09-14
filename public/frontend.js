@@ -303,9 +303,9 @@ function getVoteCountdownMs(msg){
 
 function isVoteStartedKickEvent(msg){
   const data = getKickEventData(msg);
-  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
-  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
-  const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase().trim();
+  const action = String(data?.action ?? msg?.action ?? "").toLowerCase().trim();
+  const command = String(data?.command ?? msg?.command ?? "").toLowerCase().trim();
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
   if(success === false) return false;
@@ -313,21 +313,32 @@ function isVoteStartedKickEvent(msg){
   let raw = "";
   try { raw = JSON.stringify(msg).toLowerCase(); } catch {}
 
-  const isKickState = eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(eventType);
-  const voteStarted = action === "vote_started" || /\bvote[_ ]started\b/i.test(raw) || /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status);
-  const kickEvent = command === "kick" || isKickState || /\bkick\b/i.test(raw) || /\bvote\b.*\bkick\b/i.test(status);
+  const isKickEvent = /room\.kick/.test(eventType) || command === "kick" || /\bkick\b/i.test(raw);
+  if(!isKickEvent) return false;
 
-  // Socket 1 hanya perlu mengirim sinyal bahwa vote-kick baru dimulai.
-  // Jangan mensyaratkan format status_message tertentu karena format event
-  // dapat berbeda antar versi API.
-  if(!voteStarted || !kickEvent) return false;
-  if(eventType && !isKickState) return false;
+  // API dapat mengirim action sebagai vote_started, started, atau tidak sama
+  // sekali. Untuk room.kick.state, status vote yang sedang dimulai adalah
+  // sinyal utama; jangan mengunci trigger pada satu bentuk action.
+  const explicitVoteStarted =
+    action === "vote_started" ||
+    action === "started" ||
+    /\bvote[_ ]started\b/i.test(raw);
+
+  const statusHasVoteStart =
+    /\bvote\b.*\bkick\b.*\b(?:has been )?started\b/i.test(status) ||
+    /\bvote to kick\b/i.test(status) && /\bremaining\b/i.test(status);
+
+  const stateLooksLikeNewVote =
+    /room\.kick\.state/.test(eventType) &&
+    /\bvote\b/i.test(status) &&
+    /\bremaining\b/i.test(status);
+
+  if(!explicitVoteStarted && !statusHasVoteStart && !stateLooksLikeNewVote) return false;
 
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
   return true;
 }
-
 function getVoteKey(msg){
   const data = getKickEventData(msg);
   const explicitId = String(
