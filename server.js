@@ -25,7 +25,7 @@ app.get("/api/version", (_req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
-const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v9";
+const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v10";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
@@ -33,6 +33,7 @@ const sessions = new Map();
 const subscribers = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
+const messageWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -110,38 +111,12 @@ function connectAccount(username, password, socketIndex = null) {
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
       resolveBalance(sessionId, msg);
+      resolveMessageResult(sessionId, msg);
 
       // Forward the raw API event. Socket 1 is explicitly tagged here so
       // the frontend never has to guess which authenticated WebSocket sent it.
       publish(sessionId, { type: "api.event", socketIndex, event: msg });
 
-      // The API's vote-start notification can vary between deployments. For
-      // Socket 1, a room.kick state event is the authoritative source for the
-      // countdown; pass it through as an explicit trigger so the frontend does
-      // not depend on one exact action/status field name.
-      if (socketIndex === 0) {
-        let rawEvent = "";
-        try { rawEvent = JSON.stringify(msg).toLowerCase(); } catch {}
-        const eventType = String(msg?.type || msg?.data?.event_type || "").toLowerCase();
-        const action = String(msg?.action || msg?.data?.action || "").toLowerCase();
-        const status = String(msg?.status_message || msg?.data?.status_message || "").toLowerCase();
-        const hasKick = /room\.kick/.test(eventType) || /room\.kick/.test(rawEvent);
-        const hasVoteStart = /vote[_ ]started|vote.*started|started.*vote/.test(rawEvent) ||
-          (/vote/.test(rawEvent) && /remaining/.test(rawEvent));
-        const isKickState = eventType === "room.kick.state" || /room\.kick\.state/.test(rawEvent);
-        const isStartState = hasKick && (
-          hasVoteStart ||
-          action === "vote_started" ||
-          /vote/.test(status) && /remaining/.test(status) ||
-          isKickState && (/vote/.test(rawEvent) || /remaining/.test(rawEvent))
-        );
-        if (isStartState) {
-          const trigger = { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt: Date.now() };
-          const account = sessions.get(sessionId);
-          if (account) account.countdownTrigger = trigger;
-          publish(sessionId, trigger);
-        }
-      }
 
       if (msg.type === "auth.required") return;
 
@@ -245,6 +220,39 @@ function resolveBalance(sessionId, msg) {
   return true;
 }
 
+function waitForMessageResult(sessionId, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const key = String(sessionId);
+    const list = messageWaiters.get(key) || [];
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
+      const current = messageWaiters.get(key) || [];
+      const next = current.filter(x => x !== entry);
+      if (next.length) messageWaiters.set(key, next); else messageWaiters.delete(key);
+      reject(new Error("Timeout menunggu respons room.send_message."));
+    }, timeoutMs);
+    list.push(entry);
+    messageWaiters.set(key, list);
+  });
+}
+
+function resolveMessageResult(sessionId, msg) {
+  const type = String(msg?.type || "");
+  if(type !== "room.send_message.queued" && type !== "error") return false;
+  const key = String(sessionId);
+  const list = messageWaiters.get(key);
+  if(!list?.length) return false;
+  messageWaiters.delete(key);
+  for(const entry of list) clearTimeout(entry.timer);
+  if(type === "error") {
+    const apiErr = extractApiError(msg);
+    for(const entry of list) entry.reject(new Error(apiErr.message || "room.send_message gagal."));
+  } else {
+    for(const entry of list) entry.resolve(msg);
+  }
+  return true;
+}
+
 function extractJobId(msg) {
   return String(msg?.data?.job?.job_id ?? msg?.data?.job_id ?? msg?.job_id ?? "").trim();
 }
@@ -320,36 +328,32 @@ app.get("/api/kick-progress-state", (req, res) => {
 });
 
 
-// CEK uses Socket 1 (frontend account index 0) to send the exact build version
-// through the official room.send_message command.
-app.post("/api/check-version", (req, res) => {
+// CEK: Socket 1 sends the current build version using the official
+// room.send_message command and waits for the API queue response.
+app.post("/api/check-version", async (req, res) => {
   const { sessionId, room } = req.body || {};
-  if (!sessionId || !room) return res.status(400).json({ ok: false, error: "Socket 1 dan room wajib tersedia." });
-  const account = sessions.get(String(sessionId));
-  if (!account || account.socketIndex !== 0) {
-    return res.status(400).json({ ok: false, error: "CEK harus menggunakan Socket 1." });
+  const id = String(sessionId || "");
+  const roomName = String(room || "").trim();
+  if(!id || !roomName) return res.status(400).json({ ok:false, error:"Socket 1 dan room wajib tersedia." });
+  const account = sessions.get(id);
+  if(!account || account.socketIndex !== 0) {
+    return res.status(400).json({ ok:false, error:"CEK harus menggunakan Socket 1." });
+  }
+  if(!Array.isArray(account.permissions) || !account.permissions.includes("messaging.send")) {
+    return res.status(403).json({ ok:false, error:"Socket 1 tidak memiliki permission messaging.send." });
   }
   try {
     const message = `BUILD VERSION: ${BUILD_VERSION}`;
-    const payload = { type: "room.send_message", room: String(room).trim(), message };
-    send(String(sessionId), payload);
-    res.json({ ok: true, socketIndex: 0, version: BUILD_VERSION, payload });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: safeError(e) });
+    const queued = waitForMessageResult(id, 8000);
+    send(id, { type:"room.send_message", room:roomName, message });
+    const result = await queued;
+    const jobId = result?.data?.job?.job_id ?? result?.data?.job_id ?? result?.job_id ?? null;
+    return res.json({ ok:true, socketIndex:0, version:BUILD_VERSION, message, jobId, queuedType:result?.type || null });
+  } catch(e) {
+    return res.status(400).json({ ok:false, error:safeError(e) });
   }
 });
 
-app.get("/api/countdown-trigger", (req, res) => {
-  const sessionId = String(req.query.sessionId || "");
-  const account = sessions.get(sessionId);
-  if (!sessionId || !account) return res.status(401).json({ ok: false });
-  const trigger = account.countdownTrigger || null;
-  if (trigger) account.countdownTrigger = null;
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  return res.json({ ok: true, trigger });
-});
 
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
