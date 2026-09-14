@@ -115,46 +115,28 @@ function clearFields(){
   renderAccounts();
 }
 
-function appendApiLog(i, msg){
-  const box = el("apiLog");
-  if(!box) return;
-  const time = new Date().toLocaleTimeString();
-  const line = `[${time}] Socket ${i + 1}\n${JSON.stringify(msg, null, 2)}`;
-  box.value = (box.value ? box.value + "\n\n" : "") + line;
-  const lines = box.value.split("\n\n");
-  if(lines.length > 200) box.value = lines.slice(-200).join("\n\n");
-  box.scrollTop = box.scrollHeight;
-}
-
-function clearApiLog(){
-  const box = el("apiLog");
-  if(box) box.value = "";
-}
-
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
-  if(a.apiPollTimer) clearInterval(a.apiPollTimer);
   const sessionId = a.sessionId;
-  let after = 0;
-  const poll = async () => {
+  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(sessionId)}`);
+  a.eventSource = es;
+  es.onmessage = (ev) => {
     if(accounts[i]?.sessionId !== sessionId) return;
     try{
-      const r = await fetch(`/api/api-log?sessionId=${encodeURIComponent(sessionId)}&after=${after}&_=${Date.now()}`, {cache:"no-store"});
-      if(!r.ok) return;
-      const data = await r.json();
-      for(const wrapper of (Array.isArray(data.items) ? data.items : [])){
-        after = Math.max(after, Number(wrapper.seq) || 0);
-        const msg = wrapper?.event ?? wrapper;
-        appendApiLog(i, msg);
-        handleApiEvent(i, msg);
-      }
-      if(!data.items?.length && Number(data.latest) > after) after = Number(data.latest);
-    }catch(err){}
+      const msg = JSON.parse(ev.data);
+      handleApiEvent(i, msg);
+    }catch{}
   };
-  poll();
-  a.apiPollTimer = setInterval(poll, 300);
+  es.onerror = () => {
+    try{ es.close(); }catch{}
+    if(accounts[i]?.sessionId === sessionId){
+      setTimeout(() => {
+        if(accounts[i]?.sessionId === sessionId) openEvents(i);
+      }, 1000);
+    }
+  };
 }
 
 const TIMER_START_MS = 60000;
@@ -698,26 +680,7 @@ async function leaveAll(){
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
-async function checkRoomVersion(){
-  const room = el("room").value.trim();
-  const sessionId = accounts[0]?.sessionId;
-  if(!room){ alert("Room belum diisi."); return; }
-  if(!sessionId){ alert("Socket 1 belum login."); return; }
-  try{
-    const r = await fetch("/api/check-version", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      cache:"no-store",
-      body:JSON.stringify({sessionId, room})
-    });
-    const data = await r.json().catch(() => ({}));
-    if(!r.ok || !data?.ok) throw new Error(data?.error || `CEK gagal (${r.status})`);
-    // CEK berhasil dikirim; tidak menampilkan konfirmasi popup.
 
-  }catch(e){
-    alert(String(e?.message || e));
-  }
-}
 
 async function participants(){
   const room = el("room").value.trim();
