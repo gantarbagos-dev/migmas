@@ -13,3 +13,6 @@ Version 44: memperbaiki bug LOGIN ALL, membersihkan kode/status ACK lama yang su
 
 
 Performance note (v45): WebSocket progress state is indexed by physical slot for O(1) lookup; no Array.find() is used in the KICK ALL dispatch hot path.
+
+
+Version 47: memperbaiki ReferenceError pada jalur error KICK ALL dan sequencePosition burst.

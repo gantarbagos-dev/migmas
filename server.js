@@ -548,7 +548,7 @@ app.post("/api/kick-loop", async (req, res) => {
           for (const targetIndex of burstIndexes) {
             const targetUsername = targetList[targetIndex];
             const dispatched = sendTarget(
-              runtime, round, targetIndex, pos + burst.length + 1
+              runtime, round, targetIndex, pos + 1
             );
             troopResults.push(dispatched);
           }
@@ -636,7 +636,7 @@ app.post("/api/kick-loop", async (req, res) => {
     } catch (e) {
       execution.done = true;
       execution.error = safeError(e);
-      publishKickProgress(execution, { phase: "error", error: execution.error, dispatchedJobs, totalJobs, sent, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })), wsProgress: wsProgress.map(x => ({ ...x })) });
+      publishKickProgress(execution, { phase: "error", error: execution.error, dispatchedJobs, totalJobs, sent: dispatchedJobs, failedJobs, targetProgress: targetProgress.map(x => ({ ...x })), wsProgress: wsProgress.map(x => ({ ...x })) });
     }
 
   })();
