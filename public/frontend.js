@@ -874,7 +874,7 @@ async function kickSelectedTargets(){
         step.textContent = `Target ${done}/${totalSteps}`;
 
         if(p.phase === "delay") {
-          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
+          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs || textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
           meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
           stopProgress();
