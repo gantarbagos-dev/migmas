@@ -151,6 +151,7 @@ let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
 let activeVoteKey = "";
+let timerNeedsReset = false;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -169,6 +170,7 @@ function resetTimer(){
   timerDeadline = 0;
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
+  timerNeedsReset = false;
   renderTimer();
 }
 
@@ -197,6 +199,7 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
   if(eventKey) lastTimerEventKey = eventKey;
+  if(timerNeedsReset) return;
 
   const duration = Math.max(0, Number(durationMs) || 0);
   const generation = ++timerGeneration;
@@ -231,6 +234,7 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
 
     if(remaining <= 0){
       timerRunning = false;
+      timerNeedsReset = true;
       timerValue = 0;
       timerFrame = 0;
       renderTimer();
@@ -311,10 +315,24 @@ function isVoteStartedKickEvent(msg){
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
 
-  // Harus persis state awal vote-kick. Event status lain tidak boleh
-  // menyalakan/restart countdown.
-  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
-  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
+  if(success === false) return false;
+
+  // WebSocket 1 dapat mengirim struktur event yang sedikit berbeda
+  // (field berada di level berbeda atau nama event tidak persis sama).
+  // Gunakan struktur bila tersedia, lalu fallback ke isi event mentah.
+  const raw = (() => {
+    try { return JSON.stringify(msg).toLowerCase(); } catch { return ""; }
+  })();
+  const hasVoteStarted = action === "vote_started" || /\bvote[_ ]started\b/i.test(raw);
+  const hasKick = command === "kick" || /\bkick\b/i.test(raw) || /vote.*kick/i.test(status);
+  const validType = !eventType || eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(eventType);
+
+  if(!hasVoteStarted || !hasKick || !validType) return false;
+
+  // Jika status_message tersedia dan jelas menunjukkan vote dimulai,
+  // jangan batasi lagi pada format kalimat tertentu.
+  const statusLooksLikeVoteStarted = /\bvote[_ ]started\b/i.test(status) || /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status);
+  if(status && !statusLooksLikeVoteStarted && action !== "vote_started" && !/\bvote[_ ]started\b/i.test(raw)) return false;
 
   // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
