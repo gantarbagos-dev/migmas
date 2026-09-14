@@ -143,6 +143,34 @@ function openEvents(i){
   };
 }
 
+let socket1CountdownPollTimer = 0;
+let socket1CountdownLastReceivedAt = 0;
+
+function startSocket1CountdownPolling(){
+  if(socket1CountdownPollTimer) return;
+  const poll = async () => {
+    const sessionId = accounts[0]?.sessionId;
+    if(sessionId){
+      try{
+        const r = await fetch(`/api/countdown-trigger?sessionId=${encodeURIComponent(sessionId)}&_=${Date.now()}`, {cache:"no-store"});
+        if(r.ok){
+          const data = await r.json();
+          const trigger = data?.trigger;
+          if(trigger?.socketIndex === 0 && trigger?.event){
+            const receivedAt = Number(trigger.receivedAt) || 0;
+            if(receivedAt && receivedAt !== socket1CountdownLastReceivedAt){
+              socket1CountdownLastReceivedAt = receivedAt;
+              handleSocket1CountdownEvent(trigger.event);
+            }
+          }
+        }
+      }catch{}
+    }
+    socket1CountdownPollTimer = setTimeout(poll, 250);
+  };
+  poll();
+}
+
 const TIMER_START_MS = 60000;
 let timerValue = TIMER_START_MS;
 let timerRunning = false;
@@ -527,6 +555,7 @@ async function loginOne(i){
     else setBalance(i, "-");
     setStatus(i, "ONLINE");
     openEvents(i);
+    if(i === 0) startSocket1CountdownPolling();
   }catch(e){
     const status = e.loginStatus === "SUSPEND" ? "SUSPEND" : "ERROR";
     setStatus(i, status);
@@ -577,6 +606,7 @@ async function loginAll(){
         else setBalance(i, "-");
         setStatus(i, "ONLINE");
         openEvents(i);
+        if(i === 0) startSocket1CountdownPolling();
       } else {
         accounts[i].sessionId = null;
         const status = String(item.status || "error").toUpperCase() === "SUSPEND" ? "SUSPEND" : "ERROR";
@@ -704,18 +734,17 @@ async function leaveAll(){
 
 async function checkRoomVersion(){
   try{
-    const r = await fetch(`/api/version?_=${Date.now()}`, { cache:"no-store" });
-    const data = await r.json();
-    const version = String(data?.version || "unknown");
     const room = el("room").value.trim();
-    const sessionId = accounts[0]?.sessionId;
-    if(room && sessionId){
-      await fetch("/api/action", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({sessionId, action:"message", room, message:`Script yang sedang berjalan di server: ${version}`})
-      });
-    }
+    const sessionId = accounts[0]?.sessionId; // Socket 1 = account index 0
+    if(!room || !sessionId) return;
+    const r = await fetch("/api/check-version", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      cache:"no-store",
+      body:JSON.stringify({sessionId, room})
+    });
+    const data = await r.json();
+    if(!r.ok || !data?.ok) throw new Error(data?.error || "CEK gagal");
   }catch(e){}
 }
 
