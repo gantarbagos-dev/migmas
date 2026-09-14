@@ -529,6 +529,7 @@ box-sizing:border-box!important;border-radius:0!important;
       <div class="grid grid-cols-2 sm:flex sm:flex-row gap-2.5">
         <button onclick="joinAll()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-3 rounded-xl text-xs sm:text-sm shadow-lg shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap">JOIN</button>
         <button onclick="leaveAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">LEAVE</button>
+        <button onclick="checkRoomVersion()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs sm:text-sm border border-slate-700 transition-all active:scale-95 whitespace-nowrap">CEK</button>
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2.5">
@@ -537,6 +538,14 @@ box-sizing:border-box!important;border-radius:0!important;
     </div>
   </div>
 
+  <div class="bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl space-y-2.5">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="text-sm sm:text-base font-bold text-slate-200">API Log</h3>
+      <button onclick="clearApiLog()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-2 rounded-lg text-[10px] border border-slate-700">HAPUS LOG</button>
+    </div>
+    <label class="block text-[10px] text-slate-500">Log event API dari WebSocket — dapat di-scroll untuk melihat event mentah.</label>
+    <textarea id="apiLog" readonly spellcheck="false" class="w-full h-56 resize-y overflow-y-auto rounded-xl bg-slate-950 border border-slate-800 p-3 text-[9px] leading-4 text-slate-300 font-mono outline-none" placeholder="Menunggu event API..."></textarea>
+  </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     
