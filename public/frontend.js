@@ -115,46 +115,28 @@ function clearFields(){
   renderAccounts();
 }
 
-function appendApiLog(i, msg){
-  const box = el("apiLog");
-  if(!box) return;
-  const time = new Date().toLocaleTimeString();
-  const line = `[${time}] Socket ${i + 1}\n${JSON.stringify(msg, null, 2)}`;
-  box.value = (box.value ? box.value + "\n\n" : "") + line;
-  const lines = box.value.split("\n\n");
-  if(lines.length > 200) box.value = lines.slice(-200).join("\n\n");
-  box.scrollTop = box.scrollHeight;
-}
-
-function clearApiLog(){
-  const box = el("apiLog");
-  if(box) box.value = "";
-}
-
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
-  if(a.apiPollTimer) clearInterval(a.apiPollTimer);
   const sessionId = a.sessionId;
-  let after = 0;
-  const poll = async () => {
+  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(sessionId)}`);
+  a.eventSource = es;
+  es.onmessage = (ev) => {
     if(accounts[i]?.sessionId !== sessionId) return;
     try{
-      const r = await fetch(`/api/api-log?sessionId=${encodeURIComponent(sessionId)}&after=${after}&_=${Date.now()}`, {cache:"no-store"});
-      if(!r.ok) return;
-      const data = await r.json();
-      for(const wrapper of (Array.isArray(data.items) ? data.items : [])){
-        after = Math.max(after, Number(wrapper.seq) || 0);
-        const msg = wrapper?.event ?? wrapper;
-        appendApiLog(i, msg);
-        handleApiEvent(i, msg);
-      }
-      if(!data.items?.length && Number(data.latest) > after) after = Number(data.latest);
-    }catch(err){}
+      const msg = JSON.parse(ev.data);
+      handleApiEvent(i, msg);
+    }catch{}
   };
-  poll();
-  a.apiPollTimer = setInterval(poll, 300);
+  es.onerror = () => {
+    try{ es.close(); }catch{}
+    if(accounts[i]?.sessionId === sessionId){
+      setTimeout(() => {
+        if(accounts[i]?.sessionId === sessionId) openEvents(i);
+      }, 1000);
+    }
+  };
 }
 
 const TIMER_START_MS = 60000;
@@ -169,7 +151,7 @@ let activeVoteKey = "";
 
 function renderTimer(){
   const node = el("timerValue");
-  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue / 1000)));
+  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue)));
 }
 
 function getKickTimerMs(){
@@ -285,15 +267,27 @@ function getEventTimestamp(msg){
 
 function getVoteRemainingMs(msg){
   const data = getKickEventData(msg);
-  const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
-  const match = status.match(/(\d+)\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i);
-  if(match) return Math.max(0, Number(match[1]) * 1000);
-  const millisecondCandidates = [data?.remaining_ms, data?.remainingMs, msg?.remaining_ms, msg?.remainingMs];
+  const nested = msg?.event ?? msg?.data?.event ?? null;
+  const nestedData = nested?.data ?? nested ?? {};
+  const textCandidates = [
+    data?.status_message, data?.text, data?.message,
+    msg?.status_message, msg?.text, msg?.message,
+    nestedData?.status_message, nestedData?.text, nestedData?.message,
+    nested?.status_message, nested?.text, nested?.message
+  ];
+  for(const value of textCandidates){
+    const text = String(value ?? "").trim();
+    // MigReborn room moderation status, e.g.:
+    // "Vote to kick gantar: 1 vote, 1 more vote needed. 40s remaining."
+    const match = text.match(/\b(\d+)\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i);
+    if(match) return Math.max(0, Number(match[1]) * 1000);
+  }
+  const millisecondCandidates = [data?.remaining_ms, data?.remainingMs, msg?.remaining_ms, msg?.remainingMs, nestedData?.remaining_ms, nestedData?.remainingMs];
   for(const value of millisecondCandidates){
     const n = Number(value);
     if(Number.isFinite(n) && n >= 0) return n;
   }
-  const secondCandidates = [data?.remaining, msg?.remaining];
+  const secondCandidates = [data?.remaining, msg?.remaining, nestedData?.remaining];
   for(const value of secondCandidates){
     const n = Number(value);
     if(Number.isFinite(n) && n >= 0) return n * 1000;
@@ -319,35 +313,27 @@ function getVoteCountdownMs(msg){
 }
 
 function isVoteStartedKickEvent(msg){
-  const data = getKickEventData(msg);
-  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
-  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
-  const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
-  const status = String(data?.status_message ?? msg?.status_message ?? data?.message ?? msg?.message ?? "").trim();
-  const raw = JSON.stringify(msg).toLowerCase();
+  // The actual Socket 1 event is room.kick.state with action=vote_started.
+  // Example: status_message = "A vote to kick ... 60s remaining."
+  // Keep room.text support as a harmless fallback for older API variants.
+  const rawEvent = msg?.event ?? msg?.data?.event ?? msg;
+  const data = rawEvent?.data ?? rawEvent ?? {};
+  const eventType = String(rawEvent?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(rawEvent?.action ?? data?.action ?? "").toLowerCase();
+  const status = String(rawEvent?.status_message ?? data?.status_message ?? "").trim();
+  const text = String(data?.text ?? rawEvent?.text ?? data?.message ?? rawEvent?.message ?? status).trim();
 
-  // API dapat mengirim bentuk room.kick.state yang berbeda-beda. Jangan
-  // mengunci detector pada satu susunan field; yang penting ini adalah event
-  // kick dan jelas menandakan vote baru dimulai + waktu tersisa.
-  const isKickEvent = eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(raw);
-  if(!isKickEvent) return false;
-  if(action === "vote_completed" || action === "vote_cancelled" || action === "vote_failed" || action === "kick_completed" || action === "kick_failed") return false;
+  if(eventType === "room.kick.state" && action === "vote_started"){
+    return /vote\s+to\s+kick\b/i.test(status || text) &&
+      /\b\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status || text);
+  }
 
-  const hasVoteStarted = /vote[_ ]started|vote.*started|started.*vote/.test(raw);
-  const hasRemaining = /\b\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\b/.test(raw) ||
-    data?.remaining != null || data?.remaining_ms != null || msg?.remaining != null || msg?.remaining_ms != null;
-  if(!(hasVoteStarted && hasRemaining)) return false;
-
-  const success = data?.success ?? msg?.success;
-  if(success === false) return false;
-
-  const eventTime = getEventTimestamp(msg);
-  if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
-  return true;
+  if(eventType !== "room.text" && eventType !== "room.message.received") return false;
+  return /^vote\s+to\s+kick\s+.+?:\s*\d+\s+vote(?:s)?[, ]+\d+\s+more\s+vote(?:s)?\s+needed\.\s*\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(text);
 }
-
 function getVoteKey(msg){
-  const data = getKickEventData(msg);
+  const rawEvent = msg?.event ?? msg?.data?.event ?? msg;
+  const data = rawEvent?.data ?? rawEvent ?? {};
   const explicitId = String(
     data?.event_id ?? data?.eventId ?? data?.id ?? msg?.event_id ?? msg?.eventId ?? ""
   ).trim();
@@ -378,6 +364,7 @@ function handleApiEvent(i, msg){
     activeVoteKey = "";
   }
   if(i === 0 && isVoteStartedKickEvent(msg)){
+    const rawEvent = msg?.event ?? msg?.data?.event ?? msg;
     const eventKey = getVoteKey(msg);
 
     // Event yang sama dapat dikirim berkali-kali oleh stream. Jangan pernah
@@ -390,7 +377,26 @@ function handleApiEvent(i, msg){
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
-    const countdownMs = getVoteCountdownMs(msg);
+
+    // Use the actual vote-start timestamp when the API provides it. The event
+    // in room.kick.state contains `time`, which represents when the vote was
+    // started. Therefore the countdown is the original 60s deadline minus the
+    // time already elapsed before this event reached the browser.
+    // This prevents network/SSE delay from giving the vote a fresh 60 seconds.
+    let countdownMs = getVoteCountdownMs(rawEvent);
+
+    // If the API event has no usable timestamp, fall back to the server's
+    // receive time so browser/SSE delivery delay is still deducted from the
+    // remaining value reported by the API.
+    const eventTime = getEventTimestamp(rawEvent);
+    if(!Number.isFinite(eventTime)){
+      const receivedAt = Number(msg?.receivedAt);
+      const reportedRemaining = getVoteRemainingMs(rawEvent);
+      if(Number.isFinite(receivedAt) && receivedAt > 0 && Number.isFinite(reportedRemaining)){
+        countdownMs = Math.max(0, reportedRemaining - Math.max(0, Date.now() - receivedAt));
+      }
+    }
+
     startCountdown(countdownMs, eventKey);
   }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
@@ -698,26 +704,7 @@ async function leaveAll(){
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
 }
 
-async function checkRoomVersion(){
-  const room = el("room").value.trim();
-  const sessionId = accounts[0]?.sessionId;
-  if(!room){ alert("Room belum diisi."); return; }
-  if(!sessionId){ alert("Socket 1 belum login."); return; }
-  try{
-    const r = await fetch("/api/check-version", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      cache:"no-store",
-      body:JSON.stringify({sessionId, room})
-    });
-    const data = await r.json().catch(() => ({}));
-    if(!r.ok || !data?.ok) throw new Error(data?.error || `CEK gagal (${r.status})`);
-    // CEK berhasil dikirim; tidak menampilkan konfirmasi popup.
 
-  }catch(e){
-    alert(String(e?.message || e));
-  }
-}
 
 async function participants(){
   const room = el("room").value.trim();
