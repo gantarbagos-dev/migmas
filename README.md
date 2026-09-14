@@ -1,11 +1,15 @@
-# MIG Duel Kick 10 - Ultra Fast Kick All
+# MIG Duel Kick 10 - Instant Dispatch
 
-Kick All now uses Race Mode: each WebSocket dispatches up to 3 `room.kick` commands as a small burst without waiting for `room.kick.queued`. Queued responses are matched per WebSocket in FIFO order and processed in the background. No `job.get` is used.
+KICK ALL menjalankan hingga 10 WebSocket secara bersamaan. Setiap WebSocket mengirim target dalam burst sesuai pilihan Burst (1–10) tanpa menunggu respons API.
 
-- Up to 10 WebSockets run concurrently.
-- Target dispatch is not blocked by queue acknowledgement or job completion.
-- `textdelay` is used only between loops; targets inside the same burst and consecutive bursts are sent without delay.
-- Progress remains based on verified job results.
-- Final execution waits only for queued acknowledgements so progress reflects API acceptance; there is no job completion verification.
+- Maksimal 10 WebSocket berjalan konkuren.
+- Dispatch `room.kick` tidak menunggu ACK, `room.kick.queued`, atau `job.get`.
+- Progress KICK ALL dihitung dari jumlah command yang berhasil dikirim melalui WebSocket (`dispatchedJobs`).
+- `textdelay` mengatur jeda antar-burst di dalam loop dan juga jeda dari akhir satu loop ke loop berikutnya.
+- Burst berikutnya dimulai setelah delay yang ditentukan; tidak ada penantian ACK/job completion.
+- Kegagalan transport WebSocket tetap dicatat sebagai `send_failed`.
 
-Version 43: direct T1-T10 progress lookup and safe coalesced progress finalization.
+Version 44: memperbaiki bug LOGIN ALL, membersihkan kode/status ACK lama yang sudah tidak digunakan, dan memperbarui README agar sesuai dengan implementasi aktif.
+
+
+Performance note (v45): WebSocket progress state is indexed by physical slot for O(1) lookup; no Array.find() is used in the KICK ALL dispatch hot path.

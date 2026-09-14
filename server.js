@@ -319,7 +319,6 @@ app.post("/api/balance-all", async (req, res) => {
 
   const results = await Promise.all(ids.map(async (sessionId) => {
     try {
-      // Register waiter before sending to avoid a very fast response racing past it.
       const waiter = waitForBalance(sessionId, 8000);
       send(sessionId, { type: "wallet.balance" });
       const wallet = await waiter;
@@ -404,7 +403,7 @@ app.post("/api/kick-loop", async (req, res) => {
   // One independent sequence per WebSocket:
   // Troop-1: target 1 -> delay -> target 2 -> ... -> target 10 -> delay -> loop 2
   // Troop-2 does the same sequence concurrently, and so on.
-  // Race mode: dispatch small bursts per WebSocket. No job.get verification.
+  // Race mode: dispatch small bursts per WebSocket without response verification.
   const totalSteps = loopCount * targetList.length;
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
@@ -416,7 +415,6 @@ app.post("/api/kick-loop", async (req, res) => {
   });
 
   (async () => {
-    let sent = 0;
     let completedSteps = 0;
     let failedJobs = 0;
     let dispatchedJobs = 0;
@@ -424,7 +422,9 @@ app.post("/api/kick-loop", async (req, res) => {
     const sequenceResults = [];
     const wsProgress = (slotEntries.length ? slotEntries : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 })))
       .map(x => ({ websocket: x.websocket, sessionId: x.sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }));
-    const stateLock = { chain: Promise.resolve() };
+    // O(1) WebSocket progress lookup for the dispatch hot path.
+    const wsProgressBySlot = Object.create(null);
+    for (const state of wsProgress) wsProgressBySlot[state.websocket] = state;
 
     let kickProgressScheduled = false;
     let kickProgressContext = null;
@@ -441,6 +441,7 @@ app.post("/api/kick-loop", async (req, res) => {
         const ctx = kickProgressContext;
         kickProgressContext = null;
         if (!ctx) return;
+        completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
         publishKickProgress(execution, {
           ...ctx,
           completedSteps,
@@ -456,10 +457,6 @@ app.post("/api/kick-loop", async (req, res) => {
       }, 25);
     }
 
-    function addProgress(fn) {
-      stateLock.chain = stateLock.chain.then(fn).catch(() => {});
-      return stateLock.chain;
-    }
 
     // Independent pair execution per WebSocket:
     // WS 1-10: 1-2 -> delay -> 3-4 -> delay -> 5-6 -> delay -> 7-8 -> delay -> 9-10
@@ -499,12 +496,12 @@ app.post("/api/kick-loop", async (req, res) => {
       try {
         if (socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
 
-        // Instant no-ACK dispatch: no Promise, callback, ACK, or job.get.
+        // Instant dispatch: send directly without waiting for an API response.
         socket.send(kickPayloads[targetIndex]);
 
         dispatchedJobs++;
         targetProgress[targetIndex].dispatched++;
-        const wsState = wsProgress.find(x => x.websocket === websocket);
+        const wsState = wsProgressBySlot[websocket];
         if (wsState) wsState.dispatched++;
         result.ok = true;
         result.jobStatus = "sent";
@@ -517,14 +514,14 @@ app.post("/api/kick-loop", async (req, res) => {
           sendConfirmed: true, noAck: true
         });
 
-        return { result, verification: Promise.resolve(result) };
+        return result;
       } catch (e) {
         result.ok = false;
         result.jobStatus = "send_failed";
         result.error = safeError(e);
         result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
-        const wsState = wsProgress.find(x => x.websocket === websocket);
+        const wsState = wsProgressBySlot[websocket];
         if (wsState) wsState.failed++;
 
         scheduleKickProgress({
@@ -533,7 +530,7 @@ app.post("/api/kick-loop", async (req, res) => {
           sessionId, websocket, direction: "forward",
           sendConfirmed: false, noAck: true, error: result.error
         });
-        return { result, verification: Promise.resolve(result) };
+        return result;
       }
     }
 
@@ -545,7 +542,6 @@ app.post("/api/kick-loop", async (req, res) => {
 
       for (let round = 0; round < loopCount; round++) {
         for (let pos = 0; pos < orderedIndices.length; pos += RACE_BURST) {
-          const burst = [];
           const burstIndexes = orderedIndices.slice(pos, pos + RACE_BURST);
 
           // Race burst: dispatch up to the configured burst size immediately.
@@ -554,10 +550,9 @@ app.post("/api/kick-loop", async (req, res) => {
             const dispatched = sendTarget(
               runtime, round, targetIndex, pos + burst.length + 1
             );
-            troopResults.push(dispatched.result);
-            burst.push(dispatched.verification);
+            troopResults.push(dispatched);
           }
-// Burst berjalan tanpa delay. Delay hanya dipakai saat pindah ke loop berikutnya.
+// Delay diterapkan di antara burst dan juga di antara loop berikutnya.
           const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
       const hasNextLoop = round + 1 < loopCount;
       if (delayMs > 0 && !isEndOfLoop) {
@@ -565,6 +560,7 @@ app.post("/api/kick-loop", async (req, res) => {
       }
       if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
             const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
+            completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
             publishKickProgress(execution, {
               phase: "delay", completedSteps, totalSteps,
               dispatchedJobs, totalJobs,
@@ -614,7 +610,7 @@ app.post("/api/kick-loop", async (req, res) => {
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
 
-      // Completion follows transport dispatch; no ACK/job status is used.
+      // Completion follows transport dispatch; no API response is awaited.
       const allJobsSucceeded = dispatchedJobs === totalJobs && failedJobs === 0;
       publishKickProgress(execution, {
         phase: allJobsSucceeded ? "completed" : "completed_with_errors",
@@ -627,7 +623,7 @@ app.post("/api/kick-loop", async (req, res) => {
         targetIndex: targetList.length,
         target: targetList[targetList.length - 1],
         total: ids.length,
-        sent,
+        sent: dispatchedJobs,
         failedJobs,
         sendConfirmed: true,
         noAck: true,
@@ -649,7 +645,7 @@ app.post("/api/kick-loop", async (req, res) => {
     ok: true,
     action: "kick-loop",
     executionId: execution.id,
-    mode: `race_burst_${burstSize}_no_ack`,
+    mode: `race_burst_${burstSize}_instant_dispatch`,
     websockets: ids.length,
     targets: targetList.length,
     loops: loopCount,
