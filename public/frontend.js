@@ -733,19 +733,22 @@ async function leaveAll(){
 }
 
 async function checkRoomVersion(){
+  const room = el("room").value.trim();
+  const sessionId = accounts[0]?.sessionId; // Socket 1 = account index 0
+  if(!room){ alert("Room belum diisi."); return; }
+  if(!sessionId){ alert("Socket 1 belum login."); return; }
   try{
-    const room = el("room").value.trim();
-    const sessionId = accounts[0]?.sessionId; // Socket 1 = account index 0
-    if(!room || !sessionId) return;
     const r = await fetch("/api/check-version", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       cache:"no-store",
       body:JSON.stringify({sessionId, room})
     });
-    const data = await r.json();
-    if(!r.ok || !data?.ok) throw new Error(data?.error || "CEK gagal");
-  }catch(e){}
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok || !data?.ok) throw new Error(data?.error || `CEK gagal (${r.status})`);
+  }catch(e){
+    alert(String(e?.message || e));
+  }
 }
 
 async function participants(){
