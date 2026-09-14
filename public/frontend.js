@@ -151,7 +151,7 @@ let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
 let activeVoteKey = "";
-let countdownTriggerLocked = false;
+let timerNeedsReset = false;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -170,8 +170,7 @@ function resetTimer(){
   timerDeadline = 0;
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
-  countdownTriggerLocked = false;
-  activeVoteKey = "";
+  timerNeedsReset = false;
   renderTimer();
 }
 
@@ -200,6 +199,7 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
   if(eventKey) lastTimerEventKey = eventKey;
+  if(timerNeedsReset) return;
 
   const duration = Math.max(0, Number(durationMs) || 0);
   const generation = ++timerGeneration;
@@ -234,12 +234,9 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
 
     if(remaining <= 0){
       timerRunning = false;
+      timerNeedsReset = true;
       timerValue = 0;
       timerFrame = 0;
-      // Satu trigger hanya berlaku untuk satu countdown. Setelah 0,
-      // siklus berikutnya boleh menerima trigger baru.
-      countdownTriggerLocked = false;
-      activeVoteKey = "";
       renderTimer();
       return;
     }
@@ -318,10 +315,16 @@ function isVoteStartedKickEvent(msg){
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
 
-  // Harus persis state awal vote-kick. Event status lain tidak boleh
-  // menyalakan/restart countdown.
-  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
-  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
+  // Terima event vote-kick yang benar tanpa bergantung pada format kalimat
+  // status_message. API dapat mengubah susunan/teks status tanpa mengubah
+  // makna event. Struktur action/command tetap menjadi pengaman utama.
+  const validType = eventType === "room.kick.state" || eventType === "room.kick" || eventType === "";
+  const validAction = action === "vote_started";
+  const validCommand = command === "kick";
+  const statusLooksLikeVoteStarted = /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status) || /\bvote[_ ]started\b/i.test(status);
+
+  if(success === false) return false;
+  if(!(validAction && validCommand && (validType || statusLooksLikeVoteStarted))) return false;
 
   // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
@@ -357,26 +360,9 @@ function isVoteFinishedEvent(msg){
 }
 
 function handleApiEvent(i, msg){
-  // Backend sends this only for a validated system vote-kick in the joined room.
-  // Start from the original event timestamp so transport/render delay is deducted.
-  if(msg?.type === "kick.countdown.start"){
-    const original = msg.original || msg;
-    const eventKey = getVoteKey(original);
-
-    // Hanya trigger pertama yang boleh menjalankan countdown. Event berikutnya
-    // yang membawa frasa "has been started by" diabaikan sampai siklus ini
-    // selesai/reset. Ini mencegah pesan/event berulang me-reset timer.
-    if(countdownTriggerLocked) return;
-    countdownTriggerLocked = true;
-    activeVoteKey = eventKey || `backend:${msg.room||""}|${msg.eventId||msg.timestamp||Date.now()}`;
-    startCountdown(getVoteCountdownMs(original), activeVoteKey);
-    return;
-  }
-
   if(isVoteFinishedEvent(msg)){
-    // Vote lama sudah berakhir; trigger pertama untuk vote berikutnya boleh masuk.
+    // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
-    countdownTriggerLocked = false;
   }
   if(isVoteStartedKickEvent(msg)){
     const eventKey = getVoteKey(msg);
@@ -391,7 +377,6 @@ function handleApiEvent(i, msg){
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
-    countdownTriggerLocked = true;
     const countdownMs = getVoteCountdownMs(msg);
     startCountdown(countdownMs, eventKey);
   }
