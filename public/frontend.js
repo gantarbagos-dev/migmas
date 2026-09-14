@@ -151,6 +151,7 @@ let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
 let activeVoteKey = "";
+let countdownTriggerLocked = false;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -169,6 +170,8 @@ function resetTimer(){
   timerDeadline = 0;
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
+  countdownTriggerLocked = false;
+  activeVoteKey = "";
   renderTimer();
 }
 
@@ -233,6 +236,10 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
       timerRunning = false;
       timerValue = 0;
       timerFrame = 0;
+      // Satu trigger hanya berlaku untuk satu countdown. Setelah 0,
+      // siklus berikutnya boleh menerima trigger baru.
+      countdownTriggerLocked = false;
+      activeVoteKey = "";
       renderTimer();
       return;
     }
@@ -350,9 +357,26 @@ function isVoteFinishedEvent(msg){
 }
 
 function handleApiEvent(i, msg){
+  // Backend sends this only for a validated system vote-kick in the joined room.
+  // Start from the original event timestamp so transport/render delay is deducted.
+  if(msg?.type === "kick.countdown.start"){
+    const original = msg.original || msg;
+    const eventKey = getVoteKey(original);
+
+    // Hanya trigger pertama yang boleh menjalankan countdown. Event berikutnya
+    // yang membawa frasa "has been started by" diabaikan sampai siklus ini
+    // selesai/reset. Ini mencegah pesan/event berulang me-reset timer.
+    if(countdownTriggerLocked) return;
+    countdownTriggerLocked = true;
+    activeVoteKey = eventKey || `backend:${msg.room||""}|${msg.eventId||msg.timestamp||Date.now()}`;
+    startCountdown(getVoteCountdownMs(original), activeVoteKey);
+    return;
+  }
+
   if(isVoteFinishedEvent(msg)){
-    // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
+    // Vote lama sudah berakhir; trigger pertama untuk vote berikutnya boleh masuk.
     activeVoteKey = "";
+    countdownTriggerLocked = false;
   }
   if(isVoteStartedKickEvent(msg)){
     const eventKey = getVoteKey(msg);
@@ -367,6 +391,7 @@ function handleApiEvent(i, msg){
     if(timerRunning) return;
 
     activeVoteKey = eventKey;
+    countdownTriggerLocked = true;
     const countdownMs = getVoteCountdownMs(msg);
     startCountdown(countdownMs, eventKey);
   }
