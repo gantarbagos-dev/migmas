@@ -5,14 +5,21 @@ KICK ALL menjalankan hingga 10 WebSocket secara bersamaan. Setiap WebSocket meng
 - Maksimal 10 WebSocket berjalan konkuren.
 - Dispatch `room.kick` tidak menunggu ACK, `room.kick.queued`, atau `job.get`.
 - Progress KICK ALL dihitung dari jumlah command yang berhasil dikirim melalui WebSocket (`dispatchedJobs`).
-- `textdelay` mengatur jeda antar-burst di dalam loop dan juga jeda dari akhir satu loop ke loop berikutnya.
-- Burst berikutnya dimulai setelah delay yang ditentukan; tidak ada penantian ACK/job completion.
-- Kegagalan transport WebSocket tetap dicatat sebagai `send_failed`.
+- `textdelay` mengatur jeda antar-burst di dalam setiap loop dan juga jeda dari akhir satu loop ke loop berikutnya.
+- Di dalam satu burst, target dikirim langsung berurutan tanpa delay buatan.
+- Kegagalan transport WebSocket dicatat sebagai `send_failed`.
+- Server bind ke `0.0.0.0` agar dapat menerima koneksi dari platform hosting seperti Bonto.
+- Frontend menggunakan cache-busting `frontend.js?v=48`.
 
-Version 44: memperbaiki bug LOGIN ALL, membersihkan kode/status ACK lama yang sudah tidak digunakan, dan memperbarui README agar sesuai dengan implementasi aktif.
+## Deployment
 
+Jalankan dengan `npm start` atau `yarn start`. Dependency diambil dari `package.json`. Node.js 18 atau lebih baru diperlukan.
 
-Performance note (v45): WebSocket progress state is indexed by physical slot for O(1) lookup; no Array.find() is used in the KICK ALL dispatch hot path.
+## Performance
 
+- WebSocket progress state menggunakan lookup O(1) berdasarkan physical slot.
+- Tidak ada `Array.find()` pada KICK ALL dispatch hot path.
+- Tidak ada penantian ACK atau `job.get` untuk dispatch KICK.
+- Progress UI diperbarui secara coalesced agar tidak membuat Promise-chain untuk setiap target.
 
-Version 47: memperbaiki ReferenceError pada jalur error KICK ALL dan sequencePosition burst.
+Version 48: memperbaiki cache-busting frontend, memperkuat startup/deployment untuk hosting dengan bind `0.0.0.0`, memindahkan validasi WebSocket ke blok eksekusi terlindungi agar error koneksi tidak menjadi unhandled rejection, dan membersihkan dokumentasi versi sebelumnya.

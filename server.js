@@ -466,19 +466,9 @@ app.post("/api/kick-loop", async (req, res) => {
       : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
     const RACE_BURST = burstSize;
 
-    // Validate each active WebSocket once, then keep the socket reference in
-    // the hot dispatch loop. Payload strings are also prebuilt once.
-    const troopRuntime = wsEntries.map(({ sessionId, websocket }) => {
-      const account = sessions.get(sessionId);
-      if (!account || account.socket.readyState !== WebSocket.OPEN) {
-        throw new Error(`WebSocket T${websocket} tidak terhubung.`);
-      }
-      if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
-        throw new Error(`Permission rooms.kick tidak tersedia pada T${websocket}.`);
-      }
-      return { sessionId, websocket, socket: account.socket };
-    });
-
+    // Payload strings are prebuilt once. WebSocket validation is performed
+    // inside the protected execution block so a disconnected troop is reported
+    // as an execution error instead of becoming an unhandled async rejection.
     const kickPayloads = targetList.map(targetUsername =>
       JSON.stringify({ type: "room.kick", room, target_username: targetUsername })
     );
@@ -584,6 +574,17 @@ app.post("/api/kick-loop", async (req, res) => {
     }
 
     try {
+      const troopRuntime = wsEntries.map(({ sessionId, websocket }) => {
+        const account = sessions.get(sessionId);
+        if (!account || account.socket.readyState !== WebSocket.OPEN) {
+          throw new Error(`WebSocket T${websocket} tidak terhubung.`);
+        }
+        if (Array.isArray(account.permissions) && !account.permissions.includes("rooms.kick")) {
+          throw new Error(`Permission rooms.kick tidak tersedia pada T${websocket}.`);
+        }
+        return { sessionId, websocket, socket: account.socket };
+      });
+
       publishKickProgress(execution, {
         phase: "started",
         completedSteps: 0,
@@ -671,4 +672,4 @@ app.post("/api/logout-batch", (req, res) => {
 });
 
 app.get("*", (_req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
-app.listen(PORT, () => console.log(`MIG Duel Kick 10 running on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`MIG Duel Kick 10 running on port ${PORT}`));
