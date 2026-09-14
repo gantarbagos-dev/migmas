@@ -134,27 +134,27 @@ function clearApiLog(){
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
-  // Setiap WebSocket memiliki SSE event stream sendiri. Socket 1 (index 0)
-  // tetap satu-satunya sumber yang boleh memicu countdown, tetapi stream
-  // Socket 1 tidak boleh tertutup/digantikan oleh Socket lain.
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
+  if(a.apiPollTimer) clearInterval(a.apiPollTimer);
   const sessionId = a.sessionId;
-  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(sessionId)}`);
-  a.eventSource = es;
-  es.onmessage = e => {
+  let after = 0;
+  const poll = async () => {
+    if(accounts[i]?.sessionId !== sessionId) return;
     try{
-      const wrapper = JSON.parse(e.data);
-      const msg = wrapper?.event ?? wrapper;
-      appendApiLog(i, msg);
-      handleApiEvent(i, msg);
-    }catch(err){
-      return;
-    }
+      const r = await fetch(`/api/api-log?sessionId=${encodeURIComponent(sessionId)}&after=${after}&_=${Date.now()}`, {cache:"no-store"});
+      if(!r.ok) return;
+      const data = await r.json();
+      for(const wrapper of (Array.isArray(data.items) ? data.items : [])){
+        after = Math.max(after, Number(wrapper.seq) || 0);
+        const msg = wrapper?.event ?? wrapper;
+        appendApiLog(i, msg);
+        handleApiEvent(i, msg);
+      }
+      if(!data.items?.length && Number(data.latest) > after) after = Number(data.latest);
+    }catch(err){}
   };
-  es.onerror = () => {
-    // SSE can close independently from the authenticated WebSocket. Do not
-    // mark the account offline merely because the browser event stream failed.
-  };
+  poll();
+  a.apiPollTimer = setInterval(poll, 300);
 }
 
 const TIMER_START_MS = 60000;
