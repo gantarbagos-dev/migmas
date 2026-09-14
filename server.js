@@ -31,6 +31,9 @@ const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v11";
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
 const sessions = new Map();
 const subscribers = new Map();
+const apiEventLogs = new Map();
+const API_EVENT_LOG_LIMIT = 500;
+const apiEventSeq = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const messageWaiters = new Map();
@@ -62,6 +65,12 @@ function classifyLoginFailure(err) {
 
 
 function publish(sessionId, msg) {
+  if (!apiEventLogs.has(sessionId)) apiEventLogs.set(sessionId, []);
+  const log = apiEventLogs.get(sessionId);
+  const seq = (apiEventSeq.get(sessionId) || 0) + 1;
+  apiEventSeq.set(sessionId, seq);
+  log.push({ seq, receivedAt: Date.now(), ...msg });
+  if (log.length > API_EVENT_LOG_LIMIT) log.splice(0, log.length - API_EVENT_LOG_LIMIT);
   const set = subscribers.get(sessionId);
   if (!set) return;
   const payload = `data: ${JSON.stringify(msg)}\n\n`;
@@ -81,6 +90,8 @@ function closeSession(sessionId, reason = "logout") {
     for (const res of set) { try { res.end(); } catch {} }
     subscribers.delete(sessionId);
   }
+  apiEventLogs.delete(sessionId);
+  apiEventSeq.delete(sessionId);
   const bw = balanceWaiters.get(sessionId);
   if (bw) { clearTimeout(bw.timer); bw.reject(new Error("Session ditutup sebelum saldo diterima.")); balanceWaiters.delete(sessionId); }
   return true;
@@ -149,7 +160,7 @@ function connectAccount(username, password, socketIndex = null) {
           if (socket.readyState === WebSocket.OPEN) {
             try { socket.send(JSON.stringify({ type: "ping" })); } catch {}
           }
-        }, 40000);
+        }, 60000);
 
         resolve({
           sessionId,
@@ -354,6 +365,17 @@ app.post("/api/check-version", async (req, res) => {
   }
 });
 
+
+app.get("/api/api-log", (req, res) => {
+  const sessionId = String(req.query.sessionId || "");
+  const account = sessions.get(sessionId);
+  if (!sessionId || !account) return res.status(401).json({ ok: false, error: "Session tidak ditemukan." });
+  const after = Math.max(0, Number(req.query.after) || 0);
+  const log = apiEventLogs.get(sessionId) || [];
+  const items = log.filter(x => Number(x.seq) > after);
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.json({ ok: true, items, latest: items.length ? items[items.length - 1].seq : (log.length ? log[log.length - 1].seq : after) });
+});
 
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
