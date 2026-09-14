@@ -5,19 +5,27 @@ const crypto = require("crypto");
 
 const app = express();
 app.use(express.json({ limit: "128kb" }));
-app.use(express.static(path.join(__dirname, "public")));
 
-// Always serve the frontend JavaScript fresh so browser HTTP cache cannot
-// keep an older frontend.js from a previous build.
+// Always serve the frontend JavaScript fresh. This route must be registered
+// BEFORE express.static(), otherwise the static middleware handles it first.
 app.get("/frontend.js", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   res.sendFile(path.join(__dirname, "public", "frontend.js"));
 });
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/api/version", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.json({ ok: true, version: BUILD_VERSION });
+});
 
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
+const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v5-cek";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
@@ -77,7 +85,7 @@ function closeSession(sessionId, reason = "logout") {
   return true;
 }
 
-function connectAccount(username, password) {
+function connectAccount(username, password, socketIndex = null) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(API_WS);
     const sessionId = makeId();
@@ -103,10 +111,24 @@ function connectAccount(username, password) {
 
       resolveBalance(sessionId, msg);
 
-      // Jangan membuat event countdown sintetis dari teks umum.
-      // Countdown hanya boleh dipicu frontend oleh event vote-kick yang
-      // strukturnya benar-benar cocok dengan room.kick.state/vote_started.
-      publish(sessionId, { type: "api.event", event: msg });
+      // Forward the raw API event. Socket 1 is explicitly tagged here so
+      // the frontend never has to guess which authenticated WebSocket sent it.
+      publish(sessionId, { type: "api.event", socketIndex, event: msg });
+
+      // The API's vote-start notification can vary between deployments. For
+      // Socket 1, a room.kick state event is the authoritative source for the
+      // countdown; pass it through as an explicit trigger so the frontend does
+      // not depend on one exact action/status field name.
+      if (socketIndex === 0) {
+        let rawEvent = "";
+        try { rawEvent = JSON.stringify(msg).toLowerCase(); } catch {}
+        const eventType = String(msg?.type || msg?.data?.event_type || "").toLowerCase();
+        const looksLikeKickState = /room\.kick/.test(eventType) ||
+          (/room\.kick/.test(rawEvent) && /vote|state|remaining|started/.test(rawEvent));
+        if (looksLikeKickState) {
+          publish(sessionId, { type: "countdown.trigger", socketIndex: 0, event: msg });
+        }
+      }
 
       if (msg.type === "auth.required") return;
 
@@ -224,7 +246,7 @@ app.post("/api/login", async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ ok: false, error: "Username dan password wajib diisi." });
   try {
-    const result = await connectAccount(String(username).trim(), String(password));
+    const result = await connectAccount(String(username).trim(), String(password), 0);
     res.json({ ok: true, account: result });
   } catch (e) {
     const status = classifyLoginFailure(e);
@@ -248,7 +270,7 @@ app.post("/api/login-batch", async (req, res) => {
     if (oldSessionId) closeSession(oldSessionId, "relogin");
 
     try {
-      const account = await connectAccount(username, password);
+      const account = await connectAccount(username, password, index);
       return { index, ok: true, account };
     } catch (e) {
       return { index, ok: false, username, status: classifyLoginFailure(e), code: String(e?.code || ""), error: safeError(e) };
