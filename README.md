@@ -22,8 +22,12 @@ Jalankan dengan `npm start` atau `yarn start`. Dependency diambil dari `package.
 - Tidak ada penantian ACK atau `job.get` untuk dispatch KICK.
 - Progress UI diperbarui secara coalesced agar tidak membuat Promise-chain untuk setiap target.
 
-Version 50: mempertegas dispatch Burst 1–10, menampilkan metadata burst pada progress, dan mencegah update progress tertunda menimpa status selesai. Perubahan lain dari v48 dipertahankan.
+Version 51: mempertegas dispatch Burst 1–10, menampilkan metadata burst pada progress, dan mencegah update progress tertunda menimpa status selesai. Perubahan lain dari v48 dipertahankan.
 
 
 - Progress Target dihitung dari target yang benar-benar sudah didispatch oleh seluruh WebSocket, bukan dari pembagian global `dispatchedJobs`.
 - Progress Burst mengikuti target yang sudah benar-benar terkirim pada burst tersebut.
+
+
+## Countdown trigger
+Countdown hanya dipicu oleh event sistem `room.kick.state` dengan `action=vote_started`, `command=kick`, teks `has been started by`, dan room yang sama dengan room yang sedang diikuti WebSocket. Pesan chat biasa yang mengandung teks tersebut tidak memicu timer. Timer memakai timestamp event asli sehingga jeda transport/render otomatis dikurangkan dari sisa waktu.

@@ -94,9 +94,11 @@ function connectAccount(username, password) {
 
       resolveBalance(sessionId, msg);
 
-      // Jangan membuat event countdown sintetis dari teks umum.
-      // Countdown hanya boleh dipicu frontend oleh event vote-kick yang
-      // strukturnya benar-benar cocok dengan room.kick.state/vote_started.
+      // Jalur countdown diprioritaskan: begitu pesan pemicu diterima dari
+      // WebSocket Mig33, event countdown dipublish terlebih dahulu tanpa queue,
+      // polling, ACK, atau setTimeout. Frontend dapat langsung menyalakan timer.
+      const countdownEvent = detectKickCountdown(msg, sessions.get(sessionId));
+      if (countdownEvent) publish(sessionId, countdownEvent);
       publish(sessionId, { type: "api.event", event: msg });
 
       if (msg.type === "auth.required") return;
@@ -205,6 +207,43 @@ function extractJobId(msg) {
 }
 
 function getActiveSessionIds() { return [...sessions.keys()]; }
+
+function extractEventText(value, depth = 0) {
+  if (depth > 10 || value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return "";
+  if (Array.isArray(value)) return value.map(v => extractEventText(v, depth + 1)).join(" ");
+  return Object.values(value).map(v => extractEventText(v, depth + 1)).filter(Boolean).join(" ");
+}
+
+function detectKickCountdown(msg, account) {
+  // Only a real system vote-kick event can trigger the countdown.
+  // A normal room chat message containing "has been started by" is ignored.
+  const data = msg?.data ?? {};
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
+  const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
+  const status = String(data?.status_message ?? msg?.status_message ?? extractEventText(data)).trim();
+
+  if (eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick") return null;
+  if (!/\bhas\s+been\s+started\s+by\b/i.test(status)) return null;
+
+  const eventRoom = String(data?.room ?? data?.room_name ?? msg?.room ?? msg?.room_name ?? "").trim();
+  const joinedRoom = String(account?.joinedRoom ?? "").trim();
+  // The event must belong to the room this WebSocket actually joined.
+  if (!eventRoom || !joinedRoom || eventRoom.toLowerCase() !== joinedRoom.toLowerCase()) return null;
+
+  const eventId = data?.event_id ?? data?.eventId ?? data?.id ?? msg?.event_id ?? msg?.eventId ?? null;
+  const timestamp = data?.timestamp ?? data?.time ?? msg?.timestamp ?? msg?.time ?? Date.now();
+  return {
+    type: "kick.countdown.start",
+    room: eventRoom,
+    eventId,
+    timestamp,
+    original: msg,
+    source: "backend"
+  };
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "MIG Duel Kick 10", activeSessions: sessions.size });
