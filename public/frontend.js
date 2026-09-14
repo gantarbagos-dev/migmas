@@ -564,7 +564,7 @@ async function loginAll(){
   }catch(e){
     for(const a of list) setStatus(a.index, "ERROR");
   }
-  resetKickAllProgress(`Progress KICK ALL di-reset karena Troop ${i + 1} logout.`);
+  resetKickAllProgress("Progress KICK ALL di-reset setelah LOGIN ALL.");
 }
 
 function toggleAccountCommands(){
@@ -680,7 +680,7 @@ async function participants(){
   const room = el("room").value.trim();
   if(!room){ ; return; }
   clearParticipants();
-  const sessionId = accounts.map(a => a.sessionId).find(Boolean);
+  const sessionId = accounts.map(a => a.sessionId).filter(Boolean)[0];
   if(!sessionId){ ; return; }
   try{
     const r = await fetch("/api/action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId, action:"participants", room})});
@@ -799,7 +799,7 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay antar-loop ${textdelay} ms`;
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
@@ -861,11 +861,9 @@ async function kickSelectedTargets(){
         bar.style.transition = "width 100ms linear";
 
         if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "waiting_ack") txt.textContent = "Diproses";
-        else if(p.phase === "job_done" || p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
-        else if(p.phase === "job_failed" || p.phase === "send_failed") txt.textContent = "KICK GAGAL";
+        else if(p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
+        else if(p.phase === "send_failed") txt.textContent = "KICK GAGAL";
         else if(p.phase === "delay") txt.textContent = "Delay";
-        else if(p.phase === "target_done") txt.textContent = percent >= 100 ? "Selesai" : "Berjalan";
         else if(p.phase === "completed") txt.textContent = "Selesai";
         else if(p.phase === "completed_with_errors") txt.textContent = "Selesai • Ada Gagal";
         
@@ -875,22 +873,14 @@ async function kickSelectedTargets(){
         const totalSteps = Number(p.totalSteps) || total;
         step.textContent = `Target ${done}/${totalSteps}`;
 
-        if(p.phase === "waiting_ack") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • dikirim ${p.dispatchedJobs || 0}/${p.totalJobs || 0}`;
-        } else if(p.phase === "delay") {
-          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms sebelum loop berikutnya`;
+        if(p.phase === "delay") {
+          meta.textContent = `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-loop ${textdelay} ms`;
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
           stopProgress();
         } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
           stopProgress();
-        } else if(p.phase === "target_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • job ${p.jobStatus || "completed"}`;
-        } else if(p.phase === "job_done") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • job selesai`;
-        } else if(p.phase === "job_failed") {
-          meta.textContent = `Loop ${p.loop}/${textloop} • Target ${p.targetIndex}/${targets.length}: ${p.target} • ${p.error || "job gagal"}`;
         }
 
         if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
