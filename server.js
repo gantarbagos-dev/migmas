@@ -16,24 +16,13 @@ app.get("/frontend.js", (req, res) => {
 });
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/version", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.json({ ok: true, version: BUILD_VERSION });
-});
-
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
-const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v11";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
 const sessions = new Map();
 const subscribers = new Map();
-const apiEventLogs = new Map();
-const API_EVENT_LOG_LIMIT = 500;
-const apiEventSeq = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const messageWaiters = new Map();
@@ -65,12 +54,6 @@ function classifyLoginFailure(err) {
 
 
 function publish(sessionId, msg) {
-  if (!apiEventLogs.has(sessionId)) apiEventLogs.set(sessionId, []);
-  const log = apiEventLogs.get(sessionId);
-  const seq = (apiEventSeq.get(sessionId) || 0) + 1;
-  apiEventSeq.set(sessionId, seq);
-  log.push({ seq, receivedAt: Date.now(), ...msg });
-  if (log.length > API_EVENT_LOG_LIMIT) log.splice(0, log.length - API_EVENT_LOG_LIMIT);
   const set = subscribers.get(sessionId);
   if (!set) return;
   const payload = `data: ${JSON.stringify(msg)}\n\n`;
@@ -90,11 +73,30 @@ function closeSession(sessionId, reason = "logout") {
     for (const res of set) { try { res.end(); } catch {} }
     subscribers.delete(sessionId);
   }
-  apiEventLogs.delete(sessionId);
-  apiEventSeq.delete(sessionId);
   const bw = balanceWaiters.get(sessionId);
   if (bw) { clearTimeout(bw.timer); bw.reject(new Error("Session ditutup sebelum saldo diterima.")); balanceWaiters.delete(sessionId); }
   return true;
+}
+
+
+function isVoteStartedKickEventServer(msg) {
+  const data = msg?.data ?? msg ?? {};
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(msg?.action ?? data?.action ?? "").toLowerCase();
+  const status = String(msg?.status_message ?? data?.status_message ?? "").toLowerCase();
+  return eventType === "room.kick.state" && action === "vote_started" &&
+    /vote\s+to\s+kick/.test(status) && /\d+\s*s\s+remaining/.test(status);
+}
+
+function getVoteTriggerKeyServer(msg) {
+  const data = msg?.data ?? msg ?? {};
+  return [
+    String(data?.room ?? "").trim().toLowerCase(),
+    String(data?.target_username ?? "").trim().toLowerCase(),
+    String(data?.username ?? "").trim().toLowerCase(),
+    String(data?.time ?? "").trim(),
+    String(data?.action ?? "").trim().toLowerCase()
+  ].join("|");
 }
 
 function connectAccount(username, password, socketIndex = null) {
@@ -126,8 +128,23 @@ function connectAccount(username, password, socketIndex = null) {
 
       // Forward the raw API event. Socket 1 is explicitly tagged here so
       // the frontend never has to guess which authenticated WebSocket sent it.
-      publish(sessionId, { type: "api.event", socketIndex, event: msg });
+      const receivedAt = Date.now();
 
+      // Socket 1 is the authoritative source for the kick-vote countdown.
+      // Publish its dedicated trigger first so the countdown can use the
+      // server receive time even if the browser/SSE connection is briefly slow.
+      // Keep the latest vote-start event server-side so a brief SSE reconnect
+      // cannot make the browser miss the trigger.
+      if (socketIndex === 0 && isVoteStartedKickEventServer(msg)) {
+        const account = sessions.get(sessionId);
+        if (account) {
+          const key = getVoteTriggerKeyServer(msg);
+          account.countdownTrigger = { key, event: msg, receivedAt };
+          publish(sessionId, { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt });
+        }
+      }
+
+      publish(sessionId, { type: "api.event", socketIndex, event: msg, receivedAt });
 
       if (msg.type === "auth.required") return;
 
@@ -144,7 +161,8 @@ function connectAccount(username, password, socketIndex = null) {
           joinedRoom: null,
           socketIndex,
           permissions: Array.isArray(msg.data?.developer?.permissions) ? msg.data.developer.permissions : [],
-          pingTimer: null
+          pingTimer: null,
+          countdownTrigger: null
         };
         sessions.set(sessionId, account);
 
@@ -339,44 +357,6 @@ app.get("/api/kick-progress-state", (req, res) => {
 });
 
 
-// CEK: Socket 1 sends the current build version using the official
-// room.send_message command and waits for the API queue response.
-app.post("/api/check-version", async (req, res) => {
-  const { sessionId, room } = req.body || {};
-  const id = String(sessionId || "");
-  const roomName = String(room || "").trim();
-  if(!id || !roomName) return res.status(400).json({ ok:false, error:"Socket 1 dan room wajib tersedia." });
-  const account = sessions.get(id);
-  if(!account || account.socketIndex !== 0) {
-    return res.status(400).json({ ok:false, error:"CEK harus menggunakan Socket 1." });
-  }
-  if(!Array.isArray(account.permissions) || !account.permissions.includes("messaging.send")) {
-    return res.status(403).json({ ok:false, error:"Socket 1 tidak memiliki permission messaging.send." });
-  }
-  try {
-    const message = `BUILD VERSION: ${BUILD_VERSION}`;
-    const queued = waitForMessageResult(id, 8000);
-    send(id, { type:"room.send_message", room:roomName, message });
-    const result = await queued;
-    const jobId = result?.data?.job?.job_id ?? result?.data?.job_id ?? result?.job_id ?? null;
-    return res.json({ ok:true, socketIndex:0, version:BUILD_VERSION, message, jobId, queuedType:result?.type || null });
-  } catch(e) {
-    return res.status(400).json({ ok:false, error:safeError(e) });
-  }
-});
-
-
-app.get("/api/api-log", (req, res) => {
-  const sessionId = String(req.query.sessionId || "");
-  const account = sessions.get(sessionId);
-  if (!sessionId || !account) return res.status(401).json({ ok: false, error: "Session tidak ditemukan." });
-  const after = Math.max(0, Number(req.query.after) || 0);
-  const log = apiEventLogs.get(sessionId) || [];
-  const items = log.filter(x => Number(x.seq) > after);
-  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.json({ ok: true, items, latest: items.length ? items[items.length - 1].seq : (log.length ? log[log.length - 1].seq : after) });
-});
-
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
   if (!sessionId || !sessions.has(sessionId)) return res.status(401).end();
@@ -387,6 +367,11 @@ app.get("/api/events", (req, res) => {
   if (!subscribers.has(sessionId)) subscribers.set(sessionId, new Set());
   subscribers.get(sessionId).add(res);
   res.write(`data: ${JSON.stringify({ type: "stream.ready" })}\n\n`);
+  const account = sessions.get(sessionId);
+  if (account?.socketIndex === 0 && account.countdownTrigger) {
+    const t = account.countdownTrigger;
+    res.write(`data: ${JSON.stringify({ type: "countdown.trigger", socketIndex: 0, event: t.event, receivedAt: t.receivedAt })}\n\n`);
+  }
   const keepAlive = setInterval(() => { try { res.write(": keep-alive\n\n"); } catch {} }, 20000);
   req.on("close", () => {
     clearInterval(keepAlive);
