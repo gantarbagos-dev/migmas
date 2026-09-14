@@ -119,9 +119,12 @@ let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
-  // Tampilkan event dari satu WebSocket saja agar log tidak terduplikasi.
+  // Socket 1 (index 0) adalah sumber event utama untuk countdown.
+  // Jika Socket 1 tersedia, selalu prioritaskan stream-nya.
+  if(i !== 0 && accounts[0]?.sessionId) return;
   if(apiDisplayIndex !== null && apiDisplayIndex !== i){
-    return;
+    const old = accounts[apiDisplayIndex];
+    if(old?.eventSource) try{ old.eventSource.close(); }catch{}
   }
   apiDisplayIndex = i;
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
@@ -372,7 +375,7 @@ function handleApiEvent(i, msg){
     // Vote lama sudah berakhir; vote_started berikutnya boleh menjadi trigger baru.
     activeVoteKey = "";
   }
-  if(isVoteStartedKickEvent(msg)){
+  if(i === 0 && isVoteStartedKickEvent(msg)){
     const eventKey = getVoteKey(msg);
 
     // Event yang sama dapat dikirim berkali-kali oleh stream. Jangan pernah
