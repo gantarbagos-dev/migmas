@@ -129,6 +129,9 @@ function openEvents(i){
     try{
       const wrapper = JSON.parse(e.data);
       const msg = wrapper?.event ?? wrapper;
+      if(wrapper?.type === "countdown.trigger" && wrapper?.socketIndex === 0 && i === 0){
+        handleSocket1CountdownEvent(msg);
+      }
       handleApiEvent(i, msg);
     }catch(err){
       return;
@@ -363,6 +366,14 @@ function isVoteFinishedEvent(msg){
   const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
   return (eventType === "room.kick.state" || eventType === "room.kick") &&
     ["vote_completed","vote_cancelled","vote_failed","kick_completed","kick_failed","completed","cancelled"].includes(action);
+}
+
+function handleSocket1CountdownEvent(msg){
+  if(timerRunning) return;
+  const eventKey = getVoteKey(msg);
+  if(eventKey && eventKey === activeVoteKey) return;
+  activeVoteKey = eventKey;
+  startCountdown(getVoteCountdownMs(msg), eventKey);
 }
 
 function handleApiEvent(i, msg){
@@ -689,6 +700,23 @@ async function leaveAll(){
   if(!room){ ; return; }
   await batchAction("leave", {room});
   resetKickAllProgress("Progress KICK ALL di-reset karena semua WebSocket meninggalkan room.");
+}
+
+async function checkRoomVersion(){
+  try{
+    const r = await fetch(`/api/version?_=${Date.now()}`, { cache:"no-store" });
+    const data = await r.json();
+    const version = String(data?.version || "unknown");
+    const room = el("room").value.trim();
+    const sessionId = accounts[0]?.sessionId;
+    if(room && sessionId){
+      await fetch("/api/action", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sessionId, action:"message", room, message:`Script yang sedang berjalan di server: ${version}`})
+      });
+    }
+  }catch(e){}
 }
 
 async function participants(){
