@@ -7,6 +7,15 @@ const app = express();
 app.use(express.json({ limit: "128kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// Always serve the frontend JavaScript fresh so browser HTTP cache cannot
+// keep an older frontend.js from a previous build.
+app.get("/frontend.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.sendFile(path.join(__dirname, "public", "frontend.js"));
+});
+
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
 
