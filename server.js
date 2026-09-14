@@ -25,7 +25,7 @@ app.get("/api/version", (_req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
-const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v10";
+const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v11";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
