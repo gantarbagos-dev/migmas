@@ -25,7 +25,7 @@ app.get("/api/version", (_req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
-const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v7";
+const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v9";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
@@ -128,7 +128,13 @@ function connectAccount(username, password, socketIndex = null) {
         const hasKick = /room\.kick/.test(eventType) || /room\.kick/.test(rawEvent);
         const hasVoteStart = /vote[_ ]started|vote.*started|started.*vote/.test(rawEvent) ||
           (/vote/.test(rawEvent) && /remaining/.test(rawEvent));
-        const isStartState = hasKick && (hasVoteStart || action === "vote_started" || /vote/.test(status) && /remaining/.test(status));
+        const isKickState = eventType === "room.kick.state" || /room\.kick\.state/.test(rawEvent);
+        const isStartState = hasKick && (
+          hasVoteStart ||
+          action === "vote_started" ||
+          /vote/.test(status) && /remaining/.test(status) ||
+          isKickState && (/vote/.test(rawEvent) || /remaining/.test(rawEvent))
+        );
         if (isStartState) {
           const trigger = { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt: Date.now() };
           const account = sessions.get(sessionId);
@@ -150,6 +156,7 @@ function connectAccount(username, password, socketIndex = null) {
           socket,
           connectedAt: Date.now(),
           joinedRoom: null,
+          socketIndex,
           permissions: Array.isArray(msg.data?.developer?.permissions) ? msg.data.developer.permissions : [],
           pingTimer: null
         };
