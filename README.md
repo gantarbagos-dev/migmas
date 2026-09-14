@@ -9,7 +9,7 @@ KICK ALL menjalankan hingga 10 WebSocket secara bersamaan. Setiap WebSocket meng
 - Di dalam satu burst, target dikirim langsung berurutan tanpa delay buatan.
 - Kegagalan transport WebSocket dicatat sebagai `send_failed`.
 - Server bind ke `0.0.0.0` agar dapat menerima koneksi dari platform hosting seperti Bonto.
-- Frontend menggunakan cache-busting `frontend.js?v=48`.
+- Frontend menggunakan cache-busting `frontend.js?v=49`.
 
 ## Deployment
 
@@ -22,4 +22,8 @@ Jalankan dengan `npm start` atau `yarn start`. Dependency diambil dari `package.
 - Tidak ada penantian ACK atau `job.get` untuk dispatch KICK.
 - Progress UI diperbarui secara coalesced agar tidak membuat Promise-chain untuk setiap target.
 
-Version 48: memperbaiki cache-busting frontend, memperkuat startup/deployment untuk hosting dengan bind `0.0.0.0`, memindahkan validasi WebSocket ke blok eksekusi terlindungi agar error koneksi tidak menjadi unhandled rejection, dan membersihkan dokumentasi versi sebelumnya.
+Version 50: mempertegas dispatch Burst 1–10, menampilkan metadata burst pada progress, dan mencegah update progress tertunda menimpa status selesai. Perubahan lain dari v48 dipertahankan.
+
+
+- Progress Target dihitung dari target yang benar-benar sudah didispatch oleh seluruh WebSocket, bukan dari pembagian global `dispatchedJobs`.
+- Progress Burst mengikuti target yang sudah benar-benar terkirim pada burst tersebut.

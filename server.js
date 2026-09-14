@@ -427,6 +427,7 @@ app.post("/api/kick-loop", async (req, res) => {
     for (const state of wsProgress) wsProgressBySlot[state.websocket] = state;
 
     let kickProgressScheduled = false;
+    let kickProgressTimer = null;
     let kickProgressContext = null;
 
     // Coalesce frequent progress updates so the dispatch hot path does not
@@ -436,12 +437,16 @@ app.post("/api/kick-loop", async (req, res) => {
       kickProgressContext = context;
       if (kickProgressScheduled) return;
       kickProgressScheduled = true;
-      setTimeout(() => {
+      kickProgressTimer = setTimeout(() => {
+        kickProgressTimer = null;
         kickProgressScheduled = false;
         const ctx = kickProgressContext;
         kickProgressContext = null;
         if (!ctx) return;
-        completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
+        for (const tp of targetProgress) {
+          tp.completed = Math.min(tp.total, Math.floor(tp.dispatched / Math.max(1, ids.length)));
+        }
+        completedSteps = Math.min(totalSteps, targetProgress.reduce((sum, tp) => sum + tp.completed, 0));
         publishKickProgress(execution, {
           ...ctx,
           completedSteps,
@@ -491,6 +496,10 @@ app.post("/api/kick-loop", async (req, res) => {
 
         dispatchedJobs++;
         targetProgress[targetIndex].dispatched++;
+        targetProgress[targetIndex].completed = Math.min(
+          targetProgress[targetIndex].total,
+          Math.floor(targetProgress[targetIndex].dispatched / Math.max(1, ids.length))
+        );
         const wsState = wsProgressBySlot[websocket];
         if (wsState) wsState.dispatched++;
         result.ok = true;
@@ -501,7 +510,9 @@ app.post("/api/kick-loop", async (req, res) => {
           phase: "dispatched",
           loop: round + 1, targetIndex: targetIndex + 1, target: targetUsername,
           sessionId, websocket, direction: "forward",
-          sendConfirmed: true, noAck: true
+          sendConfirmed: true, noAck: true, burstSize: RACE_BURST,
+          burst: Math.floor(targetIndex / RACE_BURST) + 1,
+          burstTotal: Math.ceil(targetList.length / RACE_BURST)
         });
 
         return result;
@@ -550,7 +561,10 @@ app.post("/api/kick-loop", async (req, res) => {
       }
       if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
             const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
-            completedSteps = Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length)));
+            for (const tp of targetProgress) {
+          tp.completed = Math.min(tp.total, Math.floor(tp.dispatched / Math.max(1, ids.length)));
+        }
+        completedSteps = Math.min(totalSteps, targetProgress.reduce((sum, tp) => sum + tp.completed, 0));
             publishKickProgress(execution, {
               phase: "delay", completedSteps, totalSteps,
               dispatchedJobs, totalJobs,
@@ -558,7 +572,10 @@ app.post("/api/kick-loop", async (req, res) => {
               loop: round + 1,
               targetIndex: lastTargetIndex + 1,
               target: targetList[lastTargetIndex],
-              delayMs, nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : null,
+              delayMs, burstSize: RACE_BURST,
+              burst: Math.floor(pos / RACE_BURST) + 1,
+              burstTotal: Math.ceil(orderedIndices.length / RACE_BURST),
+              nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : (hasNextLoop ? 1 : null),
               sessionId, websocket: wsOrdinal,
               direction: "forward",
               sent: dispatchedJobs, failedJobs, sendConfirmed: true,
@@ -611,11 +628,16 @@ app.post("/api/kick-loop", async (req, res) => {
       const flatResults = results.map(x => x.results).flat();
       sequenceResults.push(...results);
 
+      // Flush any delayed coalesced progress before the final state.
+      if (kickProgressTimer) { clearTimeout(kickProgressTimer); kickProgressTimer = null; }
+      kickProgressScheduled = false;
+      kickProgressContext = null;
+
       // Completion follows transport dispatch; no API response is awaited.
       const allJobsSucceeded = dispatchedJobs === totalJobs && failedJobs === 0;
       publishKickProgress(execution, {
         phase: allJobsSucceeded ? "completed" : "completed_with_errors",
-        completedSteps: Math.min(totalSteps, Math.floor(dispatchedJobs / Math.max(1, ids.length))),
+        completedSteps: Math.min(totalSteps, targetProgress.reduce((sum, tp) => sum + tp.completed, 0)),
         totalSteps,
         dispatchedJobs,
         totalJobs,
