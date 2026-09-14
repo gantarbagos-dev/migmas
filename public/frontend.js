@@ -151,7 +151,6 @@ let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
 let activeVoteKey = "";
-let timerNeedsReset = false;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -170,7 +169,6 @@ function resetTimer(){
   timerDeadline = 0;
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
-  timerNeedsReset = false;
   renderTimer();
 }
 
@@ -199,7 +197,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
   if(eventKey) lastTimerEventKey = eventKey;
-  if(timerNeedsReset) return;
 
   const duration = Math.max(0, Number(durationMs) || 0);
   const generation = ++timerGeneration;
@@ -234,7 +231,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
 
     if(remaining <= 0){
       timerRunning = false;
-      timerNeedsReset = true;
       timerValue = 0;
       timerFrame = 0;
       renderTimer();
@@ -315,16 +311,10 @@ function isVoteStartedKickEvent(msg){
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
 
-  // Terima event vote-kick yang benar tanpa bergantung pada format kalimat
-  // status_message. API dapat mengubah susunan/teks status tanpa mengubah
-  // makna event. Struktur action/command tetap menjadi pengaman utama.
-  const validType = eventType === "room.kick.state" || eventType === "room.kick" || eventType === "";
-  const validAction = action === "vote_started";
-  const validCommand = command === "kick";
-  const statusLooksLikeVoteStarted = /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status) || /\bvote[_ ]started\b/i.test(status);
-
-  if(success === false) return false;
-  if(!(validAction && validCommand && (validType || statusLooksLikeVoteStarted))) return false;
+  // Harus persis state awal vote-kick. Event status lain tidak boleh
+  // menyalakan/restart countdown.
+  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
+  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
 
   // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
