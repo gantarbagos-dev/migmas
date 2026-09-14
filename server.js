@@ -25,7 +25,7 @@ app.get("/api/version", (_req, res) => {
 
 const PORT = process.env.PORT || 3000;
 const API_WS = "wss://developer.mig33.id/developer/ws";
-const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v5-cek";
+const BUILD_VERSION = "migsock_ui_v50_socket1-countdown-fixed-v7";
 
 // One authenticated MigReborn account = one WebSocket, as required by the official API.
 // The UI can issue ONE batch command that dispatches concurrently to up to 10 sockets.
@@ -123,10 +123,17 @@ function connectAccount(username, password, socketIndex = null) {
         let rawEvent = "";
         try { rawEvent = JSON.stringify(msg).toLowerCase(); } catch {}
         const eventType = String(msg?.type || msg?.data?.event_type || "").toLowerCase();
-        const looksLikeKickState = /room\.kick/.test(eventType) ||
-          (/room\.kick/.test(rawEvent) && /vote|state|remaining|started/.test(rawEvent));
-        if (looksLikeKickState) {
-          publish(sessionId, { type: "countdown.trigger", socketIndex: 0, event: msg });
+        const action = String(msg?.action || msg?.data?.action || "").toLowerCase();
+        const status = String(msg?.status_message || msg?.data?.status_message || "").toLowerCase();
+        const hasKick = /room\.kick/.test(eventType) || /room\.kick/.test(rawEvent);
+        const hasVoteStart = /vote[_ ]started|vote.*started|started.*vote/.test(rawEvent) ||
+          (/vote/.test(rawEvent) && /remaining/.test(rawEvent));
+        const isStartState = hasKick && (hasVoteStart || action === "vote_started" || /vote/.test(status) && /remaining/.test(status));
+        if (isStartState) {
+          const trigger = { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt: Date.now() };
+          const account = sessions.get(sessionId);
+          if (account) account.countdownTrigger = trigger;
+          publish(sessionId, trigger);
         }
       }
 
@@ -305,6 +312,37 @@ app.get("/api/kick-progress-state", (req, res) => {
   return res.json({ ok: true, executionId: id, done: execution.done, progress: execution.latest, result: execution.done ? execution.result : null });
 });
 
+
+// CEK uses Socket 1 (frontend account index 0) to send the exact build version
+// through the official room.send_message command.
+app.post("/api/check-version", (req, res) => {
+  const { sessionId, room } = req.body || {};
+  if (!sessionId || !room) return res.status(400).json({ ok: false, error: "Socket 1 dan room wajib tersedia." });
+  const account = sessions.get(String(sessionId));
+  if (!account || account.socketIndex !== 0) {
+    return res.status(400).json({ ok: false, error: "CEK harus menggunakan Socket 1." });
+  }
+  try {
+    const message = `BUILD VERSION: ${BUILD_VERSION}`;
+    const payload = { type: "room.send_message", room: String(room).trim(), message };
+    send(String(sessionId), payload);
+    res.json({ ok: true, socketIndex: 0, version: BUILD_VERSION, payload });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: safeError(e) });
+  }
+});
+
+app.get("/api/countdown-trigger", (req, res) => {
+  const sessionId = String(req.query.sessionId || "");
+  const account = sessions.get(sessionId);
+  if (!sessionId || !account) return res.status(401).json({ ok: false });
+  const trigger = account.countdownTrigger || null;
+  if (trigger) account.countdownTrigger = null;
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  return res.json({ ok: true, trigger });
+});
 
 app.get("/api/events", (req, res) => {
   const sessionId = String(req.query.sessionId || "");
