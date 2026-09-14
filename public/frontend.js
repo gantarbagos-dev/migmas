@@ -115,6 +115,22 @@ function clearFields(){
   renderAccounts();
 }
 
+function appendApiLog(i, msg){
+  const box = el("apiLog");
+  if(!box) return;
+  const time = new Date().toLocaleTimeString();
+  const line = `[${time}] Socket ${i + 1}\n${JSON.stringify(msg, null, 2)}`;
+  box.value = (box.value ? box.value + "\n\n" : "") + line;
+  const lines = box.value.split("\n\n");
+  if(lines.length > 200) box.value = lines.slice(-200).join("\n\n");
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearApiLog(){
+  const box = el("apiLog");
+  if(box) box.value = "";
+}
+
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
@@ -129,6 +145,7 @@ function openEvents(i){
     try{
       const wrapper = JSON.parse(e.data);
       const msg = wrapper?.event ?? wrapper;
+      appendApiLog(i, msg);
       handleApiEvent(i, msg);
     }catch(err){
       return;
@@ -306,18 +323,26 @@ function isVoteStartedKickEvent(msg){
   const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
   const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
   const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
-  const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
+  const status = String(data?.status_message ?? msg?.status_message ?? data?.message ?? msg?.message ?? "").trim();
+  const raw = JSON.stringify(msg).toLowerCase();
+
+  // API dapat mengirim bentuk room.kick.state yang berbeda-beda. Jangan
+  // mengunci detector pada satu susunan field; yang penting ini adalah event
+  // kick dan jelas menandakan vote baru dimulai + waktu tersisa.
+  const isKickEvent = eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(raw);
+  if(!isKickEvent) return false;
+  if(action === "vote_completed" || action === "vote_cancelled" || action === "vote_failed" || action === "kick_completed" || action === "kick_failed") return false;
+
+  const hasVoteStarted = /vote[_ ]started|vote.*started|started.*vote/.test(raw);
+  const hasRemaining = /\b\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\b/.test(raw) ||
+    data?.remaining != null || data?.remaining_ms != null || msg?.remaining != null || msg?.remaining_ms != null;
+  if(!(hasVoteStarted && hasRemaining)) return false;
+
   const success = data?.success ?? msg?.success;
+  if(success === false) return false;
 
-  // Harus persis state awal vote-kick. Event status lain tidak boleh
-  // menyalakan/restart countdown.
-  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
-  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
-
-  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
-
   return true;
 }
 
@@ -687,7 +712,8 @@ async function checkRoomVersion(){
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok || !data?.ok) throw new Error(data?.error || `CEK gagal (${r.status})`);
-    alert(`CEK terkirim melalui Socket 1\n${data.message || `BUILD VERSION: ${data.version || "unknown"}`}`);
+    // CEK berhasil dikirim; tidak menampilkan konfirmasi popup.
+
   }catch(e){
     alert(String(e?.message || e));
   }
