@@ -115,20 +115,15 @@ function clearFields(){
   renderAccounts();
 }
 
-let apiDisplayIndex = null;
 function openEvents(i){
   const a = accounts[i];
   if(!a.sessionId) return;
-  // Socket 1 (index 0) adalah sumber event utama untuk countdown.
-  // Jika Socket 1 tersedia, selalu prioritaskan stream-nya.
-  if(i !== 0 && accounts[0]?.sessionId) return;
-  if(apiDisplayIndex !== null && apiDisplayIndex !== i){
-    const old = accounts[apiDisplayIndex];
-    if(old?.eventSource) try{ old.eventSource.close(); }catch{}
-  }
-  apiDisplayIndex = i;
+  // Setiap WebSocket memiliki SSE event stream sendiri. Socket 1 (index 0)
+  // tetap satu-satunya sumber yang boleh memicu countdown, tetapi stream
+  // Socket 1 tidak boleh tertutup/digantikan oleh Socket lain.
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
-  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(a.sessionId)}`);
+  const sessionId = a.sessionId;
+  const es = new EventSource(`/api/events?sessionId=${encodeURIComponent(sessionId)}`);
   a.eventSource = es;
   es.onmessage = e => {
     try{
@@ -154,7 +149,6 @@ let timerGeneration = 0;
 let kickTriggeredForTimer = false;
 let lastTimerEventKey = "";
 let activeVoteKey = "";
-let timerNeedsReset = false;
 
 function renderTimer(){
   const node = el("timerValue");
@@ -173,7 +167,6 @@ function resetTimer(){
   timerDeadline = 0;
   timerValue = TIMER_START_MS;
   kickTriggeredForTimer = false;
-  timerNeedsReset = false;
   renderTimer();
 }
 
@@ -202,7 +195,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
     return;
   }
   if(eventKey) lastTimerEventKey = eventKey;
-  if(timerNeedsReset) return;
 
   const duration = Math.max(0, Number(durationMs) || 0);
   const generation = ++timerGeneration;
@@ -237,7 +229,6 @@ function startCountdown(durationMs = TIMER_START_MS, eventKey = ""){
 
     if(remaining <= 0){
       timerRunning = false;
-      timerNeedsReset = true;
       timerValue = 0;
       timerFrame = 0;
       renderTimer();
@@ -317,30 +308,23 @@ function isVoteStartedKickEvent(msg){
   const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
-
   if(success === false) return false;
 
-  // WebSocket 1 dapat mengirim struktur event yang sedikit berbeda
-  // (field berada di level berbeda atau nama event tidak persis sama).
-  // Gunakan struktur bila tersedia, lalu fallback ke isi event mentah.
-  const raw = (() => {
-    try { return JSON.stringify(msg).toLowerCase(); } catch { return ""; }
-  })();
-  const hasVoteStarted = action === "vote_started" || /\bvote[_ ]started\b/i.test(raw);
-  const hasKick = command === "kick" || /\bkick\b/i.test(raw) || /vote.*kick/i.test(status);
-  const validType = !eventType || eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(eventType);
+  let raw = "";
+  try { raw = JSON.stringify(msg).toLowerCase(); } catch {}
 
-  if(!hasVoteStarted || !hasKick || !validType) return false;
+  const isKickState = eventType === "room.kick.state" || eventType === "room.kick" || /room\.kick/.test(eventType);
+  const voteStarted = action === "vote_started" || /\bvote[_ ]started\b/i.test(raw) || /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status);
+  const kickEvent = command === "kick" || isKickState || /\bkick\b/i.test(raw) || /\bvote\b.*\bkick\b/i.test(status);
 
-  // Jika status_message tersedia dan jelas menunjukkan vote dimulai,
-  // jangan batasi lagi pada format kalimat tertentu.
-  const statusLooksLikeVoteStarted = /\bvote[_ ]started\b/i.test(status) || /\bvote\b.*\bkick\b.*\bstarted\b/i.test(status);
-  if(status && !statusLooksLikeVoteStarted && action !== "vote_started" && !/\bvote[_ ]started\b/i.test(raw)) return false;
+  // Socket 1 hanya perlu mengirim sinyal bahwa vote-kick baru dimulai.
+  // Jangan mensyaratkan format status_message tertentu karena format event
+  // dapat berbeda antar versi API.
+  if(!voteStarted || !kickEvent) return false;
+  if(eventType && !isKickState) return false;
 
-  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
-
   return true;
 }
 
@@ -531,7 +515,6 @@ async function logoutOne(i, silent=false){
   const a = accounts[i];
   if(a.eventSource) try{ a.eventSource.close(); }catch{}
   a.eventSource = null;
-  if(apiDisplayIndex === i) apiDisplayIndex = null;
   if(a.sessionId){
     try{ await fetch("/api/logout", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId:a.sessionId})}); }catch{}
   }
