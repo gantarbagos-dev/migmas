@@ -129,9 +129,6 @@ function openEvents(i){
     try{
       const wrapper = JSON.parse(e.data);
       const msg = wrapper?.event ?? wrapper;
-      if(wrapper?.type === "countdown.trigger" && wrapper?.socketIndex === 0 && i === 0){
-        handleSocket1CountdownEvent(msg);
-      }
       handleApiEvent(i, msg);
     }catch(err){
       return;
@@ -141,34 +138,6 @@ function openEvents(i){
     // SSE can close independently from the authenticated WebSocket. Do not
     // mark the account offline merely because the browser event stream failed.
   };
-}
-
-let socket1CountdownPollTimer = 0;
-let socket1CountdownLastReceivedAt = 0;
-
-function startSocket1CountdownPolling(){
-  if(socket1CountdownPollTimer) return;
-  const poll = async () => {
-    const sessionId = accounts[0]?.sessionId;
-    if(sessionId){
-      try{
-        const r = await fetch(`/api/countdown-trigger?sessionId=${encodeURIComponent(sessionId)}&_=${Date.now()}`, {cache:"no-store"});
-        if(r.ok){
-          const data = await r.json();
-          const trigger = data?.trigger;
-          if(trigger?.socketIndex === 0 && trigger?.event){
-            const receivedAt = Number(trigger.receivedAt) || 0;
-            if(receivedAt && receivedAt !== socket1CountdownLastReceivedAt){
-              socket1CountdownLastReceivedAt = receivedAt;
-              handleSocket1CountdownEvent(trigger.event);
-            }
-          }
-        }
-      }catch{}
-    }
-    socket1CountdownPollTimer = setTimeout(poll, 250);
-  };
-  poll();
 }
 
 const TIMER_START_MS = 60000;
@@ -183,7 +152,7 @@ let activeVoteKey = "";
 
 function renderTimer(){
   const node = el("timerValue");
-  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue)));
+  if(node) node.textContent = String(Math.max(0, Math.ceil(timerValue / 1000)));
 }
 
 function getKickTimerMs(){
@@ -334,42 +303,24 @@ function getVoteCountdownMs(msg){
 
 function isVoteStartedKickEvent(msg){
   const data = getKickEventData(msg);
-  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase().trim();
-  const action = String(data?.action ?? msg?.action ?? "").toLowerCase().trim();
-  const command = String(data?.command ?? msg?.command ?? "").toLowerCase().trim();
+  const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
+  const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
+  const command = String(data?.command ?? msg?.command ?? "").toLowerCase();
   const status = String(data?.status_message ?? msg?.status_message ?? "").trim();
   const success = data?.success ?? msg?.success;
-  if(success === false) return false;
 
-  let raw = "";
-  try { raw = JSON.stringify(msg).toLowerCase(); } catch {}
+  // Harus persis state awal vote-kick. Event status lain tidak boleh
+  // menyalakan/restart countdown.
+  if(eventType !== "room.kick.state" || action !== "vote_started" || command !== "kick" || success === false) return false;
+  if(!/^A vote to kick\s+.+\s+has been started by\s+.+,\s+\d+\s+more votes needed\.\s+\d+\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i.test(status)) return false;
 
-  const isKickEvent = /room\.kick/.test(eventType) || command === "kick" || /\bkick\b/i.test(raw);
-  if(!isKickEvent) return false;
-
-  // API dapat mengirim action sebagai vote_started, started, atau tidak sama
-  // sekali. Untuk room.kick.state, status vote yang sedang dimulai adalah
-  // sinyal utama; jangan mengunci trigger pada satu bentuk action.
-  const explicitVoteStarted =
-    action === "vote_started" ||
-    action === "started" ||
-    /\bvote[_ ]started\b/i.test(raw);
-
-  const statusHasVoteStart =
-    /\bvote\b.*\bkick\b.*\b(?:has been )?started\b/i.test(status) ||
-    /\bvote to kick\b/i.test(status) && /\bremaining\b/i.test(status);
-
-  const stateLooksLikeNewVote =
-    /room\.kick\.state/.test(eventType) &&
-    /\bvote\b/i.test(status) &&
-    /\bremaining\b/i.test(status);
-
-  if(!explicitVoteStarted && !statusHasVoteStart && !stateLooksLikeNewVote) return false;
-
+  // Event lebih tua dari satu countdown penuh tidak relevan lagi.
   const eventTime = getEventTimestamp(msg);
   if(Number.isFinite(eventTime) && Date.now() - eventTime > TIMER_START_MS + 5000) return false;
+
   return true;
 }
+
 function getVoteKey(msg){
   const data = getKickEventData(msg);
   const explicitId = String(
@@ -394,14 +345,6 @@ function isVoteFinishedEvent(msg){
   const action = String(data?.action ?? msg?.action ?? "").toLowerCase();
   return (eventType === "room.kick.state" || eventType === "room.kick") &&
     ["vote_completed","vote_cancelled","vote_failed","kick_completed","kick_failed","completed","cancelled"].includes(action);
-}
-
-function handleSocket1CountdownEvent(msg){
-  if(timerRunning) return;
-  const eventKey = getVoteKey(msg);
-  if(eventKey && eventKey === activeVoteKey) return;
-  activeVoteKey = eventKey;
-  startCountdown(getVoteCountdownMs(msg), eventKey);
 }
 
 function handleApiEvent(i, msg){
@@ -555,7 +498,6 @@ async function loginOne(i){
     else setBalance(i, "-");
     setStatus(i, "ONLINE");
     openEvents(i);
-    if(i === 0) startSocket1CountdownPolling();
   }catch(e){
     const status = e.loginStatus === "SUSPEND" ? "SUSPEND" : "ERROR";
     setStatus(i, status);
@@ -606,8 +548,7 @@ async function loginAll(){
         else setBalance(i, "-");
         setStatus(i, "ONLINE");
         openEvents(i);
-        if(i === 0) startSocket1CountdownPolling();
-      } else {
+          } else {
         accounts[i].sessionId = null;
         const status = String(item.status || "error").toUpperCase() === "SUSPEND" ? "SUSPEND" : "ERROR";
         setStatus(i, status);
@@ -734,7 +675,7 @@ async function leaveAll(){
 
 async function checkRoomVersion(){
   const room = el("room").value.trim();
-  const sessionId = accounts[0]?.sessionId; // Socket 1 = account index 0
+  const sessionId = accounts[0]?.sessionId;
   if(!room){ alert("Room belum diisi."); return; }
   if(!sessionId){ alert("Socket 1 belum login."); return; }
   try{
@@ -746,6 +687,7 @@ async function checkRoomVersion(){
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok || !data?.ok) throw new Error(data?.error || `CEK gagal (${r.status})`);
+    alert(`CEK terkirim melalui Socket 1\n${data.message || `BUILD VERSION: ${data.version || "unknown"}`}`);
   }catch(e){
     alert(String(e?.message || e));
   }
