@@ -716,7 +716,12 @@ async function participants(){
     const r = await fetch("/api/action", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sessionId, action:"participants", room})});
     const j = await r.json();
     if(!j.ok){ ; return; }
-    const troopIndex = accounts.findIndex(a => a.sessionId === sessionId);
+    const list = extractParticipantNames(j.event || j);
+    if(list.length){
+      renderParticipants(list, false);
+    } else {
+      el("participantsList").innerHTML = '<div class="flex items-center justify-center h-full text-xs text-slate-500 py-10">Tidak ada peserta.</div>';
+    }
   }catch(e){
   }
 }
