@@ -158,6 +158,27 @@ function getKickTimerMs(){
   return Math.max(0, Number(el("kickTimer")?.value) || 0);
 }
 
+// Register the current Auto Kick settings with the server. The server keeps
+// this configuration and executes the actual kick, so browser background
+// throttling cannot stop the Auto Kick timer.
+let autoKickConfigRequest = null;
+async function registerAutoKickConfig(){
+  const room = el("room")?.value.trim() || "";
+  const timerMs = getKickTimerMs();
+  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
+  const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
+  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
+  const payload = { room, timerMs, targets:[...targets], textdelay, textloop, burstSize };
+  try{
+    autoKickConfigRequest = fetch("/api/auto-kick/config", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    await autoKickConfigRequest;
+  }catch{}
+  finally{ autoKickConfigRequest = null; }
+}
+
 function resetTimer(){
   timerGeneration++;
   timerRunning = false;
@@ -490,6 +511,7 @@ function syncCheckedTargets(){
   targets.length = 0;
   checked.forEach(n => { if(!targets.includes(n)) targets.push(n); });
   renderTargets();
+  registerAutoKickConfig();
 }
 
 // Kompatibilitas tombol lama: sekarang target selalu sinkron otomatis.
@@ -507,6 +529,7 @@ function renderTargets(){
 function clearTargets(){
   targets.length = 0;
   renderTargets();
+  registerAutoKickConfig();
 }
 
 async function loginOne(i){
@@ -947,6 +970,12 @@ async function kickSelectedTargets(){
   }
 }
 
+["room", "kickTimer", "textdelay", "textloop", "burstSize"].forEach(id => {
+  el(id)?.addEventListener("input", registerAutoKickConfig);
+  el(id)?.addEventListener("change", registerAutoKickConfig);
+});
+
 renderAccounts();
 renderTargets();
 renderTimer();
+registerAutoKickConfig();
