@@ -28,112 +28,6 @@ const balanceWaiters = new Map();
 const messageWaiters = new Map();
 const participantWaiters = new Map();
 
-// Server-side Auto Kick configuration. The browser only registers the
-// current UI settings; the actual vote timer and kick execution live here so
-// they continue while the browser/WebView is in background.
-let autoKickConfig = null;
-const autoKickTimers = new Map();
-
-function getEventTimestampServer(msg) {
-  const data = msg?.data ?? msg ?? {};
-  const candidates = [
-    data?.time, data?.timestamp, data?.event_time, data?.eventTime, data?.created_at, data?.createdAt,
-    msg?.time, msg?.timestamp, msg?.event_time, msg?.eventTime, msg?.created_at, msg?.createdAt
-  ];
-  for (const value of candidates) {
-    if (value == null || value === "") continue;
-    if (typeof value === "number" || /^\d+(?:\.\d+)?$/.test(String(value))) {
-      const n = Number(value);
-      if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
-    }
-    const t = Date.parse(String(value));
-    if (Number.isFinite(t)) return t;
-  }
-  return null;
-}
-
-function getVoteRemainingMsServer(msg) {
-  const data = msg?.data ?? msg ?? {};
-  const candidates = [data?.status_message, data?.text, data?.message, msg?.status_message, msg?.text, msg?.message];
-  for (const value of candidates) {
-    const match = String(value ?? "").trim().match(/\b(\d+)\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i);
-    if (match) return Math.max(0, Number(match[1]) * 1000);
-  }
-  const remaining = Number(data?.remaining_ms ?? data?.remainingMs ?? msg?.remaining_ms ?? msg?.remainingMs);
-  return Number.isFinite(remaining) && remaining >= 0 ? remaining : null;
-}
-
-function getActiveKickSlotsServer() {
-  return [...sessions.values()]
-    .filter(a => a?.socketIndex != null && a.socket?.readyState === WebSocket.OPEN)
-    .sort((a, b) => Number(a.socketIndex) - Number(b.socketIndex))
-    .slice(0, 10)
-    .map(a => ({ sessionId: a.sessionId, websocket: Number(a.socketIndex) + 1 }));
-}
-
-function scheduleServerAutoKick(msg) {
-  const cfg = autoKickConfig;
-  if (!cfg || !cfg.room || !cfg.targets.length) return;
-
-  const data = msg?.data ?? msg ?? {};
-  const eventRoom = String(data?.room ?? data?.room_name ?? "").trim();
-  if (eventRoom && eventRoom.toLowerCase() !== cfg.room.toLowerCase()) return;
-
-  const eventKey = getVoteTriggerKeyServer(msg);
-  if (!eventKey || autoKickTimers.has(eventKey)) return;
-
-  const eventTime = getEventTimestampServer(msg);
-  const reportedRemaining = getVoteRemainingMsServer(msg);
-  let remainingMs = 60000;
-  if (Number.isFinite(eventTime)) remainingMs = Math.max(0, 60000 - Math.max(0, Date.now() - eventTime));
-  else if (Number.isFinite(reportedRemaining)) remainingMs = Math.min(60000, Math.max(0, reportedRemaining));
-
-  // The UI countdown starts at 60s and presses KICK ALL when it reaches the
-  // Timer textbox value. Therefore server delay = remaining vote time - Timer.
-  const delayMs = Math.max(0, remainingMs - cfg.timerMs);
-  const timer = setTimeout(async () => {
-    autoKickTimers.delete(eventKey);
-    const slots = getActiveKickSlotsServer();
-    if (!slots.length) {
-      publishAutoKickStatus({ phase: "skipped", eventKey, reason: "Tidak ada Troop yang ONLINE saat waktu Auto Kick tercapai." });
-      return;
-    }
-    try {
-      // Reuse the exact existing KICK ALL endpoint so manual and automatic
-      // execution share the same dispatch engine and ordering.
-      const response = await fetch(`http://127.0.0.1:${PORT}/api/kick-loop`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionIds: slots.map(x => x.sessionId),
-          websocketSlots: slots,
-          room: cfg.room,
-          targets: [...cfg.targets],
-          textdelay: cfg.textdelay,
-          textloop: cfg.textloop,
-          burstSize: cfg.burstSize
-        })
-      });
-      const result = await response.json().catch(() => ({}));
-      publishAutoKickStatus({
-        phase: result?.ok ? "started" : "error",
-        eventKey, executionId: result?.executionId || null,
-        delayMs, timerMs: cfg.timerMs, websockets: slots.length,
-        error: result?.ok ? null : (result?.error || `HTTP ${response.status}`)
-      });
-    } catch (err) {
-      publishAutoKickStatus({ phase: "error", eventKey, delayMs, error: safeError(err) });
-    }
-  }, delayMs);
-
-  autoKickTimers.set(eventKey, timer);
-  publishAutoKickStatus({ phase: "scheduled", eventKey, delayMs, timerMs: cfg.timerMs, room: cfg.room, targets: cfg.targets.length });
-}
-
-function publishAutoKickStatus(status) {
-  for (const [sessionId] of sessions) publish(sessionId, { type: "auto-kick.status", ...status });
-}
-
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
 
@@ -190,19 +84,9 @@ function isVoteStartedKickEventServer(msg) {
   const data = msg?.data ?? msg ?? {};
   const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
   const action = String(msg?.action ?? data?.action ?? "").toLowerCase();
-  const status = String(
-    msg?.status_message ?? data?.status_message ??
-    msg?.text ?? data?.text ?? msg?.message ?? data?.message ?? ""
-  ).toLowerCase();
-
-  // MIG33 can expose the vote-start notification in either of these forms:
-  // 1) room.kick.state / vote_started / status_message
-  // 2) room.text / room.message.received / text
-  // Both contain the same "Vote to kick ... XXs remaining" information.
-  const voteText = /vote\s+to\s+kick/.test(status) && /\d+\s*s\s+remaining/.test(status);
-  const dedicatedState = eventType === "room.kick.state" && action === "vote_started";
-  const roomMessage = eventType === "room.message.received" || eventType === "room.text";
-  return voteText && (dedicatedState || roomMessage);
+  const status = String(msg?.status_message ?? data?.status_message ?? "").toLowerCase();
+  return eventType === "room.kick.state" && action === "vote_started" &&
+    /vote\s+to\s+kick/.test(status) && /\d+\s*s\s+remaining/.test(status);
 }
 
 function getVoteTriggerKeyServer(msg) {
@@ -260,7 +144,6 @@ function connectAccount(username, password, socketIndex = null) {
           account.countdownTrigger = { key, event: msg, receivedAt };
           publish(sessionId, { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt });
         }
-        scheduleServerAutoKick(msg);
       }
 
       publish(sessionId, { type: "api.event", socketIndex, event: msg, receivedAt });
@@ -611,29 +494,6 @@ function waitBatchDelay(delayMs) {
   return ms > 0 ? sleep(ms) : Promise.resolve();
 }
 
-
-app.post("/api/auto-kick/config", (req, res) => {
-  const body = req.body || {};
-  const room = String(body.room || "").trim();
-  const timerMs = Math.max(0, Math.min(Number(body.timerMs) || 0, 60000));
-  const targets = Array.isArray(body.targets)
-    ? [...new Set(body.targets.map(x => String(x).trim()).filter(Boolean))].slice(0, 10)
-    : [];
-  const textdelay = Math.max(0, Math.min(Number(body.textdelay) || 0, 86400000));
-  const textloop = Math.max(1, Math.min(parseInt(body.textloop, 10) || 1, 100));
-  const burstSize = Math.max(1, Math.min(parseInt(body.burstSize, 10) || 3, 10));
-
-  autoKickConfig = { room, timerMs, targets, textdelay, textloop, burstSize, updatedAt: Date.now() };
-  res.json({ ok: true, active: Boolean(room && targets.length), config: { room, timerMs, targets: targets.length, textdelay, textloop, burstSize } });
-});
-
-app.get("/api/auto-kick/status", (req, res) => {
-  res.json({
-    ok: true, active: Boolean(autoKickConfig?.room && autoKickConfig?.targets?.length),
-    config: autoKickConfig ? { ...autoKickConfig, targets: autoKickConfig.targets.length } : null,
-    scheduled: autoKickTimers.size
-  });
-});
 
 app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
