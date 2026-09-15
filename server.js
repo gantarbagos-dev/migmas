@@ -190,9 +190,19 @@ function isVoteStartedKickEventServer(msg) {
   const data = msg?.data ?? msg ?? {};
   const eventType = String(msg?.type ?? data?.event_type ?? "").toLowerCase();
   const action = String(msg?.action ?? data?.action ?? "").toLowerCase();
-  const status = String(msg?.status_message ?? data?.status_message ?? "").toLowerCase();
-  return eventType === "room.kick.state" && action === "vote_started" &&
-    /vote\s+to\s+kick/.test(status) && /\d+\s*s\s+remaining/.test(status);
+  const status = String(
+    msg?.status_message ?? data?.status_message ??
+    msg?.text ?? data?.text ?? msg?.message ?? data?.message ?? ""
+  ).toLowerCase();
+
+  // MIG33 can expose the vote-start notification in either of these forms:
+  // 1) room.kick.state / vote_started / status_message
+  // 2) room.text / room.message.received / text
+  // Both contain the same "Vote to kick ... XXs remaining" information.
+  const voteText = /vote\s+to\s+kick/.test(status) && /\d+\s*s\s+remaining/.test(status);
+  const dedicatedState = eventType === "room.kick.state" && action === "vote_started";
+  const roomMessage = eventType === "room.message.received" || eventType === "room.text";
+  return voteText && (dedicatedState || roomMessage);
 }
 
 function getVoteTriggerKeyServer(msg) {
