@@ -158,27 +158,6 @@ function getKickTimerMs(){
   return Math.max(0, Number(el("kickTimer")?.value) || 0);
 }
 
-// Register the current Auto Kick settings with the server. The server keeps
-// this configuration and executes the actual kick, so browser background
-// throttling cannot stop the Auto Kick timer.
-let autoKickConfigRequest = null;
-async function registerAutoKickConfig(){
-  const room = el("room")?.value.trim() || "";
-  const timerMs = getKickTimerMs();
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
-  const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
-  const payload = { room, timerMs, targets:[...targets], textdelay, textloop, burstSize };
-  try{
-    autoKickConfigRequest = fetch("/api/auto-kick/config", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    await autoKickConfigRequest;
-  }catch{}
-  finally{ autoKickConfigRequest = null; }
-}
-
 function resetTimer(){
   timerGeneration++;
   timerRunning = false;
@@ -421,23 +400,6 @@ function handleApiEvent(i, msg){
 
     startCountdown(countdownMs, eventKey);
   }
-  if(msg.type === "auto-kick.status" && msg.executionId){
-    if(msg.phase === "started"){
-      const targetList = Array.isArray(msg.targets) ? msg.targets : [];
-      resetPerTroopKickProgress();
-      const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta"), step = el("kickProgressStep"), targetBox = el("kickTargetProgress");
-      const loops = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-      const wsCount = Math.max(1, Number(msg.websockets) || accounts.filter(a => a.sessionId).length || 1);
-      if(bar) bar.style.width = "0%";
-      if(txt) txt.textContent = "Memulai";
-      if(step) step.textContent = `Target 0/${targetList.length * loops}`;
-      if(meta) meta.textContent = `Auto Kick server-side • ${targetList.length} target × ${loops} loop • ${wsCount} Troop`;
-      if(targetBox && targetList.length){
-        targetBox.innerHTML = targetList.map((t,i)=>`<div data-kick-target="${i+1}" class="rounded-md border border-slate-800 bg-slate-900/70 px-1.5 py-1 text-[9px] text-slate-400 text-center truncate">T${i+1} <span>0/${loops * wsCount}</span></div>`).join("");
-      }
-      window.startKickProgressPolling(msg.executionId);
-    }
-  }
   if(msg.type === "wallet.balance.result" || msg.type === "wallet.transfer.result"){
     const w = msg.data?.wallet;
     if(w?.balance_cr != null) setBalance(i, w.balance_cr);
@@ -528,7 +490,6 @@ function syncCheckedTargets(){
   targets.length = 0;
   checked.forEach(n => { if(!targets.includes(n)) targets.push(n); });
   renderTargets();
-  registerAutoKickConfig();
 }
 
 // Kompatibilitas tombol lama: sekarang target selalu sinkron otomatis.
@@ -546,7 +507,6 @@ function renderTargets(){
 function clearTargets(){
   targets.length = 0;
   renderTargets();
-  registerAutoKickConfig();
 }
 
 async function loginOne(i){
@@ -848,102 +808,6 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   if (meta) meta.textContent = reason;
 }
 
-window.startKickProgressPolling = function(executionId){
-  if(!executionId) return;
-  if(typeof window.stopKickProgressPolling === "function") window.stopKickProgressPolling();
-
-  const bar = el("kickProgressBar"), txt = el("kickProgressText"), meta = el("kickProgressMeta");
-  const step = el("kickProgressStep");
-  const targetProgressBox = el("kickTargetProgress");
-  const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
-  let progressStopped = false;
-  let progressTimer = null;
-
-  window.stopKickProgressPolling = () => {
-    progressStopped = true;
-    if(progressTimer) clearTimeout(progressTimer);
-    progressTimer = null;
-  };
-
-  const readProgress = async () => {
-    if(progressStopped) return;
-    try{
-      const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(executionId)}`, {cache:"no-store"});
-      if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
-      const state = await pr.json();
-      const p = state.progress || {};
-      if(p.type !== "kick.progress") return;
-
-      if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
-
-      if (targetProgressBox && Array.isArray(p.targetProgress)) {
-        p.targetProgress.forEach(tp => {
-          const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
-          if (!cell) return;
-          const span = cell.querySelector("span");
-          const done = Number(tp.completed) || 0;
-          const dispatched = Math.max(done, Number(tp.dispatched) || 0);
-          const total = Number(tp.total) || (textloop * Math.max(1, Number(p.websockets) || 1));
-          if (span) span.textContent = `${dispatched}/${total}`;
-          cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${dispatched >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : dispatched > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
-        });
-      }
-
-      const dispatchTotal = Number(p.totalJobs) || 0;
-      const dispatchCount = Number(p.dispatchedJobs);
-      const fallbackPercent = Number(p.percent) || 0;
-      const percent = dispatchTotal > 0 && Number.isFinite(dispatchCount)
-        ? Math.max(0, Math.min(100, Math.round((dispatchCount / dispatchTotal) * 100)))
-        : Math.max(0, Math.min(100, fallbackPercent));
-      if(bar) bar.style.width = `${percent}%`;
-      if(bar) bar.style.transition = "width 100ms linear";
-
-      if(p.phase === "started" || p.phase === "connected") { if(txt) txt.textContent = "Berjalan"; }
-      else if(p.phase === "dispatched") { if(txt) txt.textContent = "KICK DIKIRIM"; }
-      else if(p.phase === "send_failed") { if(txt) txt.textContent = "KICK GAGAL"; }
-      else if(p.phase === "delay") { if(txt) txt.textContent = "Delay"; }
-      else if(p.phase === "completed") { if(txt) txt.textContent = "Selesai"; }
-      else if(p.phase === "completed_with_errors") { if(txt) txt.textContent = "Selesai • Ada Gagal"; }
-      else if(p.phase === "failed" || p.phase === "error") { if(txt) txt.textContent = "Gagal"; }
-
-      const done = Number(p.completedSteps) || 0;
-      const totalSteps = Number(p.totalSteps) || 0;
-      if(step) step.textContent = `Target ${done}/${totalSteps}`;
-
-      if(p.phase === "delay") {
-        if(meta) meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs || textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
-      } else if(p.phase === "completed" || p.phase === "completed_with_errors") {
-        if(p.phase === "completed" && bar) bar.style.width = "100%";
-        if(meta) meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
-        stopProgress();
-      } else if(p.phase === "failed" || p.phase === "error") {
-        if(meta) meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
-        stopProgress();
-      }
-
-      if(state.done && !["completed","completed_with_errors","failed","error"].includes(p.phase)) stopProgress();
-    }catch(e){
-      if(!progressStopped && meta) meta.textContent = "Memuat progress backend…";
-    }
-  };
-
-  const stopProgress = () => {
-    progressStopped = true;
-    if(progressTimer) clearTimeout(progressTimer);
-    progressTimer = null;
-    if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
-  };
-
-  const pollProgress = async () => {
-    await readProgress();
-    if(progressStopped) return;
-    progressTimer = setTimeout(pollProgress, 100);
-  };
-  pollProgress();
-};
-
 async function kickSelectedTargets(){
   const room = el("room").value.trim();
   if(!room){ ; return; }
@@ -989,8 +853,93 @@ async function kickSelectedTargets(){
       return;
     }
 
-    // Polling progress backend yang sama juga digunakan oleh Auto Kick server-side.
-    window.startKickProgressPolling(j.executionId);
+    // Gunakan polling ringan untuk progress KICK ALL.
+    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
+    let progressStopped = false;
+    let progressTimer = null;
+    window.stopKickProgressPolling = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+    };
+
+    const readProgress = async () => {
+      if(progressStopped) return;
+      try{
+        const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
+        if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
+        const state = await pr.json();
+        const p = state.progress || {};
+        if(p.type !== "kick.progress") return;
+
+        if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
+
+        if (targetProgressBox && Array.isArray(p.targetProgress)) {
+          p.targetProgress.forEach(tp => {
+            const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
+            if (!cell) return;
+            const span = cell.querySelector("span");
+            const done = Number(tp.completed) || 0;
+            const dispatched = Math.max(done, Number(tp.dispatched) || 0);
+            const total = Number(tp.total) || (textloop * wsCount);
+            if (span) span.textContent = `${dispatched}/${total}`;
+            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${dispatched >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : dispatched > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+          });
+        }
+
+        const dispatchTotal = Number(p.totalJobs) || 0;
+        const dispatchCount = Number(p.dispatchedJobs);
+        const fallbackPercent = Number(p.percent) || 0;
+        const percent = dispatchTotal > 0 && Number.isFinite(dispatchCount)
+          ? Math.max(0, Math.min(100, Math.round((dispatchCount / dispatchTotal) * 100)))
+          : Math.max(0, Math.min(100, fallbackPercent));
+        bar.style.width = `${percent}%`;
+        bar.style.transition = "width 100ms linear";
+
+        if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
+        else if(p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
+        else if(p.phase === "send_failed") txt.textContent = "KICK GAGAL";
+        else if(p.phase === "delay") txt.textContent = "Delay";
+        else if(p.phase === "completed") txt.textContent = "Selesai";
+        else if(p.phase === "completed_with_errors") txt.textContent = "Selesai • Ada Gagal";
+        
+        else if(p.phase === "failed") txt.textContent = "Gagal";
+
+        const done = Number(p.completedSteps) || 0;
+        const totalSteps = Number(p.totalSteps) || total;
+        step.textContent = `Target ${done}/${totalSteps}`;
+
+        if(p.phase === "delay") {
+          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs || textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
+        } else if(p.phase === "completed") { bar.style.width = "100%";
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
+          stopProgress();
+        } else if(p.phase === "failed") {
+          meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
+          stopProgress();
+        }
+
+        if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
+      }catch(e){
+        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
+        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
+        if(!progressStopped) meta.textContent = "Memuat progress backend…";
+      }
+    };
+
+    const stopProgress = () => {
+      progressStopped = true;
+      if(progressTimer) clearTimeout(progressTimer);
+      progressTimer = null;
+      if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
+    };
+
+    const pollProgress = async () => {
+      await readProgress();
+      if(progressStopped) return;
+      progressTimer = setTimeout(pollProgress, 100);
+    };
+    pollProgress();
 
   }catch(e){
     txt.textContent = "Gagal";
@@ -998,12 +947,6 @@ async function kickSelectedTargets(){
   }
 }
 
-["room", "kickTimer", "textdelay", "textloop", "burstSize"].forEach(id => {
-  el(id)?.addEventListener("input", registerAutoKickConfig);
-  el(id)?.addEventListener("change", registerAutoKickConfig);
-});
-
 renderAccounts();
 renderTargets();
 renderTimer();
-registerAutoKickConfig();
