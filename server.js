@@ -27,8 +27,6 @@ const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const messageWaiters = new Map();
 const participantWaiters = new Map();
-const autoKickConfigs = new Map();
-const autoKickTimers = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -102,97 +100,6 @@ function getVoteTriggerKeyServer(msg) {
   ].join("|");
 }
 
-
-function getVoteRemainingMsServer(msg) {
-  const data = msg?.data ?? msg ?? {};
-  const text = String(data?.status_message ?? msg?.status_message ?? data?.text ?? msg?.text ?? "").trim();
-  const match = text.match(/\b(\d+)\s*(?:s|sec|secs|second|seconds)\s+remaining\.?$/i);
-  if (match) return Math.max(0, Number(match[1]) * 1000);
-  return null;
-}
-
-function getEventTimestampServer(msg) {
-  const data = msg?.data ?? msg ?? {};
-  for (const value of [data?.time, data?.timestamp, data?.event_time, data?.created_at, msg?.time, msg?.timestamp]) {
-    if (value == null || value === "") continue;
-    if (typeof value === "number" || /^\d+(?:\.\d+)?$/.test(String(value))) {
-      const n = Number(value);
-      if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
-    }
-    const t = Date.parse(String(value));
-    if (Number.isFinite(t)) return t;
-  }
-  return null;
-}
-
-function registerAutoKickConfig(config) {
-  if (!config?.ownerSessionId || !config.room || !Array.isArray(config.targets) || !config.targets.length) return false;
-  const normalized = {
-    ownerSessionId: String(config.ownerSessionId),
-    room: String(config.room).trim(),
-    targets: config.targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10),
-    sessionIds: [...new Set((config.sessionIds || []).map(String).filter(Boolean))].slice(0, 10),
-    websocketSlots: Array.isArray(config.websocketSlots) ? config.websocketSlots.map(x => ({ sessionId: String(x?.sessionId || ""), websocket: Number(x?.websocket) })).filter(x => x.sessionId && Number.isInteger(x.websocket) && x.websocket >= 1 && x.websocket <= 10) : [],
-    textdelay: Math.max(0, Math.min(Number(config.textdelay) || 0, 86400000)),
-    textloop: Math.max(1, Math.min(parseInt(config.textloop, 10) || 1, 100)),
-    burstSize: Math.max(1, Math.min(parseInt(config.burstSize, 10) || 3, 10)),
-    kickTimerMs: Math.max(0, Number(config.kickTimerMs) || 0),
-    updatedAt: Date.now(),
-    lastKey: null
-  };
-  autoKickConfigs.set(normalized.ownerSessionId, normalized);
-  return normalized;
-}
-
-function scheduleServerAutoKick(ownerSessionId, event) {
-  const config = autoKickConfigs.get(String(ownerSessionId));
-  if (!config || !config.targets.length) return false;
-  const key = getVoteTriggerKeyServer(event);
-  if (!key || config.lastKey === key) return false;
-  config.lastKey = key;
-
-  const eventTime = getEventTimestampServer(event);
-  const reportedRemaining = getVoteRemainingMsServer(event);
-  let remainingMs = Number.isFinite(eventTime)
-    ? Math.max(0, 60000 - Math.max(0, Date.now() - eventTime))
-    : (Number.isFinite(reportedRemaining) ? reportedRemaining : 60000);
-  remainingMs = Math.max(0, remainingMs - config.kickTimerMs);
-
-  const oldTimer = autoKickTimers.get(ownerSessionId);
-  if (oldTimer) clearTimeout(oldTimer);
-  const timer = setTimeout(() => {
-    autoKickTimers.delete(ownerSessionId);
-    runServerAutoKick(config).catch(() => {});
-  }, remainingMs);
-  autoKickTimers.set(ownerSessionId, timer);
-  return true;
-}
-
-async function runServerAutoKick(config) {
-  const slots = config.websocketSlots.length
-    ? config.websocketSlots
-    : config.sessionIds.map((sessionId, i) => ({ sessionId, websocket: i + 1 }));
-  const runtimes = slots.map(x => ({ ...x, account: sessions.get(x.sessionId) }))
-    .filter(x => x.account?.socket?.readyState === WebSocket.OPEN && (!Array.isArray(x.account.permissions) || x.account.permissions.includes("rooms.kick")));
-  if (!runtimes.length) return;
-
-  const burst = Math.max(1, Math.min(config.burstSize, 10));
-  for (let round = 0; round < config.textloop; round++) {
-    for (let pos = 0; pos < config.targets.length; pos += burst) {
-      const batch = config.targets.slice(pos, pos + burst);
-      for (const runtime of runtimes) {
-        for (const target of batch) {
-          if (runtime.account.socket.readyState !== WebSocket.OPEN) continue;
-          try { runtime.account.socket.send(JSON.stringify({ type: "room.kick", room: config.room, target_username: target })); } catch {}
-        }
-      }
-      const isEnd = pos + burst >= config.targets.length;
-      const hasNext = round + 1 < config.textloop;
-      if (config.textdelay > 0 && (!isEnd || hasNext)) await sleep(config.textdelay);
-    }
-  }
-}
-
 function connectAccount(username, password, socketIndex = null) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(API_WS);
@@ -236,7 +143,6 @@ function connectAccount(username, password, socketIndex = null) {
           const key = getVoteTriggerKeyServer(msg);
           account.countdownTrigger = { key, event: msg, receivedAt };
           publish(sessionId, { type: "countdown.trigger", socketIndex: 0, event: msg, receivedAt });
-          scheduleServerAutoKick(sessionId, msg);
         }
       }
 
@@ -589,17 +495,6 @@ function waitBatchDelay(delayMs) {
 }
 
 
-app.post("/api/auto-kick/register", (req, res) => {
-  const body = req.body || {};
-  const ownerSessionId = String(body.ownerSessionId || "").trim();
-  if (!ownerSessionId || !sessions.has(ownerSessionId)) return res.status(400).json({ ok: false, error: "Socket 1 tidak terhubung." });
-  const config = registerAutoKickConfig({ ...body, ownerSessionId });
-  if (!config) return res.status(400).json({ ok: false, error: "Konfigurasi auto kick tidak lengkap." });
-  const event = body.event || null;
-  if (event && isVoteStartedKickEventServer(event)) scheduleServerAutoKick(ownerSessionId, event);
-  res.json({ ok: true, registered: true });
-});
-
 app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
   const { sessionIds, room, targets, websocketSlots } = body;
@@ -630,9 +525,6 @@ app.post("/api/kick-loop", async (req, res) => {
   if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
   if (!room) return res.status(400).json({ ok: false, error: "Room wajib diisi." });
   if (!targetList.length) return res.status(400).json({ ok: false, error: "Target kick kosong." });
-
-  const ownerSessionId = slotEntries.find(x => x.websocket === 1)?.sessionId || ids[0];
-  if (ownerSessionId) registerAutoKickConfig({ ownerSessionId, room, targets: targetList, sessionIds: ids, websocketSlots: slotEntries, textdelay: delayMs, textloop: loopCount, burstSize, kickTimerMs: Number(req.body?.kickTimerMs) || 0 });
 
   // One independent sequence per WebSocket:
   // Troop-1: target 1 -> delay -> target 2 -> ... -> target 10 -> delay -> loop 2
