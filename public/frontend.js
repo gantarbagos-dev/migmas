@@ -146,7 +146,6 @@ let timerDeadline = 0;
 let timerFrame = 0;
 let timerGeneration = 0;
 let kickTriggeredForTimer = false;
-let serverAutoKickEventKey = "";
 let lastTimerEventKey = "";
 let activeVoteKey = "";
 
@@ -173,16 +172,10 @@ function resetTimer(){
 function triggerKickAllIfReached(previousValue = null){
   const configuredMs = getKickTimerMs();
   if(kickTriggeredForTimer || configuredMs < 0) return;
-  // Once the server has registered this vote, the server owns the actual kick.
-  // The browser keeps showing the countdown but must not send a duplicate kick.
-  if(serverAutoKickEventKey && serverAutoKickEventKey === activeVoteKey) return;
 
-  // Jangan bergantung pada exact millisecond tick. Trigger saat countdown
-  // melewati nilai textbox, sehingga 1500 ms tidak akan terlewat akibat
-  // setTimeout/performance jitter.
-  const reached = previousValue === null
-    ? timerValue <= configuredMs
-    : previousValue > configuredMs && timerValue <= configuredMs;
+  // Tekan KICK ALL hanya saat nilai label countdown sama persis
+  // dengan nilai pada textbox Timer.
+  const reached = Number(timerValue) === configuredMs;
 
   if(reached){
     kickTriggeredForTimer = true;
@@ -399,29 +392,6 @@ function handleApiEvent(i, msg){
       if(Number.isFinite(receivedAt) && receivedAt > 0 && Number.isFinite(reportedRemaining)){
         countdownMs = Math.max(0, reportedRemaining - Math.max(0, Date.now() - receivedAt));
       }
-    }
-
-    // Register the current kick configuration on the Node.js server before the
-    // local timer reaches its trigger point. The server then performs the kick
-    // even if the mobile browser is backgrounded or closed.
-    const ownerSessionId = accounts[0]?.sessionId || "";
-    if(ownerSessionId){
-      fetch("/api/auto-kick/register", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          ownerSessionId, event: rawEvent,
-          room: el("room")?.value?.trim() || "",
-          targets:[...targets],
-          sessionIds: accounts.map(a => a.sessionId ? a.sessionId : null).filter(Boolean),
-          websocketSlots: accounts.map((a, idx) => a.sessionId ? {sessionId:a.sessionId, websocket:idx+1} : null).filter(Boolean),
-          textdelay: Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0),
-          textloop: Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1),
-          burstSize: Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3)),
-          kickTimerMs: getKickTimerMs()
-        })
-      }).then(r => r.json()).then(j => {
-        if(j?.ok) serverAutoKickEventKey = eventKey;
-      }).catch(() => {});
     }
 
     startCountdown(countdownMs, eventKey);
@@ -869,7 +839,7 @@ async function kickSelectedTargets(){
       body:JSON.stringify({
         sessionIds: onlineSlots.map(x=>x.sessionId),
         websocketSlots: onlineSlots,
-        room, targets:[...targets], textdelay, textloop, burstSize, kickTimerMs: getKickTimerMs()
+        room, targets:[...targets], textdelay, textloop, burstSize
       })
     });
     const j = await r.json();
