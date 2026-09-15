@@ -26,6 +26,7 @@ const subscribers = new Map();
 const kickExecutions = new Map();
 const balanceWaiters = new Map();
 const messageWaiters = new Map();
+const participantWaiters = new Map();
 
 function makeId() { return crypto.randomBytes(16).toString("hex"); }
 function safeError(err) { return String(err?.message || err || "Unknown error"); }
@@ -125,6 +126,7 @@ function connectAccount(username, password, socketIndex = null) {
 
       resolveBalance(sessionId, msg);
       resolveMessageResult(sessionId, msg);
+      resolveParticipants(sessionId, msg);
 
       // Forward the raw API event. Socket 1 is explicitly tagged here so
       // the frontend never has to guess which authenticated WebSocket sent it.
@@ -219,6 +221,30 @@ function send(sessionId, payload) {
   if (!account) throw new Error("Session tidak ditemukan / sudah terputus.");
   if (account.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket tidak terhubung.");
   account.socket.send(JSON.stringify(payload));
+}
+
+function waitForParticipants(sessionId, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const old = participantWaiters.get(sessionId);
+    if (old?.timer) clearTimeout(old.timer);
+    const entry = { resolve, reject, timer: null };
+    entry.timer = setTimeout(() => {
+      if (participantWaiters.get(sessionId) === entry) participantWaiters.delete(sessionId);
+      reject(new Error("Timeout menunggu room.participants."));
+    }, timeoutMs);
+    participantWaiters.set(sessionId, entry);
+  });
+}
+
+function resolveParticipants(sessionId, msg) {
+  const type = String(msg?.type || "").toLowerCase();
+  if (!type.includes("participant")) return false;
+  const entry = participantWaiters.get(sessionId);
+  if (!entry) return false;
+  clearTimeout(entry.timer);
+  participantWaiters.delete(sessionId);
+  entry.resolve(msg);
+  return true;
 }
 
 function waitForBalance(sessionId, timeoutMs = 8000) {
@@ -381,13 +407,26 @@ app.get("/api/events", (req, res) => {
 });
 
 // Single-account action retained for individual Troop controls.
-app.post("/api/action", (req, res) => {
+app.post("/api/action", async (req, res) => {
   const { sessionId, action, room, targetUsername, message } = req.body || {};
   if (!sessionId || !action) return res.status(400).json({ ok: false, error: "Parameter tidak lengkap." });
   try {
     if (action === "join") { if (!room) throw new Error("Room wajib diisi."); send(sessionId, { type: "room.join", room }); }
     else if (action === "leave") { if (!room) throw new Error("Room wajib diisi."); send(sessionId, { type: "room.leave", room }); }
-    else if (action === "participants") { if (!room) throw new Error("Room wajib diisi."); send(sessionId, { type: "room.participants", room }); }
+    else if (action === "participants") {
+      if (!room) throw new Error("Room wajib diisi.");
+      const waiter = waitForParticipants(sessionId, 8000);
+      try {
+        send(sessionId, { type: "room.participants", room });
+        const event = await waiter;
+        return res.json({ ok: true, sent: action, event });
+      } catch (e) {
+        const pending = participantWaiters.get(sessionId);
+        if (pending?.timer) clearTimeout(pending.timer);
+        participantWaiters.delete(sessionId);
+        throw e;
+      }
+    }
     else if (action === "kick") { if (!room || !targetUsername) throw new Error("Room dan target wajib diisi."); send(sessionId, { type: "room.kick", room, target_username: targetUsername }); }
     else if (action === "message") { if (!room || !message) throw new Error("Room dan pesan wajib diisi."); send(sessionId, { type: "room.send_message", room, message }); }
     else if (action === "balance") send(sessionId, { type: "wallet.balance" });
