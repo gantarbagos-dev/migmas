@@ -173,9 +173,13 @@ function triggerKickAllIfReached(previousValue = null){
   const configuredMs = getKickTimerMs();
   if(kickTriggeredForTimer || configuredMs < 0) return;
 
-  // Tekan KICK ALL hanya saat nilai label countdown sama persis
-  // dengan nilai pada textbox Timer.
-  const reached = Number(timerValue) === configuredMs;
+  // Tekan KICK ALL saat countdown sudah mencapai atau melewati
+  // nilai pada textbox Timer. Ini tetap bekerja jika callback timer
+  // melewati angka target karena throttling/background browser.
+  const currentValue = Number(timerValue);
+  const previous = previousValue === null ? null : Number(previousValue);
+  const reached = currentValue <= configuredMs &&
+    (previous === null || previous >= configuredMs);
 
   if(reached){
     kickTriggeredForTimer = true;
