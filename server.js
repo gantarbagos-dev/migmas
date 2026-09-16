@@ -360,7 +360,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
+  const execution = { id, meta, done: false, result: null, monitor: { startedAt: Date.now(), sent: 0, failed: 0, rateLimitErrors: 0, lastSecond: 0, currentRate: 0, peakRate: 0, estimatedSafeRate: 0, lastRateLimitAt: null }, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -371,7 +371,12 @@ function createKickExecution(meta) {
 
 function publishKickProgress(execution, event) {
   if (!execution) return;
-  execution.latest = { type: "kick.progress", ...event };
+  const m = execution.monitor;
+  const now = Date.now();
+  const elapsed = Math.max(1, now - m.startedAt);
+  m.currentRate = Math.round((m.sent / elapsed) * 1000);
+  m.peakRate = Math.max(m.peakRate, m.currentRate);
+  execution.latest = { type: "kick.progress", ...event, rateMonitor: { ...m } };
 }
 
 
@@ -621,6 +626,7 @@ app.post("/api/kick-loop", async (req, res) => {
         socket.send(kickPayloads[targetIndex]);
 
         dispatchedJobs++;
+        execution.monitor.sent++;
         targetProgress[targetIndex].dispatched++;
         targetProgress[targetIndex].completed = Math.min(
           targetProgress[targetIndex].total,
@@ -648,6 +654,8 @@ app.post("/api/kick-loop", async (req, res) => {
         result.error = safeError(e);
         result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
+        execution.monitor.failed++;
+        if (/429|rate.?limit|too many|throttl/i.test(result.error || "")) { execution.monitor.rateLimitErrors++; execution.monitor.lastRateLimitAt = Date.now(); }
         const wsState = wsProgressBySlot[websocket];
         if (wsState) wsState.failed++;
 
