@@ -790,6 +790,21 @@ function updatePerTroopKickProgress(wsProgress){
   });
 }
 
+function resetRateLimitMonitor(){
+  const values = {rlmStatus:"Menunggu",rlmCurrentRate:"0 / detik",rlmPeakRate:"0 / detik",rlmSent:"0",rlmFailed:"0",rlmRateLimit:"0",rlmEstimated:"Belum diketahui",rlmLastError:"-"};
+  Object.entries(values).forEach(([id,value])=>{ const node=el(id); if(node) node.textContent=value; });
+}
+
+function updateRateLimitMonitor(rm, phase){
+  if(!rm || rm.sent == null) return;
+  const set=(id,value)=>{ const node=el(id); if(node) node.textContent=value; };
+  const current=Number(rm.currentRate)||0, peak=Number(rm.peakRate)||0, sent=Number(rm.sent)||0, failed=Number(rm.failed)||0, rl=Number(rm.rateLimitErrors)||0;
+  set("rlmCurrentRate", `${current} / detik`); set("rlmPeakRate", `${peak} / detik`); set("rlmSent", sent); set("rlmFailed", failed); set("rlmRateLimit", rl);
+  set("rlmEstimated", Number(rm.estimatedSafeRate)>0 ? `${Number(rm.estimatedSafeRate)} / detik` : "Belum diketahui");
+  set("rlmLastError", rm.lastRateLimitAt ? new Date(rm.lastRateLimitAt).toLocaleTimeString() : "-");
+  set("rlmStatus", rl>0 ? "Rate limit terdeteksi" : phase === "completed" ? "Selesai" : "Monitoring");
+}
+
 function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   // Hentikan polling progress yang sedang berjalan.
   if (typeof window.stopKickProgressPolling === "function") {
@@ -805,6 +820,7 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const targetProgress = el("kickTargetProgress");
   if (targetProgress) targetProgress.innerHTML = "";
   resetPerTroopKickProgress();
+  resetRateLimitMonitor();
   if (meta) meta.textContent = reason;
 }
 
@@ -871,6 +887,7 @@ async function kickSelectedTargets(){
         const state = await pr.json();
         const p = state.progress || {};
         const rm = p.rateMonitor || {};
+        updateRateLimitMonitor(rm, p.phase);
         if (rm.sent != null) {
           const rateText = `Rate ${rm.currentRate || 0}/s • Peak ${rm.peakRate || 0}/s • Gagal ${rm.failed || 0} • RL ${rm.rateLimitErrors || 0}`;
           if (p.phase !== "delay" && p.phase !== "completed" && p.phase !== "failed") meta.textContent = rateText;

@@ -414,6 +414,10 @@ box-sizing:border-box!important;border-radius:0!important;
     .compact-room{height:44px!important}
   }
 </style>
+
+<style>
+.rate-monitor{margin-top:10px;border:1px solid rgba(59,130,246,.35);border-radius:12px;background:rgba(2,12,30,.72);padding:10px}.rate-monitor-title{font-size:10px;font-weight:900;letter-spacing:.08em;color:#93c5fd;margin-bottom:8px}.rate-monitor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.rate-monitor-item{border:1px solid rgba(51,65,85,.8);border-radius:8px;padding:6px;background:rgba(15,23,42,.65)}.rate-monitor-label{display:block;font-size:9px;color:#64748b}.rate-monitor-value{display:block;margin-top:2px;font-size:11px;font-weight:800;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rate-monitor-note{margin-top:7px;font-size:9px;color:#64748b}@media(max-width:365px){.rate-monitor-grid{gap:4px}.rate-monitor-item{padding:5px}}
+</style>
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
@@ -641,6 +645,20 @@ box-sizing:border-box!important;border-radius:0!important;
         <div class="kick-troop-progress" id="kickTroopProgress9" data-kick-troop="10"><div class="kick-troop-progress-head"><span>T10</span><span id="kickTroopProgressText9">0/0</span></div><div class="kick-troop-progress-track"><div id="kickTroopProgressBar9" class="kick-troop-progress-bar"></div></div><span id="kickTroopProgressFail9" class="kick-troop-progress-fail"></span></div>
       </div>
       <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
+      <div id="rateLimitMonitor" class="rate-monitor" aria-label="Rate Limit Monitor">
+        <div class="rate-monitor-title">RATE LIMIT MONITOR</div>
+        <div class="rate-monitor-grid">
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Status</span><span id="rlmStatus" class="rate-monitor-value">Menunggu</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Pengiriman saat ini</span><span id="rlmCurrentRate" class="rate-monitor-value">0 / detik</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Peak rate</span><span id="rlmPeakRate" class="rate-monitor-value">0 / detik</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Total terkirim</span><span id="rlmSent" class="rate-monitor-value">0</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Total gagal</span><span id="rlmFailed" class="rate-monitor-value">0</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Indikasi rate limit</span><span id="rlmRateLimit" class="rate-monitor-value">0</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Limit terdeteksi</span><span id="rlmEstimated" class="rate-monitor-value">Belum diketahui</span></div>
+          <div class="rate-monitor-item"><span class="rate-monitor-label">Error terakhir</span><span id="rlmLastError" class="rate-monitor-value">-</span></div>
+        </div>
+        <div class="rate-monitor-note">Data berdasarkan pengiriman dan respons yang dilaporkan backend; bukan jaminan limit resmi server.</div>
+      </div>
     </div>
   </div>
 
