@@ -679,37 +679,10 @@ app.post("/api/kick-loop", async (req, res) => {
             );
             troopResults.push(dispatched);
           }
-// Delay diterapkan di antara burst dan juga di antara loop berikutnya.
+          // Delay hanya diterapkan di antara burst dalam loop yang sama.
           const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
-      const hasNextLoop = round + 1 < loopCount;
-      if (delayMs > 0 && !isEndOfLoop) {
-        await waitBatchDelay(delayMs);
-      }
-      if (delayMs > 0 && isEndOfLoop && hasNextLoop) {
-            const lastTargetIndex = burstIndexes[burstIndexes.length - 1];
-            for (const tp of targetProgress) {
-          tp.completed = Math.min(tp.total, Math.floor(tp.dispatched / Math.max(1, ids.length)));
-        }
-        completedSteps = Math.min(totalSteps, targetProgress.reduce((sum, tp) => sum + tp.completed, 0));
-            publishKickProgress(execution, {
-              phase: "delay", completedSteps, totalSteps,
-              dispatchedJobs, totalJobs,
-              percent: totalJobs > 0 ? Math.round((dispatchedJobs / totalJobs) * 100) : 0,
-              loop: round + 1,
-              targetIndex: lastTargetIndex + 1,
-              target: targetList[lastTargetIndex],
-              delayMs, burstSize: RACE_BURST,
-              burst: Math.floor(pos / RACE_BURST) + 1,
-              burstTotal: Math.ceil(orderedIndices.length / RACE_BURST),
-              nextBurst: pos + RACE_BURST < orderedIndices.length ? Math.floor(pos / RACE_BURST) + 2 : (hasNextLoop ? 1 : null),
-              sessionId, websocket: wsOrdinal,
-              direction: "forward",
-              sent: dispatchedJobs, failedJobs, sendConfirmed: true,
-              noAck: true,
-              targetProgress: targetProgress.map(x => ({ ...x })),
-              wsProgress: wsProgress.map(x => ({ ...x }))
-            });
-            await sleep(delayMs);
+          if (delayMs > 0 && !isEndOfLoop) {
+            await waitBatchDelay(delayMs);
           }
         }
       }

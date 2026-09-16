@@ -5,7 +5,7 @@ KICK ALL menjalankan hingga 10 WebSocket secara bersamaan. Setiap WebSocket meng
 - Maksimal 10 WebSocket berjalan konkuren.
 - Dispatch `room.kick` tidak menunggu ACK, `room.kick.queued`, atau `job.get`.
 - Progress KICK ALL dihitung dari jumlah command yang berhasil dikirim melalui WebSocket (`dispatchedJobs`).
-- `textdelay` mengatur jeda antar-burst di dalam setiap loop dan juga jeda dari akhir satu loop ke loop berikutnya.
+- `textdelay` hanya mengatur jeda antar-burst di dalam loop; tidak ada jeda tambahan antar-loop.
 - Di dalam satu burst, target dikirim langsung berurutan tanpa delay buatan.
 - Kegagalan transport WebSocket dicatat sebagai `send_failed`.
 - Server bind ke `0.0.0.0` agar dapat menerima koneksi dari platform hosting seperti Bonto.
@@ -27,3 +27,7 @@ Version 50: mempertegas dispatch Burst 1–10, menampilkan metadata burst pada p
 
 - Progress Target dihitung dari target yang benar-benar sudah didispatch oleh seluruh WebSocket, bukan dari pembagian global `dispatchedJobs`.
 - Progress Burst mengikuti target yang sudah benar-benar terkirim pada burst tersebut.
+
+
+## Fast Burst
+Default KICK ALL settings use burst 10 and delay 0 ms. The server remains no-ACK/dispatch based and skips offline WebSocket slots.
