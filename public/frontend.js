@@ -813,9 +813,9 @@ async function kickSelectedTargets(){
   if(!room){ ; return; }
   if(!targets.length){ ; return; }
 
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "100", 10) || 0);
+  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "0", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
-  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "3", 10) || 3));
+  const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "10", 10) || 3));
   const onlineSlots = accounts
     .map((a, i) => a.sessionId ? { sessionId: a.sessionId, websocket: i + 1 } : null)
     .filter(Boolean);
@@ -835,7 +835,7 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay ${textdelay} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
@@ -910,9 +910,9 @@ async function kickSelectedTargets(){
         step.textContent = `Target ${done}/${totalSteps}`;
 
         if(p.phase === "delay") {
-          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs || textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs || textdelay} ms antar-burst/loop`;
+          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs ?? textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs ?? textdelay} ms`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay antar-burst/loop ${textdelay} ms`;
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay ${textdelay} ms`;
           stopProgress();
         } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
