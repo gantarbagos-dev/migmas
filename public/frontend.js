@@ -870,6 +870,11 @@ async function kickSelectedTargets(){
         if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
         const state = await pr.json();
         const p = state.progress || {};
+        const rm = p.rateMonitor || {};
+        if (rm.sent != null) {
+          const rateText = `Rate ${rm.currentRate || 0}/s • Peak ${rm.peakRate || 0}/s • Gagal ${rm.failed || 0} • RL ${rm.rateLimitErrors || 0}`;
+          if (p.phase !== "delay" && p.phase !== "completed" && p.phase !== "failed") meta.textContent = rateText;
+        }
         if(p.type !== "kick.progress") return;
 
         if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
