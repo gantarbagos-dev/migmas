@@ -790,21 +790,6 @@ function updatePerTroopKickProgress(wsProgress){
   });
 }
 
-function resetRateLimitMonitor(){
-  const values = {rlmStatus:"Menunggu",rlmCurrentRate:"0 / detik",rlmPeakRate:"0 / detik",rlmSent:"0",rlmFailed:"0",rlmRateLimit:"0",rlmEstimated:"Belum diketahui",rlmLastError:"-"};
-  Object.entries(values).forEach(([id,value])=>{ const node=el(id); if(node) node.textContent=value; });
-}
-
-function updateRateLimitMonitor(rm, phase){
-  if(!rm || rm.sent == null) return;
-  const set=(id,value)=>{ const node=el(id); if(node) node.textContent=value; };
-  const current=Number(rm.currentRate)||0, peak=Number(rm.peakRate)||0, sent=Number(rm.sent)||0, failed=Number(rm.failed)||0, rl=Number(rm.rateLimitErrors)||0;
-  set("rlmCurrentRate", `${current} / detik`); set("rlmPeakRate", `${peak} / detik`); set("rlmSent", sent); set("rlmFailed", failed); set("rlmRateLimit", rl);
-  set("rlmEstimated", Number(rm.estimatedSafeRate)>0 ? `${Number(rm.estimatedSafeRate)} / detik` : "Belum diketahui");
-  set("rlmLastError", rm.lastRateLimitAt ? new Date(rm.lastRateLimitAt).toLocaleTimeString() : "-");
-  set("rlmStatus", rl>0 ? "Rate limit terdeteksi" : phase === "completed" ? "Selesai" : "Monitoring");
-}
-
 function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   // Hentikan polling progress yang sedang berjalan.
   if (typeof window.stopKickProgressPolling === "function") {
@@ -820,7 +805,6 @@ function resetKickAllProgress(reason = "Menunggu perintah kick...") {
   const targetProgress = el("kickTargetProgress");
   if (targetProgress) targetProgress.innerHTML = "";
   resetPerTroopKickProgress();
-  resetRateLimitMonitor();
   if (meta) meta.textContent = reason;
 }
 
@@ -829,7 +813,8 @@ async function kickSelectedTargets(){
   if(!room){ ; return; }
   if(!targets.length){ ; return; }
 
-  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "0", 10) || 0);
+  const textdelay = Math.max(0, parseInt(el("textdelay")?.value || "15", 10) || 0);
+  const delayBatch = Math.max(0, parseInt(el("delayBatch")?.value || "25", 10) || 0);
   const textloop = Math.max(1, parseInt(el("textloop")?.value || "1", 10) || 1);
   const burstSize = Math.max(1, Math.min(10, parseInt(el("burstSize")?.value || "10", 10) || 3));
   const onlineSlots = accounts
@@ -851,7 +836,7 @@ async function kickSelectedTargets(){
   bar.style.width = "0%";
   txt.textContent = "Memulai";
   step.textContent = `Target 0/${targets.length * textloop}`;
-  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay ${textdelay} ms`;
+  meta.textContent = `Menyiapkan ${targets.length} target × ${textloop} loop • burst ${burstSize} • delay target ${textdelay} ms • batch ${delayBatch} ms`;
 
   try{
     const r = await fetch("/api/kick-loop", {
@@ -859,7 +844,7 @@ async function kickSelectedTargets(){
       body:JSON.stringify({
         sessionIds: onlineSlots.map(x=>x.sessionId),
         websocketSlots: onlineSlots,
-        room, targets:[...targets], textdelay, textloop, burstSize
+        room, targets:[...targets], textdelay, delayBatch, textloop, burstSize
       })
     });
     const j = await r.json();
@@ -886,12 +871,6 @@ async function kickSelectedTargets(){
         if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
         const state = await pr.json();
         const p = state.progress || {};
-        const rm = p.rateMonitor || {};
-        updateRateLimitMonitor(rm, p.phase);
-        if (rm.sent != null) {
-          const rateText = `Rate ${rm.currentRate || 0}/s • Peak ${rm.peakRate || 0}/s • Gagal ${rm.failed || 0} • RL ${rm.rateLimitErrors || 0}`;
-          if (p.phase !== "delay" && p.phase !== "completed" && p.phase !== "failed") meta.textContent = rateText;
-        }
         if(p.type !== "kick.progress") return;
 
         if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
@@ -932,9 +911,9 @@ async function kickSelectedTargets(){
         step.textContent = `Target ${done}/${totalSteps}`;
 
         if(p.phase === "delay") {
-          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay ${p.delayMs ?? textdelay} ms` : `Loop ${p.loop}/${textloop} selesai • delay ${p.delayMs ?? textdelay} ms`;
+          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms` : `Loop ${p.loop}/${textloop} selesai • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms`;
         } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay ${textdelay} ms`;
+          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay target ${textdelay} ms • batch ${delayBatch} ms`;
           stopProgress();
         } else if(p.phase === "failed") {
           meta.textContent = p.error || "Eksekusi KICK ALL gagal.";

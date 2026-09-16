@@ -414,10 +414,6 @@ box-sizing:border-box!important;border-radius:0!important;
     .compact-room{height:44px!important}
   }
 </style>
-
-<style>
-.rate-monitor{margin-top:10px;border:1px solid rgba(59,130,246,.35);border-radius:12px;background:rgba(2,12,30,.72);padding:10px}.rate-monitor-title{font-size:10px;font-weight:900;letter-spacing:.08em;color:#93c5fd;margin-bottom:8px}.rate-monitor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.rate-monitor-item{border:1px solid rgba(51,65,85,.8);border-radius:8px;padding:6px;background:rgba(15,23,42,.65)}.rate-monitor-label{display:block;font-size:9px;color:#64748b}.rate-monitor-value{display:block;margin-top:2px;font-size:11px;font-weight:800;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rate-monitor-note{margin-top:7px;font-size:9px;color:#64748b}@media(max-width:365px){.rate-monitor-grid{gap:4px}.rate-monitor-item{padding:5px}}
-</style>
 </head>
 <body class="bg-[#07090e] text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white">
 
@@ -475,7 +471,6 @@ box-sizing:border-box!important;border-radius:0!important;
 
         <button id="clearFields" class="clear-troop-button" title="Hapus Troop" aria-label="Hapus Troop">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          <span>HAPUS TROOP</span>
         </button>
 
         <label class="range-box" for="rangeEnd">
@@ -581,8 +576,12 @@ box-sizing:border-box!important;border-radius:0!important;
           <input id="kickTimer" type="number" min="0" step="1" value="1500" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <label class="min-w-0">
-          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay</span>
-          <input id="textdelay" type="number" min="0" step="1" value="0" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay Target</span>
+          <input id="textdelay" type="number" min="0" step="1" value="15" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
+        </label>
+        <label class="min-w-0">
+          <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Delay Batch</span>
+          <input id="delayBatch" type="number" min="0" step="1" value="25" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500" inputmode="numeric">
         </label>
         <label class="min-w-0">
           <span class="block text-[8px] uppercase tracking-wide text-slate-500 mb-1 text-center">Loop</span>
@@ -593,14 +592,14 @@ box-sizing:border-box!important;border-radius:0!important;
           <select id="burstSize" class="modern-input w-full h-9 bg-slate-950/80 border border-slate-700 rounded-lg px-1 text-center text-[10px] text-slate-200 outline-none focus:border-blue-500">
             <option value="1">1</option>
             <option value="2">2</option>
-            <option value="3">3</option>
+            <option value="3" selected>3</option>
             <option value="4">4</option>
             <option value="5">5</option>
             <option value="6">6</option>
             <option value="7">7</option>
             <option value="8">8</option>
             <option value="9">9</option>
-            <option value="10" selected>10</option>
+            <option value="10">10</option>
           </select>
         </label>
         <div class="flex flex-col gap-1">
@@ -645,20 +644,6 @@ box-sizing:border-box!important;border-radius:0!important;
         <div class="kick-troop-progress" id="kickTroopProgress9" data-kick-troop="10"><div class="kick-troop-progress-head"><span>T10</span><span id="kickTroopProgressText9">0/0</span></div><div class="kick-troop-progress-track"><div id="kickTroopProgressBar9" class="kick-troop-progress-bar"></div></div><span id="kickTroopProgressFail9" class="kick-troop-progress-fail"></span></div>
       </div>
       <div id="kickProgressMeta" class="text-[10px] text-slate-500">Menunggu perintah kick...</div>
-      <div id="rateLimitMonitor" class="rate-monitor" aria-label="Rate Limit Monitor">
-        <div class="rate-monitor-title">RATE LIMIT MONITOR</div>
-        <div class="rate-monitor-grid">
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Status</span><span id="rlmStatus" class="rate-monitor-value">Menunggu</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Pengiriman saat ini</span><span id="rlmCurrentRate" class="rate-monitor-value">0 / detik</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Peak rate</span><span id="rlmPeakRate" class="rate-monitor-value">0 / detik</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Total terkirim</span><span id="rlmSent" class="rate-monitor-value">0</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Total gagal</span><span id="rlmFailed" class="rate-monitor-value">0</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Indikasi rate limit</span><span id="rlmRateLimit" class="rate-monitor-value">0</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Limit terdeteksi</span><span id="rlmEstimated" class="rate-monitor-value">Belum diketahui</span></div>
-          <div class="rate-monitor-item"><span class="rate-monitor-label">Error terakhir</span><span id="rlmLastError" class="rate-monitor-value">-</span></div>
-        </div>
-        <div class="rate-monitor-note">Data berdasarkan pengiriman dan respons yang dilaporkan backend; bukan jaminan limit resmi server.</div>
-      </div>
     </div>
   </div>
 
