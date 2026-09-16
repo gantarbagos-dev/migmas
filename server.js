@@ -360,7 +360,7 @@ app.post("/api/login-batch", async (req, res) => {
 
 function createKickExecution(meta) {
   const id = makeId();
-  const execution = { id, meta, done: false, result: null, monitor: { startedAt: Date.now(), sent: 0, failed: 0, rateLimitErrors: 0, lastSecond: 0, currentRate: 0, peakRate: 0, estimatedSafeRate: 0, lastRateLimitAt: null }, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
+  const execution = { id, meta, done: false, result: null, latest: { type: "kick.progress", phase: "created", ...meta, completedSteps: 0, totalSteps: Number(meta.totalSteps) || 0, percent: 0 } };
   kickExecutions.set(id, execution);
   setTimeout(() => {
     const current = kickExecutions.get(id);
@@ -371,12 +371,7 @@ function createKickExecution(meta) {
 
 function publishKickProgress(execution, event) {
   if (!execution) return;
-  const m = execution.monitor;
-  const now = Date.now();
-  const elapsed = Math.max(1, now - m.startedAt);
-  m.currentRate = Math.round((m.sent / elapsed) * 1000);
-  m.peakRate = Math.max(m.peakRate, m.currentRate);
-  execution.latest = { type: "kick.progress", ...event, rateMonitor: { ...m } };
+  execution.latest = { type: "kick.progress", ...event };
 }
 
 
@@ -504,6 +499,7 @@ app.post("/api/kick-loop", async (req, res) => {
   const body = req.body || {};
   const { sessionIds, room, targets, websocketSlots } = body;
   const textdelay = body.textdelay;
+  const delayBatch = body.delayBatch;
   const textloop = body.textloop;
   const burstSize = Math.max(1, Math.min(parseInt(body.burstSize, 10) || 3, 10));
 
@@ -524,7 +520,8 @@ app.post("/api/kick-loop", async (req, res) => {
   const targetList = Array.isArray(targets)
     ? targets.map(x => String(x).trim()).filter(Boolean).slice(0, 10)
     : [];
-  const delayMs = Math.max(0, Math.min(Number(textdelay) || 0, 86400000));
+  const targetDelayMs = Math.max(0, Math.min(Number(textdelay) || 0, 86400000));
+  const delayMs = Math.max(0, Math.min(Number(delayBatch) || 0, 86400000));
   const loopCount = Math.max(1, Math.min(parseInt(textloop, 10) || 1, 100));
 
   if (!ids.length) return res.status(400).json({ ok: false, error: "Tidak ada Troop yang ONLINE." });
@@ -539,7 +536,7 @@ app.post("/api/kick-loop", async (req, res) => {
   const totalJobs = totalSteps * ids.length;
   const execution = createKickExecution({
     room, websockets: ids.length, loops: loopCount, targets: targetList.length,
-    textdelay: delayMs, textloop: loopCount, burstSize, totalSteps, totalJobs,
+    textdelay: targetDelayMs, delayBatch, targetDelayMs, textloop: loopCount, burstSize, totalSteps, totalJobs,
     targetProgress: targetList.map((target, i) => ({ targetIndex: i + 1, target, completed: 0, dispatched: 0, total: ids.length * loopCount })),
     wsProgress: (slotEntries.length ? slotEntries : ids.map((sessionId, i) => ({ sessionId, websocket: i + 1 })))
       .map(x => ({ websocket: x.websocket, sessionId: x.sessionId, completed: 0, dispatched: 0, total: totalSteps, failed: 0 }))
@@ -626,7 +623,6 @@ app.post("/api/kick-loop", async (req, res) => {
         socket.send(kickPayloads[targetIndex]);
 
         dispatchedJobs++;
-        execution.monitor.sent++;
         targetProgress[targetIndex].dispatched++;
         targetProgress[targetIndex].completed = Math.min(
           targetProgress[targetIndex].total,
@@ -654,8 +650,6 @@ app.post("/api/kick-loop", async (req, res) => {
         result.error = safeError(e);
         result.totalMs = Math.max(0, Date.now() - startedAt);
         failedJobs++;
-        execution.monitor.failed++;
-        if (/429|rate.?limit|too many|throttl/i.test(result.error || "")) { execution.monitor.rateLimitErrors++; execution.monitor.lastRateLimitAt = Date.now(); }
         const wsState = wsProgressBySlot[websocket];
         if (wsState) wsState.failed++;
 
@@ -679,13 +673,17 @@ app.post("/api/kick-loop", async (req, res) => {
         for (let pos = 0; pos < orderedIndices.length; pos += RACE_BURST) {
           const burstIndexes = orderedIndices.slice(pos, pos + RACE_BURST);
 
-          // Race burst: dispatch up to the configured burst size immediately.
-          for (const targetIndex of burstIndexes) {
+          // Dispatch targets in the burst with the configured per-target delay.
+          for (let burstPos = 0; burstPos < burstIndexes.length; burstPos++) {
+            const targetIndex = burstIndexes[burstPos];
             const targetUsername = targetList[targetIndex];
             const dispatched = sendTarget(
               runtime, round, targetIndex, pos + 1
             );
             troopResults.push(dispatched);
+            if (targetDelayMs > 0 && burstPos < burstIndexes.length - 1) {
+              await sleep(targetDelayMs);
+            }
           }
           // Delay hanya diterapkan di antara burst dalam loop yang sama.
           const isEndOfLoop = pos + RACE_BURST >= orderedIndices.length;
