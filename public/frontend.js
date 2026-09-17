@@ -854,93 +854,87 @@ async function kickSelectedTargets(){
       return;
     }
 
-    // Gunakan polling ringan untuk progress KICK ALL.
-    // Ini menghindari batas koneksi EventSource saat 10 akun sudah memiliki stream /api/events.
+    // Gunakan SSE untuk menerima progress KICK ALL secara realtime.
+    // Tidak ada polling HTTP berulang setiap 100 ms.
     let progressStopped = false;
-    let progressTimer = null;
+    let progressSource = null;
+
     window.stopKickProgressPolling = () => {
       progressStopped = true;
-      if(progressTimer) clearTimeout(progressTimer);
-      progressTimer = null;
+      if (progressSource) progressSource.close();
+      progressSource = null;
     };
 
-    const readProgress = async () => {
-      if(progressStopped) return;
-      try{
-        const pr = await fetch(`/api/kick-progress-state?id=${encodeURIComponent(j.executionId)}`, {cache:"no-store"});
-        if(!pr.ok) throw new Error(`HTTP ${pr.status}`);
-        const state = await pr.json();
-        const p = state.progress || {};
-        if(p.type !== "kick.progress") return;
+    const applyProgressState = (state) => {
+      if (progressStopped) return;
+      const p = state.progress || {};
+      if (p.type !== "kick.progress") return;
 
-        if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
+      if (Array.isArray(p.wsProgress)) updatePerTroopKickProgress(p.wsProgress);
 
-        if (targetProgressBox && Array.isArray(p.targetProgress)) {
-          p.targetProgress.forEach(tp => {
-            const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
-            if (!cell) return;
-            const span = cell.querySelector("span");
-            const done = Number(tp.completed) || 0;
-            const dispatched = Math.max(done, Number(tp.dispatched) || 0);
-            const total = Number(tp.total) || (textloop * wsCount);
-            if (span) span.textContent = `${dispatched}/${total}`;
-            cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${dispatched >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : dispatched > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
-          });
-        }
-
-        const dispatchTotal = Number(p.totalJobs) || 0;
-        const dispatchCount = Number(p.dispatchedJobs);
-        const fallbackPercent = Number(p.percent) || 0;
-        const percent = dispatchTotal > 0 && Number.isFinite(dispatchCount)
-          ? Math.max(0, Math.min(100, Math.round((dispatchCount / dispatchTotal) * 100)))
-          : Math.max(0, Math.min(100, fallbackPercent));
-        bar.style.width = `${percent}%`;
-        bar.style.transition = "width 100ms linear";
-
-        if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
-        else if(p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
-        else if(p.phase === "send_failed") txt.textContent = "KICK GAGAL";
-        else if(p.phase === "delay") txt.textContent = "Delay";
-        else if(p.phase === "completed") txt.textContent = "Selesai";
-        else if(p.phase === "completed_with_errors") txt.textContent = "Selesai • Ada Gagal";
-        
-        else if(p.phase === "failed") txt.textContent = "Gagal";
-
-        const done = Number(p.completedSteps) || 0;
-        const totalSteps = Number(p.totalSteps) || total;
-        step.textContent = `Target ${done}/${totalSteps}`;
-
-        if(p.phase === "delay") {
-          meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${textloop} • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms` : `Loop ${p.loop}/${textloop} selesai • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms`;
-        } else if(p.phase === "completed") { bar.style.width = "100%";
-          meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay target ${textdelay} ms • batch ${delayBatch} ms`;
-          stopProgress();
-        } else if(p.phase === "failed") {
-          meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
-          stopProgress();
-        }
-
-        if(state.done && p.phase !== "completed" && p.phase !== "failed") stopProgress();
-      }catch(e){
-        // Jangan ubah status menjadi gagal hanya karena satu request progress gagal.
-        // Backend tetap menjalankan queue; polling berikutnya akan mengambil status terbaru.
-        if(!progressStopped) meta.textContent = "Memuat progress backend…";
+      if (targetProgressBox && Array.isArray(p.targetProgress)) {
+        p.targetProgress.forEach(tp => {
+          const cell = targetProgressBox.querySelector(`[data-kick-target="${tp.targetIndex}"]`);
+          if (!cell) return;
+          const span = cell.querySelector("span");
+          const done = Number(tp.completed) || 0;
+          const dispatched = Math.max(done, Number(tp.dispatched) || 0);
+          const total = Number(tp.total) || (textloop * wsCount);
+          if (span) span.textContent = `${dispatched}/${total}`;
+          cell.className = `rounded-md border px-1.5 py-1 text-[9px] text-center truncate ${dispatched >= total ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-300" : dispatched > 0 ? "border-blue-700/60 bg-blue-950/30 text-blue-300" : "border-slate-800 bg-slate-900/70 text-slate-400"}`;
+        });
       }
+
+      const dispatchTotal = Number(p.totalJobs) || 0;
+      const dispatchCount = Number(p.dispatchedJobs);
+      const fallbackPercent = Number(p.percent) || 0;
+      const percent = dispatchTotal > 0 && Number.isFinite(dispatchCount)
+        ? Math.max(0, Math.min(100, Math.round((dispatchCount / dispatchTotal) * 100)))
+        : Math.max(0, Math.min(100, fallbackPercent));
+      bar.style.width = `${percent}%`;
+      bar.style.transition = "width 100ms linear";
+
+      if(p.phase === "started" || p.phase === "connected") txt.textContent = "Berjalan";
+      else if(p.phase === "dispatched") txt.textContent = "KICK DIKIRIM";
+      else if(p.phase === "send_failed") txt.textContent = "KICK GAGAL";
+      else if(p.phase === "delay") txt.textContent = "Delay";
+      else if(p.phase === "completed") txt.textContent = "Selesai";
+      else if(p.phase === "completed_with_errors") txt.textContent = "Selesai • Ada Gagal";
+      else if(p.phase === "failed") txt.textContent = "Gagal";
+
+      const done = Number(p.completedSteps) || 0;
+      const totalSteps = Number(p.totalSteps) || total;
+      step.textContent = `Target ${done}/${totalSteps}`;
+
+      if(p.phase === "delay") {
+        meta.textContent = p.burstSize ? `Burst ${p.burst}/${p.burstTotal} • Loop ${p.loop}/${p.loopTotal || textloop} • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms` : `Loop ${p.loop}/${textloop} selesai • delay target ${p.targetDelayMs ?? textdelay} ms • batch ${p.delayMs ?? delayBatch} ms`;
+      } else if(p.phase === "completed" || p.phase === "completed_with_errors") {
+        if (p.phase === "completed") bar.style.width = "100%";
+        meta.textContent = `${totalSteps}/${totalSteps} target batch selesai • ${textloop} loop • burst ${burstSize} • delay target ${textdelay} ms • batch ${delayBatch} ms`;
+        stopProgress();
+      } else if(p.phase === "failed" || p.phase === "error") {
+        meta.textContent = p.error || "Eksekusi KICK ALL gagal.";
+        stopProgress();
+      }
+
+      if(state.done && p.phase !== "completed" && p.phase !== "completed_with_errors" && p.phase !== "failed" && p.phase !== "error") stopProgress();
     };
 
     const stopProgress = () => {
       progressStopped = true;
-      if(progressTimer) clearTimeout(progressTimer);
-      progressTimer = null;
+      if(progressSource) progressSource.close();
+      progressSource = null;
       if(window.stopKickProgressPolling) window.stopKickProgressPolling = null;
     };
 
-    const pollProgress = async () => {
-      await readProgress();
-      if(progressStopped) return;
-      progressTimer = setTimeout(pollProgress, 100);
+    progressSource = new EventSource(`/api/kick-progress-stream?id=${encodeURIComponent(j.executionId)}`);
+    progressSource.onmessage = (event) => {
+      try { applyProgressState(JSON.parse(event.data)); }
+      catch(e) { if(!progressStopped) meta.textContent = "Memuat progress backend…"; }
     };
-    pollProgress();
+    progressSource.onerror = () => {
+      if(!progressStopped) meta.textContent = "Koneksi progress backend terputus…";
+    };
 
   }catch(e){
     txt.textContent = "Gagal";
