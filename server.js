@@ -24,6 +24,7 @@ const API_WS = "wss://developer.mig33.id/developer/ws";
 const sessions = new Map();
 const subscribers = new Map();
 const kickExecutions = new Map();
+const kickProgressSubscribers = new Map();
 const balanceWaiters = new Map();
 const messageWaiters = new Map();
 const participantWaiters = new Map();
@@ -372,7 +373,54 @@ function createKickExecution(meta) {
 function publishKickProgress(execution, event) {
   if (!execution) return;
   execution.latest = { type: "kick.progress", ...event };
+  const set = kickProgressSubscribers.get(execution.id);
+  if (!set) return;
+  const payload = `data: ${JSON.stringify({
+    ok: true,
+    executionId: execution.id,
+    done: execution.done,
+    progress: execution.latest,
+    result: execution.done ? execution.result : null
+  })}\n\n`;
+  for (const res of set) {
+    try { res.write(payload); } catch {}
+  }
 }
+
+app.get("/api/kick-progress-stream", (req, res) => {
+  const id = String(req.query.id || "");
+  const execution = kickExecutions.get(id);
+  if (!execution) return res.status(404).end();
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  if (!kickProgressSubscribers.has(id)) kickProgressSubscribers.set(id, new Set());
+  kickProgressSubscribers.get(id).add(res);
+
+  res.write(`data: ${JSON.stringify({
+    ok: true,
+    executionId: id,
+    done: execution.done,
+    progress: execution.latest,
+    result: execution.done ? execution.result : null
+  })}\n\n`);
+
+  const keepAlive = setInterval(() => {
+    try { res.write(": keep-alive\n\n"); } catch {}
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(keepAlive);
+    const set = kickProgressSubscribers.get(id);
+    if (set) {
+      set.delete(res);
+      if (!set.size) kickProgressSubscribers.delete(id);
+    }
+  });
+});
 
 
 app.get("/api/kick-progress-state", (req, res) => {
